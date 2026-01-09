@@ -1,0 +1,12 @@
+[default]
+workshop = [
+    "450814997", # CBA_A3
+]
+mission = "DSC\\addons\\maps\\DSC_Altis.Altis"
+
+[developer]
+extends = "default"
+workshop = [
+    "3499977893", # Advanced Developer Tools
+    "1751569185", # Pythia
+]
