@@ -1,4 +1,4 @@
-#include "..\script_component.hpp"
+#include "script_component.hpp"
 
 /*
  * Faction Group Mapper
@@ -95,7 +95,7 @@ private _fnc_isArmoredVehicle = {
     
     // Also check if it has significant armor value as backup
     if (!_isArmored) then {
-        if (_armor >= 200) then { _isArmored = true };
+        if (_armor > 201) then { _isArmored = true }; // Vanilla MRAPs are 200 armor
     };
     
     _isArmored

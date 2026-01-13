@@ -1,15 +1,29 @@
 // DSC - Dynamic SOF Campaign - Altis
 // Using Aegis and RHS for now, eventually vanilla will be default and code will check for Aegis/RHS mods
 
+missionNamespace setVariable ["initGlobalsComplete", false, true];
 // ============================================================================
-// STEP 1: Get OpFor available factions from CfgFactionClasses
+// STEP 0: Init Server Globals
 // ============================================================================
-diag_log "=============== Groups for AFRF MSV Factions =================";
-private _opForFactionGroups = ["rhs_faction_msv"] call DSC_core_fnc_factionGroupMapper;
-
+missionNamespace setVariable ["missionState", "IDLE", true]; // IDLE -> ACTIVE -> DEBRIEF -> CLEANUP -> IDLE
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
 private _missionCleanupInProgress = false;
+
+missionNamespace setVariable ["initGlobalsComplete", true, true];
+// ============================================================================
+// STEP 1: Get Faction group data
+// ============================================================================
+diag_log "=============== Get factions =================";
+// private _opForFactionGroups = ["rhs_faction_msv"] call DSC_core_fnc_factionGroupMapper;
+private _opForFactionGroups = ["rhs_faction_vpvo"] call DSC_core_fnc_factionGroupMapper;
+
+// Check for null groups, fallback to base OpFor
+if (
+    ((count (_opForFactionGroups get "infantry")) == 0) ||
+    ((count (_opForFactionGroups get "motorized")) == 0) ||
+    ((count (_opForFactionGroups get "mechanized")) == 0)
+) then { _opForFactionGroups = ["OPF_F"] call DSC_core_fnc_factionGroupMapper; };
 
 // ============================================================================
 // STEP 2: Setup While loop for continuous mission generation
@@ -38,6 +52,7 @@ while { true; } do {
     // Set all units to careless so they don't move or attack
     _spawnedGroup setBehaviour "CARELESS";
     private _spawnedVehicles = [];
+    private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
     {
         _x disableAI "MOVE";
         _x disableAI "TARGET";
@@ -59,16 +74,16 @@ while { true; } do {
     diag_log format ["Spawned group with %1 units at %2", count units _spawnedGroup, _spawnPos];
 
     missionNamespace setVariable ["missionInProgress", true, true];
+    missionNamespace setVariable ["missionState", "ACTIVE", true];
     
     // When player goes to debriefing (player action) missionInProgress will be set to false
     missionNamespace setVariable ["enemyMissionGroup", _spawnedGroup, true];
 
     waitUntil { !(missionNamespace getVariable ["missionInProgress", true]) };
-    _missionCleanupInProgress = true;
-
     // ============================================================================
-    // STEP 4: Mission is marked as finished and cleanup begins
+    // STEP 4: Mission Debrief and success evaluation triggered by player RTB
     // ============================================================================
+    missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
     if (missionComplete == true) then {
         hint "Mission was successful"
@@ -76,24 +91,36 @@ while { true; } do {
         hint "Mission was unsuccessful"
     };
 
+    // ============================================================================
+    // STEP 5: Mission is marked as finished and cleanup begins
+    // ============================================================================
+    missionNamespace setVariable ["missionState", "CLEANUP", true];
+    _missionCleanupInProgress = true;
+
     // Logic for cleanup
     diag_log "Cleanup begins now...";
     
+    // Delete all tracked units including dead bodies
+    {
+        deleteVehicle _x;
+        sleep 1;
+    } forEach _spawnedUnits;
+
     // Delete all tracked vehicles (works even if destroyed)
     {
         deleteVehicle _x;
+        sleep 1;
     } forEach _spawnedVehicles;
-    
-    // Delete all units from the mission group
-    {
-        deleteVehicle _x;
-    } forEach units _spawnedGroup;
+
+    // Delete group after units and vehicles
     deleteGroup _spawnedGroup;
 
     _missionCleanupInProgress = false;
     waitUntil { _missionCleanupInProgress == false; };
-    // ============================================================================
-    // STEP 5: Once cleanup is done the next mission generation begins
-    // ============================================================================
-    sleep 3;
+    sleep 5;
+    missionNamespace setVariable ["missionState", "IDLE", true];
+    // ================================================================================
+    // STEP 6: Once cleanup is done the next mission generation begins, back to Step 2
+    // ================================================================================
+    sleep 5;
 };

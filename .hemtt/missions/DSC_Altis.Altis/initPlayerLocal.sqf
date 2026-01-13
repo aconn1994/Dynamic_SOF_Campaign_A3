@@ -1,3 +1,6 @@
+// Wait until Global Server variables are initialized
+waitUntil { missionNamespace getVariable ["initGlobalsComplete", false]; };
+
 jointOperationCenter addAction [
     'Debrief Mission',
     {
@@ -5,13 +8,15 @@ jointOperationCenter addAction [
         private _missionComplete = missionNamespace getVariable ["missionComplete", false];
         if (isNull _enemyMissionGroup) exitWith { hint "Enemy Group non-existent. Check script." };
 
-        private _groupAlive = false;
-        {
-            if ((alive _x) && !(captive _x)) then {
-                _groupAlive = true;
-            };
-        } forEach units _enemyMissionGroup;
+        private _groupAlive = [_enemyMissionGroup] call DSC_core_fnc_groupActive;
 
         if (!_groupAlive) then { missionNamespace setVariable ["missionComplete", true, true]; };
         missionNamespace setVariable ["missionInProgress", false, true];
-    }, [], 6, false, true, "", "_target distance _this < 5"];
+    },
+    [],
+    6,
+    false,
+    true,
+    "",
+    "_target distance _this < 5"
+];
