@@ -1,1 +1,0 @@
-hint "This is a hint in initPlayerLocal via file patching."

@@ -2,11 +2,24 @@
 workshop = [
     "450814997", # CBA_A3
 ]
-mission = "DSC\\addons\\maps\\DSC_Altis.Altis"
+dlc = [
+    "Western Sahara"
+]
+mission = "DSC_Altis.Altis"
 
 [developer]
 extends = "default"
 workshop = [
     "3499977893", # Advanced Developer Tools
     "1751569185", # Pythia
+]
+
+[developer_extended_factions]
+extends = "developer"
+workshop = [
+    "949252631", # Aegis Mod
+    "843577117", # RHSUSAF
+    "843425103", # RHSAFRF
+    "843593391", # RHSGREF
+    "843632231", # RHSSAF
 ]

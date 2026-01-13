@@ -12,8 +12,5 @@ author = "Acorn"
 url = "https://github.com/aconn1994/Dynamic_SOF_Campaign_A3"
 
 [version]
-major = 0
-minor = 1
-patch = 0
-build = 0
+path = "addons/main/script_version.hpp"
 git_hash = 0
