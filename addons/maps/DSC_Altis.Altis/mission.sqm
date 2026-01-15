@@ -8,14 +8,22 @@ class EditorData
 	toggles=1;
 	class ItemIDProvider
 	{
-		nextID=17;
+		nextID=307;
+	};
+	class MarkerIDProvider
+	{
+		nextID=1;
+	};
+	class LayerIndexProvider
+	{
+		nextID=7;
 	};
 	class Camera
 	{
-		pos[]={9968.2832,285.61963,19396.697};
-		dir[]={-0.084883884,-0.65878624,-0.74752623};
-		up[]={-0.07432951,0.75233018,-0.65457958};
-		aside[]={-0.99361455,-3.7252903e-09,0.11282796};
+		pos[]={14612.211,21.359465,16643.217};
+		dir[]={0.70311028,-0.21401727,0.67812055};
+		up[]={0.1540468,0.97682756,0.14857182};
+		aside[]={0.69420582,1.6071135e-07,-0.7197876};
 	};
 };
 binarizationWanted=0;
@@ -23,24 +31,19 @@ sourceName="dsc_altis";
 addons[]=
 {
 	"A3_Characters_F",
-	"A3_Weapons_F_Rifles_MX",
-	"A3_Aegis_Weapons_F_Aegis",
-	"A3_Weapons_F_Mark_Acc",
-	"A3_Weapons_F_Acc",
+	"rhsusf_c_weapons",
+	"A3_Weapons_F_Launchers_Titan",
 	"A3_Weapons_F",
-	"A3_Weapons_F_Mark",
-	"A3_Characters_F_Heads",
-	"A3_Characters_F_Orange_Facewear",
-	"A3_Aegis_Characters_F_Aegis_Facewear",
-	"A3_Aegis_Characters_F_Aegis_Headgear",
-	"A3_Aegis_Characters_F_Aegis_Uniforms",
-	"A3_Weapons_F_Items"
+	"rhsusf_c_troops",
+	"A3_Aegis_Weapons_F_Aegis",
+	"A3_Structures_F_Mil_Flags",
+	"A3_Ui_F"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=6;
+		items=7;
 		class Item0
 		{
 			className="A3_Characters_F";
@@ -50,44 +53,51 @@ class AddonsMetaData
 		};
 		class Item1
 		{
+			className="rhsusf_c_weapons";
+			name="RHSUSF Weapons & Accessories";
+			author="Red Hammer Studios";
+			url="http://www.rhsmods.org/";
+		};
+		class Item2
+		{
 			className="A3_Weapons_F";
 			name="Arma 3 Alpha - Weapons and Accessories";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item2
+		class Item3
+		{
+			className="rhsusf_c_troops";
+			name="RHSUSF Infantry & Equipment";
+			author="Red Hammer Studios";
+			url="http://www.rhsmods.org/";
+		};
+		class Item4
 		{
 			className="A3_Aegis_Weapons_F_Aegis";
 			name="Arma 3 Aegis - Weapons and Accessories";
 			author="Avery Kaiserin";
 			url="https://steamcommunity.com/sharedfiles/filedetails/?id=949252631";
 		};
-		class Item3
-		{
-			className="A3_Weapons_F_Mark";
-			name="Arma 3 Marksmen - Weapons and Accessories";
-			author="Bohemia Interactive";
-			url="https://www.arma3.com";
-		};
-		class Item4
-		{
-			className="A3_Characters_F_Orange";
-			name="Arma 3 Orange - Characters and Clothing";
-			author="Bohemia Interactive";
-			url="https://www.arma3.com";
-		};
 		class Item5
 		{
-			className="A3_Aegis_Characters_F_Aegis";
-			name="Arma 3 Aegis - Characters and Clothing";
-			author="Avery Kaiserin";
-			url="https://steamcommunity.com/sharedfiles/filedetails/?id=949252631";
+			className="A3_Structures_F_Mil";
+			name="Arma 3 - Military Buildings and Structures";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item6
+		{
+			className="A3_Ui_F";
+			name="Arma 3 - User Interface";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
 		};
 	};
 };
 dlcs[]=
 {
-	"Mark"
+	"RHS_USAF"
 };
 randomSeed=7419307;
 class ScenarioData
@@ -116,7 +126,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=1;
+		items=3;
 		class Item0
 		{
 			dataType="Group";
@@ -129,8 +139,8 @@ class Mission
 					dataType="Object";
 					class PositionInfo
 					{
-						position[]={9964.6162,252.27013,19349.072};
-						angles[]={0,1.4808421,0};
+						position[]={14616.177,17.911438,16648.975};
+						angles[]={0,0.88274628,0};
 					};
 					side="West";
 					flags=7;
@@ -141,31 +151,110 @@ class Mission
 						{
 							class primaryWeapon
 							{
-								name="arifle_MXM_F";
-								optics="optic_AMS_snd";
-								muzzle="muzzle_snds_H";
-								flashlight="acc_pointer_IR";
-								underBarrel="bipod_01_F_snd";
+								name="rhs_weap_m4a1_mstock";
+								optics="rhsusf_acc_su230a_mrds";
+								muzzle="rhsusf_acc_nt4_black";
+								flashlight="rhsusf_acc_anpeq15_top";
+								underBarrel="rhsusf_acc_rvg_blk";
 								class primaryMuzzleMag
 								{
-									name="30Rnd_65x39_caseless_mag";
+									name="rhs_mag_30Rnd_556x45_M855A1_Stanag";
 									ammoLeft=30;
 								};
 							};
-							class binocular
+							class secondaryWeapon
 							{
-								name="Laserdesignator";
+								name="launch_I_Titan_short_F";
+								class primaryMuzzleMag
+								{
+									name="Titan_AT";
+									ammoLeft=1;
+								};
+							};
+							class handgun
+							{
+								name="rhsusf_weap_glock17g4";
+								class primaryMuzzleMag
+								{
+									name="rhsusf_mag_17Rnd_9x19_FMJ";
+									ammoLeft=17;
+								};
 							};
 							class uniform
 							{
-								typeName="U_B_CombatUniform_mcam_tshirt";
+								typeName="rhs_uniform_g3_m81";
 								isBackpack=0;
 								class MagazineCargo
 								{
 									items=1;
 									class Item0
 									{
-										name="HandGrenade";
+										name="Chemlight_red";
+										count=1;
+										ammoLeft=1;
+									};
+								};
+								class ItemCargo
+								{
+									items=2;
+									class Item0
+									{
+										name="rhsusf_ANPVS_15";
+										count=1;
+									};
+									class Item1
+									{
+										name="rhs_Booniehat_m81";
+										count=1;
+									};
+								};
+							};
+							class vest
+							{
+								typeName="rhsusf_mbav_mg";
+								isBackpack=0;
+								class MagazineCargo
+								{
+									items=7;
+									class Item0
+									{
+										name="rhs_mag_30Rnd_556x45_M855A1_Stanag";
+										count=6;
+										ammoLeft=30;
+									};
+									class Item1
+									{
+										name="rhsusf_mag_17Rnd_9x19_FMJ";
+										count=2;
+										ammoLeft=17;
+									};
+									class Item2
+									{
+										name="rhs_mag_m18_yellow";
+										count=2;
+										ammoLeft=1;
+									};
+									class Item3
+									{
+										name="rhs_mag_m18_purple";
+										count=2;
+										ammoLeft=1;
+									};
+									class Item4
+									{
+										name="I_IR_Grenade";
+										count=2;
+										ammoLeft=1;
+									};
+									class Item5
+									{
+										name="rhs_mag_m67";
+										count=2;
+										ammoLeft=1;
+									};
+									class Item6
+									{
+										name="Chemlight_red";
 										count=1;
 										ammoLeft=1;
 									};
@@ -175,59 +264,29 @@ class Mission
 									items=1;
 									class Item0
 									{
-										name="FirstAidKit";
-										count=3;
-									};
-								};
-							};
-							class vest
-							{
-								typeName="V_PlateCarrier_Kerry";
-								isBackpack=0;
-								class MagazineCargo
-								{
-									items=1;
-									class Item0
-									{
-										name="30Rnd_65x39_caseless_mag";
-										count=10;
-										ammoLeft=30;
+										name="rhsusf_acc_nt4_black";
+										count=1;
 									};
 								};
 							};
 							class backpack
 							{
-								typeName="B_AssaultPack_mcamo";
+								typeName="B_Bergen_hex_F";
 								isBackpack=1;
 								class MagazineCargo
 								{
-									items=3;
+									items=2;
 									class Item0
 									{
-										name="30Rnd_65x39_caseless_mag";
-										count=8;
-										ammoLeft=30;
+										name="Titan_AT";
+										count=4;
+										ammoLeft=1;
 									};
 									class Item1
 									{
-										name="SmokeShell";
-										count=3;
-										ammoLeft=1;
-									};
-									class Item2
-									{
-										name="HandGrenade";
-										count=2;
-										ammoLeft=1;
-									};
-								};
-								class ItemCargo
-								{
-									items=1;
-									class Item0
-									{
-										name="FirstAidKit";
-										count=5;
+										name="rhs_mag_30Rnd_556x45_M855A1_Stanag";
+										count=7;
+										ammoLeft=30;
 									};
 								};
 							};
@@ -235,9 +294,8 @@ class Mission
 							compass="ItemCompass";
 							watch="ItemWatch";
 							radio="ItemRadio";
-							goggles="G_Shades_Black";
-							hmd="NVGoggles";
-							headgear="H_HelmetSpecB_sand";
+							hmd="rhsusf_ANPVS_15";
+							headgear="rhsusf_opscore_mar_fg_pelt";
 						};
 					};
 					id=1;
@@ -278,6 +336,32 @@ class Mission
 			{
 			};
 			id=0;
+		};
+		class Item1
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={14621.39,21.886805,16647.711};
+			};
+			side="Empty";
+			flags=5;
+			class Attributes
+			{
+				name="jointOperationCenter";
+			};
+			id=294;
+			type="Flag_Altis_F";
+		};
+		class Item2
+		{
+			dataType="Marker";
+			position[]={14735.263,17.91,16765.025};
+			name="enemy_spawn_point";
+			type="mil_arrow";
+			colorName="ColorEAST";
+			angle=231.496;
+			id=295;
 		};
 	};
 };
