@@ -1,5 +1,4 @@
 // DSC - Dynamic SOF Campaign
-// Using Aegis and RHS for now, eventually vanilla will be default and code will check for Aegis/RHS mods
 
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 // ============================================================================
@@ -11,43 +10,61 @@ missionNamespace setVariable ["missionComplete", false, true];
 private _missionCleanupInProgress = false;
 
 missionNamespace setVariable ["initGlobalsComplete", true, true];
-// ============================================================================
-// STEP 1: Get Faction group data
-// ============================================================================
-diag_log "=============== Get factions =================";
-// private _opForFactionGroups = ["rhs_faction_msv"] call DSC_core_fnc_factionGroupMapper;
-private _opForFactionGroups = ["rhs_faction_vpvo"] call DSC_core_fnc_factionGroupMapper;
 
-// Check for null groups, fallback to base OpFor
-if (
-    ((count (_opForFactionGroups get "infantry")) == 0) ||
-    ((count (_opForFactionGroups get "motorized")) == 0) ||
-    ((count (_opForFactionGroups get "mechanized")) == 0)
-) then { _opForFactionGroups = ["OPF_F"] call DSC_core_fnc_factionGroupMapper; };
+// ============================================================================
+// STEP 1: Get Faction group data using new classification system
+// ============================================================================
+diag_log "=============== DSC: Initializing Faction Data =================";
+
+// Primary OpFor faction - CSAT
+private _opForFaction = "OPF_F";
+
+// Extract and classify groups for OpFor
+private _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
+private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
+
+diag_log format ["DSC: Classified %1 groups for faction %2", count _classifiedGroups, _opForFaction];
+
+// Fallback check - if no groups found, try CSAT (same for now, but useful when testing other mods)
+if (count _classifiedGroups == 0) then {
+    diag_log "DSC: No groups found, falling back to OPF_F";
+    _opForFaction = "OPF_F";
+    _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
+    _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
+};
+
+// Store classified groups globally for debugging
+missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 
 // ============================================================================
 // STEP 2: Setup While loop for continuous mission generation
 // ============================================================================
-while { true; } do {
-    diag_log "Generating group for mission...";
+while { true } do {
+    diag_log "DSC: Generating group for mission...";
 
-    // Logic for spawning a group
-    _groupType = selectRandom (_opForFactionGroups get (selectRandom ["infantry", "motorized", "mechanized"]));
-    diag_log format ["RANDOM GROUP TYPE: %1", _groupType];
+    // Select random group from classified pool
+    private _selectedGroup = selectRandom _classifiedGroups;
+    private _groupPath = _selectedGroup get "path";
+    private _groupName = _selectedGroup get "groupName";
+    private _doctrineTags = _selectedGroup get "doctrineTags";
+    
+    diag_log format ["DSC: Selected group: %1", _groupName];
+    diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
 
     // Spawn the group at marker position
     private _spawnPos = getMarkerPos "enemy_spawn_point";
+    private _spawnDir = markerDir "enemy_spawn_point";
     
     // Parse the group path and traverse config
-    private _pathParts = _groupType splitString "/";
+    private _pathParts = _groupPath splitString "/";
     private _groupConfig = configFile >> "CfgGroups";
     { _groupConfig = _groupConfig >> _x } forEach _pathParts;
     
-    private _unitClasses = "true" configClasses _groupConfig apply {getText (_x >> "vehicle")};
-
-    diag_log format ["Spawn Point: %1", _spawnPos];
-    diag_log format ["Unit Classes Config for Group: %1", _unitClasses];
     private _spawnedGroup = [_spawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
+    
+    // Display doctrine tags in system chat for debugging
+    private _tagString = _doctrineTags joinString ", ";
+    systemChat format ["DSC: Spawned %1 [%2]", _groupName, _tagString];
     
     // Set all units to careless so they don't move or attack
     _spawnedGroup setBehaviour "CARELESS";
@@ -68,27 +85,33 @@ while { true; } do {
         };
     } forEach units _spawnedGroup;
 
+    _spawnedGroup setFormDir _spawnDir;
+
     // ============================================================================
     // STEP 3: Mission has begun after group has been created
     // ============================================================================
-    diag_log format ["Spawned group with %1 units at %2", count units _spawnedGroup, _spawnPos];
+    diag_log format ["DSC: Spawned group with %1 units at %2", count units _spawnedGroup, _spawnPos];
 
     missionNamespace setVariable ["missionInProgress", true, true];
     missionNamespace setVariable ["missionState", "ACTIVE", true];
     
-    // When player goes to debriefing (player action) missionInProgress will be set to false
+    // Store current mission data
     missionNamespace setVariable ["enemyMissionGroup", _spawnedGroup, true];
+    missionNamespace setVariable ["currentMissionTags", _doctrineTags, true];
 
     waitUntil { !(missionNamespace getVariable ["missionInProgress", true]) };
+    
     // ============================================================================
     // STEP 4: Mission Debrief and success evaluation triggered by player RTB
     // ============================================================================
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
     if (missionNamespace getVariable ["missionComplete", false]) then {
-        hint "Mission was successful"
+        hint "Mission was successful";
+        systemChat "DSC: Mission SUCCESS";
     } else {
-        hint "Mission was unsuccessful"
+        hint "Mission was unsuccessful";
+        systemChat "DSC: Mission FAILED";
     };
 
     // ============================================================================
@@ -97,8 +120,7 @@ while { true; } do {
     missionNamespace setVariable ["missionState", "CLEANUP", true];
     _missionCleanupInProgress = true;
 
-    // Logic for cleanup
-    diag_log "Cleanup begins now...";
+    diag_log "DSC: Cleanup begins...";
     
     // Delete all tracked units including dead bodies
     {
@@ -119,9 +141,9 @@ while { true; } do {
     waitUntil { !_missionCleanupInProgress };
     sleep 3;
     missionNamespace setVariable ["missionState", "IDLE", true];
+    
     // ================================================================================
     // STEP 6: Once cleanup is done the next mission generation begins, back to Step 2
     // ================================================================================
     sleep 3;
 };
-

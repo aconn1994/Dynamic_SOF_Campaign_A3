@@ -12,6 +12,13 @@ extends = "default"
 workshop = [
     "3499977893", # Advanced Developer Tools
     "1751569185", # Pythia
+    # "338988835",  # MCC
+]
+
+[developer_aegis]
+extends = "developer"
+workshop = [
+    "949252631", # Aegis Mod
 ]
 
 [developer_extended_factions]

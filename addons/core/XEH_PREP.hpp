@@ -1,6 +1,10 @@
+// Classification
+PREP_SUB(classification,classifyUnit);
+PREP_SUB(classification,classifyGroup);
+PREP_SUB(classification,classifyGroups);
+
 // Faction
-PREP_SUB(faction,factionGroupMapper);
-PREP_SUB(faction,getFactionMapper);
+PREP_SUB(faction,extractGroups);
 
 // Init
 PREP_SUB(init,initServer);
