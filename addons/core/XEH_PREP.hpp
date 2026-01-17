@@ -10,5 +10,8 @@ PREP_SUB(faction,extractGroups);
 PREP_SUB(init,initServer);
 PREP_SUB(init,initPlayerLocal);
 
+// Location
+PREP_SUB(locations,getMilitaryLocations);
+
 // Validators
 PREP_SUB(validators,groupActive);

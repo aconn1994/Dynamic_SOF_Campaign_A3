@@ -4,13 +4,20 @@ waitUntil { missionNamespace getVariable ["initGlobalsComplete", false]; };
 jointOperationCenter addAction [
     'Debrief Mission',
     {
-        private _enemyMissionGroup = missionNamespace getVariable ["enemyMissionGroup", grpNull];
+        private _enemyMissionGroups = missionNamespace getVariable ["enemyMissionGroups", grpNull];
         private _missionComplete = missionNamespace getVariable ["missionComplete", false];
-        if (isNull _enemyMissionGroup) exitWith { hint "Enemy Group non-existent. Check script." };
+        if ((count _enemyMissionGroups) == 0) exitWith { hint "Enemy Group non-existent. Check script." };
 
-        private _groupAlive = [_enemyMissionGroup] call DSC_core_fnc_groupActive;
+        private _groupAlives = false;
 
-        if (!_groupAlive) then { missionNamespace setVariable ["missionComplete", true, true]; };
+        {
+            private _alive = [_x] call DSC_core_fnc_groupActive;
+
+            if (_alive) then { _groupAlives = true };
+
+        } forEach _enemyMissionGroups;
+
+        if (!_groupAlives) then { missionNamespace setVariable ["missionComplete", true, true]; };
         missionNamespace setVariable ["missionInProgress", false, true];
     },
     [],

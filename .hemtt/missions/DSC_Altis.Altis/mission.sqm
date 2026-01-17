@@ -8,7 +8,7 @@ class EditorData
 	toggles=1;
 	class ItemIDProvider
 	{
-		nextID=423;
+		nextID=435;
 	};
 	class MarkerIDProvider
 	{
@@ -20,10 +20,10 @@ class EditorData
 	};
 	class Camera
 	{
-		pos[]={14612.766,21.083853,16642.822};
-		dir[]={0.72482067,-0.18411836,0.66392523};
-		up[]={0.13577636,0.98290533,0.12436931};
-		aside[]={0.67547607,-4.1178282e-08,-0.73742735};
+		pos[]={26701.322,57.781101,24564.48};
+		dir[]={0.8771342,-0.47225809,0.087466791};
+		up[]={0.4699344,0.88145459,0.046861332};
+		aside[]={0.099228375,2.6146154e-08,-0.99508494};
 	};
 };
 binarizationWanted=0;
@@ -31,14 +31,15 @@ sourceName="dsc_altis";
 addons[]=
 {
 	"A3_Characters_F",
+	"A3_Weapons_F",
 	"A3_Structures_F_Mil_Flags",
-	"A3_Ui_F"
+	"A3_Modules_F_Curator_Curator"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=3;
+		items=4;
 		class Item0
 		{
 			className="A3_Characters_F";
@@ -48,15 +49,22 @@ class AddonsMetaData
 		};
 		class Item1
 		{
-			className="A3_Structures_F_Mil";
-			name="Arma 3 - Military Buildings and Structures";
+			className="A3_Weapons_F";
+			name="Arma 3 Alpha - Weapons and Accessories";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
 		class Item2
 		{
-			className="A3_Ui_F";
-			name="Arma 3 - User Interface";
+			className="A3_Structures_F_Mil";
+			name="Arma 3 - Military Buildings and Structures";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item3
+		{
+			className="A3_Modules_F_Curator";
+			name="Arma 3 Zeus Update - Scripted Modules";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
@@ -102,16 +110,18 @@ class Mission
 					dataType="Object";
 					class PositionInfo
 					{
-						position[]={14616.177,17.911438,16648.975};
-						angles[]={0,0.88274628,0};
+						position[]={26742.867,21.970297,24570.313};
+						angles[]={0,1.6904713,0};
 					};
 					side="West";
 					flags=7;
 					class Attributes
 					{
+						name="player_1";
 						isPlayer=1;
 						class Inventory
 						{
+							map="ItemMap";
 						};
 					};
 					id=1;
@@ -158,7 +168,7 @@ class Mission
 			dataType="Object";
 			class PositionInfo
 			{
-				position[]={14621.39,21.886805,16647.711};
+				position[]={26743.924,26.167683,24564.617};
 			};
 			side="Empty";
 			flags=5;
@@ -171,13 +181,70 @@ class Mission
 		};
 		class Item2
 		{
-			dataType="Marker";
-			position[]={14735.263,17.91,16765.025};
-			name="enemy_spawn_point";
-			type="mil_arrow";
-			colorName="ColorEAST";
-			angle=231.496;
-			id=295;
+			dataType="Logic";
+			class PositionInfo
+			{
+				position[]={26748.506,22.361393,24561.23};
+				angles[]={0.034644786,0,0.010663962};
+			};
+			id=434;
+			type="ModuleCurator_F";
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ModuleCurator_F_Owner";
+					expression="_this setVariable ['Owner',_value,true];";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="";
+						};
+					};
+				};
+				class Attribute1
+				{
+					property="ModuleCurator_F_Forced";
+					expression="_this setVariable ['Forced',_value,true];";
+					class Value
+					{
+						class data
+						{
+							singleType="SCALAR";
+							value=0;
+						};
+					};
+				};
+				class Attribute2
+				{
+					property="ModuleCurator_F_Name";
+					expression="_this setVariable ['Name',_value,true];";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="";
+						};
+					};
+				};
+				class Attribute3
+				{
+					property="ModuleCurator_F_Addons";
+					expression="_this setVariable ['Addons',_value,true];";
+					class Value
+					{
+						class data
+						{
+							singleType="SCALAR";
+							value=2;
+						};
+					};
+				};
+				nAttributes=4;
+			};
 		};
 	};
 };

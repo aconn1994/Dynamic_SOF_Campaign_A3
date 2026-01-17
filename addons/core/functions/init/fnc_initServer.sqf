@@ -4,6 +4,11 @@ missionNamespace setVariable ["initGlobalsComplete", false, true];
 // ============================================================================
 // STEP 0: Init Server Globals
 // ============================================================================
+// Faction Vars
+missionNamespace setVariable ["playerFaction", "BLU_F", true];
+missionNamespace setVariable ["opForFaction", "OPF_F", true];
+
+// Mission Vars
 missionNamespace setVariable ["missionState", "IDLE", true]; // IDLE -> ACTIVE -> DEBRIEF -> CLEANUP -> IDLE
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
@@ -12,24 +17,29 @@ private _missionCleanupInProgress = false;
 missionNamespace setVariable ["initGlobalsComplete", true, true];
 
 // ============================================================================
-// STEP 1: Get Faction group data using new classification system
+// STEP 1: Scan Map for Military Locations
+// ============================================================================
+private _militaryLocations = [] call DSC_core_fnc_getMilitaryLocations; // Will expand, using map locations for now
+
+private _milBases = _militaryLocations get "bases";
+private _milOutposts = _militaryLocations get "outposts";
+private _milCamps = _militaryLocations get "camps";
+
+// ============================================================================
+// STEP 2: Get Faction group data using new classification system
 // ============================================================================
 diag_log "=============== DSC: Initializing Faction Data =================";
-
-// Primary OpFor faction - CSAT
-private _opForFaction = "OPF_F";
-
 // Extract and classify groups for OpFor
-private _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
+private _opForGroups = [opForFaction] call DSC_core_fnc_extractGroups;
 private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 
-diag_log format ["DSC: Classified %1 groups for faction %2", count _classifiedGroups, _opForFaction];
+diag_log format ["DSC: Classified %1 groups for faction %2", count _classifiedGroups, opForFaction];
 
 // Fallback check - if no groups found, try CSAT (same for now, but useful when testing other mods)
 if (count _classifiedGroups == 0) then {
     diag_log "DSC: No groups found, falling back to OPF_F";
-    _opForFaction = "OPF_F";
-    _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
+    opForFaction = "OPF_F";
+    _opForGroups = [opForFaction] call DSC_core_fnc_extractGroups;
     _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 };
 
@@ -37,76 +47,92 @@ if (count _classifiedGroups == 0) then {
 missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 
 // ============================================================================
-// STEP 2: Setup While loop for continuous mission generation
+// STEP 3: Setup While loop for continuous mission generation
 // ============================================================================
 while { true } do {
     diag_log "DSC: Generating group for mission...";
 
-    // Select random group from classified pool
-    private _selectedGroup = selectRandom _classifiedGroups;
-    private _groupPath = _selectedGroup get "path";
-    private _groupName = _selectedGroup get "groupName";
-    private _doctrineTags = _selectedGroup get "doctrineTags";
-    
-    diag_log format ["DSC: Selected group: %1", _groupName];
-    diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
+    private _noOfGroups = selectRandom [2, 3, 4, 5];
+    private _missionGroups = [];
+    private _tagsPerGroup = [];
+    private _totalUnits = [];
+    private _totalVehicles = [];
 
     // Spawn the group at marker position
-    private _spawnPos = getMarkerPos "enemy_spawn_point";
-    private _spawnDir = markerDir "enemy_spawn_point";
-    
-    // Parse the group path and traverse config
-    private _pathParts = _groupPath splitString "/";
-    private _groupConfig = configFile >> "CfgGroups";
-    { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-    
-    private _spawnedGroup = [_spawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
-    
-    // Display doctrine tags in system chat for debugging
-    private _tagString = _doctrineTags joinString ", ";
-    systemChat format ["DSC: Spawned %1 [%2]", _groupName, _tagString];
-    
-    // Set all units to careless so they don't move or attack
-    _spawnedGroup setBehaviour "CARELESS";
-    private _spawnedVehicles = [];
-    private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
-    {
-        _x disableAI "MOVE";
-        _x disableAI "TARGET";
-        _x disableAI "AUTOTARGET";
+    private _randomMilCamp = selectRandom _milCamps;
+    private _radiusOuter = 400;
+
+    for "_i" from 1 to _noOfGroups do {
+        // Select random group from classified pool
+        private _selectedGroup = selectRandom _classifiedGroups;
+        private _groupPath = _selectedGroup get "path";
+        private _groupName = _selectedGroup get "groupName";
+        private _doctrineTags = _selectedGroup get "doctrineTags";
+
+        diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
+        diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
+
+        private _groupSpawnPos = [_randomMilCamp, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+
+        // Parse the group path and traverse config
+        private _pathParts = _groupPath splitString "/";
+        private _groupConfig = configFile >> "CfgGroups";
+        { _groupConfig = _groupConfig >> _x } forEach _pathParts;
         
-        // Turn on engine if unit is in a vehicle and track vehicles for cleanup
-        private _veh = vehicle _x;
-        if (_veh != _x) then {
-            _spawnedVehicles pushBackUnique _veh;
-            if (driver _veh == _x) then {
-                _veh engineOn true;
+        private _spawnedGroup = [_groupSpawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
+        _missionGroups pushBack _spawnedGroup;
+        _tagsPerGroup pushBack _doctrineTags;
+        
+        // Set all units to careless so they don't move or attack
+        _spawnedGroup setBehaviour "CARELESS";
+        private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
+        _totalUnits pushBack _spawnedUnits;
+        {
+            _x disableAI "MOVE";
+            _x disableAI "TARGET";
+            _x disableAI "AUTOTARGET";
+            
+            // Turn on engine if unit is in a vehicle and track vehicles for cleanup
+            private _veh = vehicle _x;
+            if (_veh != _x) then {
+                _totalVehicles pushBackUnique _veh;
+                if (driver _veh == _x) then {
+                    _veh engineOn true;
+                };
             };
-        };
-    } forEach units _spawnedGroup;
+        } forEach units _spawnedGroup;
 
-    _spawnedGroup setFormDir _spawnDir;
+        sleep 1;
+    };
 
     // ============================================================================
-    // STEP 3: Mission has begun after group has been created
+    // STEP 4: Mission has begun after group has been created
     // ============================================================================
-    diag_log format ["DSC: Spawned group with %1 units at %2", count units _spawnedGroup, _spawnPos];
+    diag_log format ["DSC: Spawned %1 group at %2", count _missionGroups, _randomMilCamp];
+
+    // Add units/vehicles to zeus
+    _curator = ((allCurators) select 0); // The curator object
+
+    // Add all existing units to be editable by this curator
+    {
+        _curator addCuratorEditableObjects [[_x], true];
+    } forEach allUnits;
 
     missionNamespace setVariable ["missionInProgress", true, true];
     missionNamespace setVariable ["missionState", "ACTIVE", true];
     
     // Store current mission data
-    missionNamespace setVariable ["enemyMissionGroup", _spawnedGroup, true];
-    missionNamespace setVariable ["currentMissionTags", _doctrineTags, true];
+    missionNamespace setVariable ["enemyMissionGroups", _missionGroups, true];
+    missionNamespace setVariable ["missionGroupsTags", _tagsPerGroup, true];
 
     waitUntil { !(missionNamespace getVariable ["missionInProgress", true]) };
     
     // ============================================================================
-    // STEP 4: Mission Debrief and success evaluation triggered by player RTB
+    // STEP 5: Mission Debrief and success evaluation triggered by player RTB
     // ============================================================================
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
-    if (missionNamespace getVariable ["missionComplete", false]) then {
+    if (missionNamespace getVariable ["missionComplete", false]) then { // NEEDS FIXING, RUN HEMTT CHECK
         hint "Mission was successful";
         systemChat "DSC: Mission SUCCESS";
     } else {
@@ -115,7 +141,7 @@ while { true } do {
     };
 
     // ============================================================================
-    // STEP 5: Mission is marked as finished and cleanup begins
+    // STEP 6: Mission is marked as finished and cleanup begins
     // ============================================================================
     missionNamespace setVariable ["missionState", "CLEANUP", true];
     _missionCleanupInProgress = true;
@@ -126,16 +152,18 @@ while { true } do {
     {
         deleteVehicle _x;
         sleep 1;
-    } forEach _spawnedUnits;
+    } forEach _totalUnits;
 
     // Delete all tracked vehicles (works even if destroyed)
     {
         deleteVehicle _x;
         sleep 1;
-    } forEach _spawnedVehicles;
+    } forEach _totalVehicles;
 
     // Delete group after units and vehicles
-    deleteGroup _spawnedGroup;
+    {
+        deleteGroup _x;
+    } forEach _missionGroups;
 
     _missionCleanupInProgress = false;
     waitUntil { !_missionCleanupInProgress };
@@ -143,7 +171,7 @@ while { true } do {
     missionNamespace setVariable ["missionState", "IDLE", true];
     
     // ================================================================================
-    // STEP 6: Once cleanup is done the next mission generation begins, back to Step 2
+    // STEP 7: Once cleanup is done the next mission generation begins, back to Step 2
     // ================================================================================
     sleep 3;
 };
