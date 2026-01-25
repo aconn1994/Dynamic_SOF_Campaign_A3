@@ -11,7 +11,7 @@ mission = "DSC_Altis.Altis"
 extends = "default"
 workshop = [
     "3499977893", # Advanced Developer Tools
-    "1751569185", # Pythia
+    # "1751569185", # Pythia
     # "338988835",  # MCC
 ]
 

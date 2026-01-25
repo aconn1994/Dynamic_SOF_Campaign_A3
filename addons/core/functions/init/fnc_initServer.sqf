@@ -17,13 +17,89 @@ private _missionCleanupInProgress = false;
 missionNamespace setVariable ["initGlobalsComplete", true, true];
 
 // ============================================================================
-// STEP 1: Scan Map for Military Locations
+// STEP 1: Scan Map for Military Locations and setup main enemy location
 // ============================================================================
 private _militaryLocations = [] call DSC_core_fnc_getMilitaryLocations; // Will expand, using map locations for now
 
 private _milBases = _militaryLocations get "bases";
 private _milOutposts = _militaryLocations get "outposts";
 private _milCamps = _militaryLocations get "camps";
+
+// ============================================================================
+// DEBUGGING: Map out all locations and unit positions
+// ============================================================================
+
+private _locationIndex = 0;
+{
+    private _location = _x;
+    private _locationMarker = createMarker [format ["enemy_base_location_%1", _locationIndex], _x];
+    _locationMarker setMarkerTypeLocal "hd_dot";
+    _locationMarker setMarkerTextLocal "";
+
+    // Structures on Location for Garrisoned Units
+    private _locationStructs = [_location, 250] call DSC_core_fnc_getAreaStructures;
+
+    private _structIndex = 0;
+    {
+        private _loc = _x;
+
+        private _marker = createMarker [str _loc + str _locationIndex + str _structIndex, _loc];
+        _marker setMarkerTypeLocal "hd_dot";
+        _marker setMarkerSizeLocal [0.25, 0.25];
+        _marker setMarkerColorLocal "ColorOrange";
+
+        _structIndex = _structIndex + 1;
+    } forEach _locationStructs;
+
+    // Get positions for guard units
+    private _guardPosts = [_location, _locationStructs] call DSC_core_fnc_getGuardPosts;
+    {
+        private _loc = _x;
+
+        private _marker = createMarker [str _loc + str _locationIndex + str _structIndex, _loc];
+        _marker setMarkerTypeLocal "hd_dot";
+        _marker setMarkerSizeLocal [0.25, 0.25];
+        _marker setMarkerColorLocal "ColorYellow";
+    } forEach _guardPosts;
+
+    _locationIndex = _locationIndex + 1;
+
+} forEach (_milBases + _milOutposts + _milCamps);
+
+
+// ============================================================================
+// ============================================================================
+// ============================================================================
+// ============================================================================
+// ============================================================================
+// Pick inital Enemy Base
+private _mainEnemyBase = selectRandom _milBases;
+
+// Get faction flag marker type based on side
+private _opForFaction = missionNamespace getVariable ["opForFaction", "OPF_F"];
+private _factionCfg = configFile >> "CfgFactionClasses" >> _opForFaction;
+private _factionSide = getNumber (_factionCfg >> "side");
+
+// Side: 0=OPFOR, 1=BLUFOR, 2=Independent, 3=Civilian
+private _flagMarkerType = switch (_factionSide) do {
+    case 0: { "flag_CSAT" };
+    case 1: { "flag_NATO" };
+    case 2: { "flag_AAF" };
+    default { "flag_CSAT" };
+};
+
+private _mainEnemyBaseMarker = createMarker ["enemy_base_location", _mainEnemyBase];
+_mainEnemyBaseMarker setMarkerTypeLocal _flagMarkerType;
+_mainEnemyBaseMarker setMarkerTextLocal "Enemy Base";
+
+// Create denied area marker over enemy base
+private _deniedAreaMarker = createMarker ["Enemy Base Denied Area", _mainEnemyBase];
+_deniedAreaMarker setMarkerShapeLocal "ELLIPSE";
+_deniedAreaMarker setMarkerSizeLocal [800, 800];
+_deniedAreaMarker setMarkerColorLocal "ColorRed";
+_deniedAreaMarker setMarkerAlphaLocal 0.3;
+
+// ******  TODO  ******, main base unit setup will happen here eventually.........
 
 // ============================================================================
 // STEP 2: Get Faction group data using new classification system
@@ -52,15 +128,27 @@ missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 while { true } do {
     diag_log "DSC: Generating group for mission...";
 
+    // Determine Target Location
+    private _randomMilLoc = selectRandom (_milCamps + _milOutposts);
+    private _radiusOuter = 400;
+
+    private _targetMarker = createMarker ["target_location_marker", _randomMilLoc];
+    _targetMarker setMarkerTypeLocal "o_installation";
+    _targetMarker setMarkerColorLocal "ColorRed";
+    _targetMarker setMarkerTextLocal "Target Location";
+
+    private _targetAreaMarker = createMarker ["target_location_area_marker", _randomMilLoc];
+    _targetAreaMarker setMarkerShapeLocal "ELLIPSE";
+    _targetAreaMarker setMarkerSizeLocal [400, 400];
+    _targetAreaMarker setMarkerColorLocal "ColorRed";
+    _targetAreaMarker setMarkerAlphaLocal 0.3;
+
+    // Setup Group/Units
     private _noOfGroups = selectRandom [2, 3, 4, 5];
     private _missionGroups = [];
     private _tagsPerGroup = [];
     private _totalUnits = [];
     private _totalVehicles = [];
-
-    // Spawn the group at marker position
-    private _randomMilCamp = selectRandom _milCamps;
-    private _radiusOuter = 400;
 
     for "_i" from 1 to _noOfGroups do {
         // Select random group from classified pool
@@ -72,7 +160,7 @@ while { true } do {
         diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
         diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
 
-        private _groupSpawnPos = [_randomMilCamp, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+        private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos;
 
         // Parse the group path and traverse config
         private _pathParts = _groupPath splitString "/";
@@ -108,7 +196,7 @@ while { true } do {
     // ============================================================================
     // STEP 4: Mission has begun after group has been created
     // ============================================================================
-    diag_log format ["DSC: Spawned %1 group at %2", count _missionGroups, _randomMilCamp];
+    diag_log format ["DSC: Spawned %1 group at %2", count _missionGroups, _randomMilLoc];
 
     // Add units/vehicles to zeus
     _curator = ((allCurators) select 0); // The curator object
@@ -169,6 +257,12 @@ while { true } do {
     waitUntil { !_missionCleanupInProgress };
     sleep 3;
     missionNamespace setVariable ["missionState", "IDLE", true];
+
+    // Remove Target Markers
+    deleteMarker "target_location_marker";
+    deleteMarker "target_location_area_marker";
+    _targetMarker = nil;
+    _targetAreaMarker = nil;
     
     // ================================================================================
     // STEP 7: Once cleanup is done the next mission generation begins, back to Step 2
