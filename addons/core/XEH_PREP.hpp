@@ -3,6 +3,9 @@ PREP_SUB(classification,classifyUnit);
 PREP_SUB(classification,classifyGroup);
 PREP_SUB(classification,classifyGroups);
 
+// Debug
+PREP_SUB(debug,mapPositionsOnMilLocations);
+
 // Faction
 PREP_SUB(faction,extractGroups);
 

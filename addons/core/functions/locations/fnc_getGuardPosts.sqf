@@ -72,4 +72,9 @@ private _shiftedPositions = [];
 
 _allGuardPosts = _allGuardPosts + _shiftedPositions;
 
+// Filter out positions in water
+_allGuardPosts = _allGuardPosts select {
+    !surfaceIsWater _x
+};
+
 _allGuardPosts;
