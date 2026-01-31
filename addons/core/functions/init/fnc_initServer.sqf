@@ -24,9 +24,10 @@ private _militaryLocations = [] call DSC_core_fnc_getMilitaryLocations; // Will 
 private _milBases = _militaryLocations get "bases";
 private _milOutposts = _militaryLocations get "outposts";
 private _milCamps = _militaryLocations get "camps";
+private _blackListedLocations = []; // Used for missions
 
 // DEBUGGING: Map out all locations and unit positions
-[(_milBases + _milOutposts + _milCamps)] call DSC_core_fnc_mapPositionsOnMilLocations;
+// [(_milBases + _milOutposts + _milCamps)] call DSC_core_fnc_mapPositionsOnMilLocations;
 
 // Pick inital Enemy Base
 private _mainEnemyBase = selectRandom _milBases;
@@ -78,6 +79,19 @@ if (count _classifiedGroups == 0) then {
 // Store classified groups globally for debugging
 missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 
+// ----------- Groups (Getting them all in memory for now) ------------
+// Basic Foot
+private _basicInfantrySquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "PATROL"], ["ELITE", "SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _basicInfantryFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "PATROL"], ["ELITE", "SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _basicRecceSquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "SCOUT_RECON", "PATROL"], ["ELITE", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _basicRecceFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "SCOUT_RECON", "PATROL"], ["ELITE", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+
+// Elite Foot
+private _eliteInfantrySquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "PATROL", "ELITE"], ["SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _eliteInfantryFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "PATROL", "ELITE"], ["SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _eliteRecceSquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "SCOUT_RECON", "PATROL", "ELITE"], ["AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+private _eliteRecceFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "SCOUT_RECON", "PATROL", "ELITE"], ["AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+
 // ============================================================================
 // STEP 3: Setup While loop for continuous mission generation
 // ============================================================================
@@ -99,6 +113,11 @@ while { true } do {
     _targetAreaMarker setMarkerColorLocal "ColorRed";
     _targetAreaMarker setMarkerAlphaLocal 0.3;
 
+    // Get Static Unit Positions
+    private _allStaticUnitPositions = [_randomMilLoc] call DSC_core_fnc_getStaticUnitPositions;
+    private _targetStructures = _allStaticUnitPositions get "locationStructures";
+    private _targetGuardPosts = _allStaticUnitPositions get "guardPosts";
+
     // Setup Group/Units
     private _noOfGroups = selectRandom [2, 3, 4, 5];
     private _missionGroups = [];
@@ -106,9 +125,9 @@ while { true } do {
     private _totalUnits = [];
     private _totalVehicles = [];
 
+    // Static Units (Garrison)
     for "_i" from 1 to _noOfGroups do {
-        // Select random group from classified pool
-        private _selectedGroup = selectRandom _classifiedGroups;
+        private _selectedGroup = selectRandom (_basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups); // Using random infantry for now
         private _groupPath = _selectedGroup get "path";
         private _groupName = _selectedGroup get "groupName";
         private _doctrineTags = _selectedGroup get "doctrineTags";
@@ -116,7 +135,7 @@ while { true } do {
         diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
         diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
 
-        private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+        private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos; // Spawn in safe space, then move units to static spots
 
         // Parse the group path and traverse config
         private _pathParts = _groupPath splitString "/";
@@ -131,14 +150,48 @@ while { true } do {
         _spawnedGroup setBehaviour "CARELESS";
         private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
         _totalUnits pushBack _spawnedUnits;
+        
+        // Get building positions for garrison
+        private _availableStructures = +_targetStructures; // Copy array
+        private _currentStructure = selectRandom _availableStructures;
+        private _buildingPositions = _currentStructure buildingPos -1;
+        private _posIndex = 0;
+
+        diag_log format ["Spawning group %1 in structure %2.", _spawnedGroup, _currentStructure];
+
+
+        // WILL PROBABLY RETHINK THIS LOOP.  NEEDS BETTER DISPERSION OF UNITS IN THE AREA
+        // Will need to add back activation logic, maybe at a group level instead of an area level
         {
             _x disableAI "MOVE";
             _x disableAI "TARGET";
             _x disableAI "AUTOTARGET";
-            
-            // Turn on engine if unit is in a vehicle and track vehicles for cleanup
+
+            // Move unit to building position
             private _veh = vehicle _x;
-            if (_veh != _x) then {
+            if (_veh == _x) then {
+                // Infantry - move to building position
+                if (_posIndex < count _buildingPositions) then {
+                    _x setPos (_buildingPositions select _posIndex);
+                    _posIndex = _posIndex + 1;
+                } else {
+                    // Current building full, get next closest building
+                    _availableStructures = _availableStructures - [_currentStructure];
+                    if (count _availableStructures > 0) then {
+                        diag_log format ["Structure %1 is out of positions. Finding alternative...", _currentStructure];
+                        _availableStructures = [_availableStructures, [], { _x distance2D _currentStructure }, "ASCEND"] call BIS_fnc_sortBy;
+                        _currentStructure = _availableStructures select 0;
+                        diag_log format ["New structure found: %1", _currentStructure];
+                        _buildingPositions = _currentStructure buildingPos -1;
+                        _posIndex = 0;
+                        if (count _buildingPositions > 0) then {
+                            _x setPos (_buildingPositions select _posIndex);
+                            _posIndex = _posIndex + 1;
+                        };
+                    };
+                };
+            } else {
+                // In vehicle - track for cleanup and optionally start engine
                 _totalVehicles pushBackUnique _veh;
                 if (driver _veh == _x) then {
                     _veh engineOn true;
@@ -148,6 +201,49 @@ while { true } do {
 
         sleep 1;
     };
+
+    // for "_i" from 1 to _noOfGroups do {
+    //     // Select random group from classified pool
+    //     private _selectedGroup = selectRandom _classifiedGroups;
+    //     private _groupPath = _selectedGroup get "path";
+    //     private _groupName = _selectedGroup get "groupName";
+    //     private _doctrineTags = _selectedGroup get "doctrineTags";
+
+    //     diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
+    //     diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
+
+    //     private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+
+    //     // Parse the group path and traverse config
+    //     private _pathParts = _groupPath splitString "/";
+    //     private _groupConfig = configFile >> "CfgGroups";
+    //     { _groupConfig = _groupConfig >> _x } forEach _pathParts;
+        
+    //     private _spawnedGroup = [_groupSpawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
+    //     _missionGroups pushBack _spawnedGroup;
+    //     _tagsPerGroup pushBack _doctrineTags;
+        
+    //     // Set all units to careless so they don't move or attack
+    //     _spawnedGroup setBehaviour "CARELESS";
+    //     private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
+    //     _totalUnits pushBack _spawnedUnits;
+    //     {
+    //         _x disableAI "MOVE";
+    //         _x disableAI "TARGET";
+    //         _x disableAI "AUTOTARGET";
+            
+    //         // Turn on engine if unit is in a vehicle and track vehicles for cleanup
+    //         private _veh = vehicle _x;
+    //         if (_veh != _x) then {
+    //             _totalVehicles pushBackUnique _veh;
+    //             if (driver _veh == _x) then {
+    //                 _veh engineOn true;
+    //             };
+    //         };
+    //     } forEach units _spawnedGroup;
+
+    //     sleep 1;
+    // };
 
     // ============================================================================
     // STEP 4: Mission has begun after group has been created
