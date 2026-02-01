@@ -27,7 +27,7 @@ class EditorData
 	};
 };
 binarizationWanted=0;
-sourceName="dsc_altis";
+sourceName="~dsc_altis";
 addons[]=
 {
 	"A3_Characters_F",

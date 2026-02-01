@@ -45,7 +45,7 @@ private _isRuins = {
 };
 
 // Cluster radius - structures within this distance are considered part of same location
-private _clusterRadius = 800;
+private _clusterRadius = 400;
 
 // Find all military structures on map
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
@@ -121,40 +121,6 @@ private _camps = [];    // 1-3 structures
 } forEach _clusters;
 
 diag_log format ["DSC: Bases: %1, Outposts: %2, Camps: %3", count _bases, count _outposts, count _camps];
-
-// ============================================================================
-// Debug Markers
-// ============================================================================
-// private _markerIndex = 0;
-
-// // Base markers - large red
-// {
-//     private _marker = createMarker [format ["DSC_base_%1", _markerIndex], _x];
-//     _marker setMarkerTypeLocal "o_installation";
-//     _marker setMarkerColorLocal "ColorRed";
-//     _marker setMarkerTextLocal format ["Base %1", _markerIndex + 1];
-//     _markerIndex = _markerIndex + 1;
-// } forEach _bases;
-
-// // Outpost markers - medium orange
-// _markerIndex = 0;
-// {
-//     private _marker = createMarker [format ["DSC_outpost_%1", _markerIndex], _x];
-//     _marker setMarkerTypeLocal "loc_Bunker";
-//     _marker setMarkerColorLocal "ColorOrange";
-//     _marker setMarkerTextLocal format ["Outpost %1", _markerIndex + 1];
-//     _markerIndex = _markerIndex + 1;
-// } forEach _outposts;
-
-// // Camp markers - small yellow
-// _markerIndex = 0;
-// {
-//     private _marker = createMarker [format ["DSC_camp_%1", _markerIndex], _x];
-//     _marker setMarkerTypeLocal "loc_Bunker";
-//     _marker setMarkerColorLocal "ColorYellow";
-//     _marker setMarkerTextLocal format ["Camp %1", _markerIndex + 1];
-//     _markerIndex = _markerIndex + 1;
-// } forEach _camps;
 
 // ============================================================================
 // Return result

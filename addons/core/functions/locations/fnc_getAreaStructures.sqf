@@ -18,7 +18,30 @@
 
 params ["_location", "_radius"];
 
+private _mainStructures = [];
+private _sideStructures = [];
+
 private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"];
 private _locationStructures = nearestTerrainObjects [_location, _structureCategories, _radius];
 
+// {
+//     private _struct = _x;
+//     private _noOfPositions = count (_x buildingPos -1);
+
+//     if (_noOfPositions == 0) then { continue };
+
+//     if (_noOfPositions >= 4) then {
+//         _mainStructures pushBack _struct;
+//     };
+//     if (_noOfPositions < 4) then {
+//         _sideStructures pushBack _struct;
+//     };
+// } forEach _locationStructures;
+
 _locationStructures;
+
+// _structuresMapper = createHashMap;
+// _structuresMapper set ["mainStructures", _mainStructures];
+// _structuresMapper set ["sideStructures", _sideStructures];
+
+// _structuresMapper;

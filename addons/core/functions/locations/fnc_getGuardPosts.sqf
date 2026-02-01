@@ -49,7 +49,7 @@ private _perimeterObjs = nearestTerrainObjects [
 ];
 
 // Filter: only keep objects near the marker’s border
-private _minBorderDist = (250 * 0.75);  // tweak 0.75 for tighter/looser filtering
+private _minBorderDist = (10 * 0.75);  // tweak 0.75 for tighter/looser filtering
 _perimeterObjs = _perimeterObjs select {
     (_x distance2D _location) > _minBorderDist
 };

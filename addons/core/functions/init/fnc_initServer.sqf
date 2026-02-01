@@ -113,13 +113,13 @@ while { true } do {
     _targetAreaMarker setMarkerColorLocal "ColorRed";
     _targetAreaMarker setMarkerAlphaLocal 0.3;
 
-    // Get Static Unit Positions
-    private _allStaticUnitPositions = [_randomMilLoc] call DSC_core_fnc_getStaticUnitPositions;
-    private _targetStructures = _allStaticUnitPositions get "locationStructures";
-    private _targetGuardPosts = _allStaticUnitPositions get "guardPosts";
+    // Get Structures for Garrison Units
+    private _locationStructs = [_randomMilLoc, 200] call DSC_core_fnc_getAreaStructures;
+    // private _mainStructures = _locationStructs get "mainStructures";
+    // private _sideStructures = _locationStructs get "sideStructures";
 
     // Setup Group/Units
-    private _noOfGroups = selectRandom [2, 3, 4, 5];
+    private _noOfGroups = selectRandom [2, 3, 4];
     private _missionGroups = [];
     private _tagsPerGroup = [];
     private _totalUnits = [];
@@ -149,58 +149,60 @@ while { true } do {
         // Set all units to careless so they don't move or attack
         _spawnedGroup setBehaviour "CARELESS";
         private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
-        _totalUnits pushBack _spawnedUnits;
-        
-        // Get building positions for garrison
-        private _availableStructures = +_targetStructures; // Copy array
-        private _currentStructure = selectRandom _availableStructures;
-        private _buildingPositions = _currentStructure buildingPos -1;
-        private _posIndex = 0;
-
-        diag_log format ["Spawning group %1 in structure %2.", _spawnedGroup, _currentStructure];
-
-
-        // WILL PROBABLY RETHINK THIS LOOP.  NEEDS BETTER DISPERSION OF UNITS IN THE AREA
-        // Will need to add back activation logic, maybe at a group level instead of an area level
-        {
-            _x disableAI "MOVE";
-            _x disableAI "TARGET";
-            _x disableAI "AUTOTARGET";
-
-            // Move unit to building position
-            private _veh = vehicle _x;
-            if (_veh == _x) then {
-                // Infantry - move to building position
-                if (_posIndex < count _buildingPositions) then {
-                    _x setPos (_buildingPositions select _posIndex);
-                    _posIndex = _posIndex + 1;
-                } else {
-                    // Current building full, get next closest building
-                    _availableStructures = _availableStructures - [_currentStructure];
-                    if (count _availableStructures > 0) then {
-                        diag_log format ["Structure %1 is out of positions. Finding alternative...", _currentStructure];
-                        _availableStructures = [_availableStructures, [], { _x distance2D _currentStructure }, "ASCEND"] call BIS_fnc_sortBy;
-                        _currentStructure = _availableStructures select 0;
-                        diag_log format ["New structure found: %1", _currentStructure];
-                        _buildingPositions = _currentStructure buildingPos -1;
-                        _posIndex = 0;
-                        if (count _buildingPositions > 0) then {
-                            _x setPos (_buildingPositions select _posIndex);
-                            _posIndex = _posIndex + 1;
-                        };
-                    };
-                };
-            } else {
-                // In vehicle - track for cleanup and optionally start engine
-                _totalVehicles pushBackUnique _veh;
-                if (driver _veh == _x) then {
-                    _veh engineOn true;
-                };
-            };
-        } forEach units _spawnedGroup;
+        _totalUnits = _totalUnits + _spawnedUnits;
 
         sleep 1;
     };
+
+    private _getPerimeterPositions = {
+        params ["_struct"];
+
+        private _bbox = boundingBoxReal _struct;
+        private _min = _bbox select 0;
+        private _max = _bbox select 1;
+        private _corners = [
+            _struct modelToWorld [_min select 0, _min select 1, 0],
+            _struct modelToWorld [_max select 0, _min select 1, 0],
+            _struct modelToWorld [_min select 0, _max select 1, 0],
+            _struct modelToWorld [_max select 0, _max select 1, 0]
+        ];
+
+        _corners;
+    };
+
+    // Get building cluster based on random structure, push interier and perimeter positions to list
+    private _validPositionsForUnits = [];
+
+    {
+        private _structure = _x;
+        _validPositionsForUnits = _validPositionsForUnits + (_structure buildingPos -1);
+        _validPositionsForUnits = _validPositionsForUnits + ([_structure] call _getPerimeterPositions);
+    } forEach _locationStructs;
+
+    diag_log format ["All Positions for Units: %1", _validPositionsForUnits];
+
+    {
+        private _unit = vehicle _x;
+
+        _unit disableAI "MOVE";
+        _unit disableAI "TARGET";
+        _unit disableAI "AUTOTARGET";
+
+        if (_unit == _x) then {
+            private _randomPosition = selectRandom _validPositionsForUnits;
+
+            _unit setPos _randomPosition;
+            _randomPosition = _randomPosition - [_randomPosition];
+        } else {
+            // This will handle if an actual vehicle is spawned later
+            _totalVehicles pushBackUnique _unit;
+                if (driver _unit == _x) then {
+                    _unit engineOn true;
+                };
+        };
+
+        sleep 1;
+    } forEach _totalUnits;
 
     // for "_i" from 1 to _noOfGroups do {
     //     // Select random group from classified pool
