@@ -17,35 +17,17 @@
  *   private _guardPosts = [_basePos, _structures] call DSC_core_fnc_getGuardPosts;
  */
 
-params ["_location", "_areaStucts"];  // TODO, TEST WITH DIFFERENT AREA MARKERS
+params ["_location"];  // TODO, TEST WITH DIFFERENT AREA MARKERS
 
 // Step 1: collect candidate positions
 private _allGuardPosts = [];
 private _offsetDist = 2;
 
-// Building corners
-{
-    private _bbox = boundingBoxReal _x;
-    private _min = _bbox select 0;
-    private _max = _bbox select 1;
-
-    private _corners = [
-        _x modelToWorld [_min select 0, _min select 1, 0],
-        _x modelToWorld [_max select 0, _min select 1, 0],
-        _x modelToWorld [_min select 0, _max select 1, 0],
-        _x modelToWorld [_max select 0, _max select 1, 0]
-    ];
-
-    
-    _allGuardPosts = _allGuardPosts + _corners;
-
-} forEach _areaStucts;
-
 // // TODO: add perimeter sampling for walls/gates
 private _perimeterObjs = nearestTerrainObjects [
     _location,
     ["FENCE", "WALL", "HIDE"],
-    250
+    selectRandom [250, 400, 600]
 ];
 
 // Filter: only keep objects near the marker’s border
