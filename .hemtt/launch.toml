@@ -5,7 +5,7 @@ workshop = [
 dlc = [
     "Western Sahara"
 ]
-mission = "DSC_Altis.Altis"
+mission = "test.VR"
 
 [developer]
 extends = "default"

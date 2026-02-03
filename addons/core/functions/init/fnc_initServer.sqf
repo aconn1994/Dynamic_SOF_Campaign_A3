@@ -95,6 +95,10 @@ while { true } do {
     private _totalUnits = [];
     private _totalVehicles = [];
 
+    // Notes for feature:
+    //  - Check for vehicle spawn in immediate target area
+    //  - If valid vehicle spawn position is found, spawn vehicle w/ infantry group and use for vehicle spawn and garrison/guard
+
     // ==================================
     // Static Units (Garrison)
     // =================================    
@@ -102,6 +106,15 @@ while { true } do {
     private _locationStructs = [_randomMilLoc, 200] call DSC_core_fnc_getAreaStructures;
     private _validGarrisonPositionsForUnits = [];
 
+    // Notes for update:
+    //  - Update _validGarrisonPositionsForUnits to hold a array of sub-array of structure positions
+    //  - Sub array will have structure positions and border positions
+    //  - Individual positions will be checked for collision and spawn position will be adjusted accordingly
+    
+    // Notes to consider:
+    //  - Get good position for static weapon on towers/patrol military structures
+    //  - Get expected positions for towers/patrol structures, ie don't spawn all units on stairs
+    //  - Experiment with check for falling units
     {
         private _structure = _x;
         private _allStructurePositions = (_structure buildingPos -1);
@@ -156,6 +169,10 @@ while { true } do {
     private _validGuardPositionsForUnits = [_randomMilLoc] call DSC_core_fnc_getGuardPosts;
 
     diag_log format ["All Guard Positions for Units: %1", (count _validGuardPositionsForUnits)];
+
+    // Notes for update:
+    //  - Find one position and spawn entire group at position instead of individual random spots
+    //  - Consider using simple compositions for cover
 
     private _noOfGuardGroups = selectRandom [1, 2, 3];
     private _guardGroupTypes = _garrisonGroupTypes + _basicRecceSquadGroups + _basicRecceFireteamGroups + _eliteRecceSquadGroups + _eliteRecceFireteamGroups;
