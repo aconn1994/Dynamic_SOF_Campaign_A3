@@ -19,7 +19,9 @@ PREP_SUB(locations,getAllPositionsForStructure);
 PREP_SUB(locations,getAreaStructures);
 PREP_SUB(locations,getGuardPosts);
 PREP_SUB(locations,getMilitaryLocations);
+PREP_SUB(locations,getPerimeterPositions);
 PREP_SUB(locations,getStaticUnitPositions);
+PREP_SUB(locations,setUnitsAtPositions);
 
 // Validators
 PREP_SUB(validators,groupActive);

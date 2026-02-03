@@ -24,39 +24,17 @@ private _militaryLocations = [] call DSC_core_fnc_getMilitaryLocations; // Will 
 private _milBases = _militaryLocations get "bases";
 private _milOutposts = _militaryLocations get "outposts";
 private _milCamps = _militaryLocations get "camps";
-private _blackListedLocations = []; // Used for missions
 
 // DEBUGGING: Map out all locations and unit positions
 // [(_milBases + _milOutposts + _milCamps)] call DSC_core_fnc_mapPositionsOnMilLocations;
-
-// Pick inital Enemy Base
-private _mainEnemyBase = selectRandom _milBases;
 
 // Get faction flag marker type based on side
 private _opForFaction = missionNamespace getVariable ["opForFaction", "OPF_F"];
 private _factionCfg = configFile >> "CfgFactionClasses" >> _opForFaction;
 private _factionSide = getNumber (_factionCfg >> "side");
 
-// Side: 0=OPFOR, 1=BLUFOR, 2=Independent, 3=Civilian
-private _flagMarkerType = switch (_factionSide) do {
-    case 0: { "flag_CSAT" };
-    case 1: { "flag_NATO" };
-    case 2: { "flag_AAF" };
-    default { "flag_CSAT" };
-};
-
-private _mainEnemyBaseMarker = createMarker ["enemy_base_location", _mainEnemyBase];
-_mainEnemyBaseMarker setMarkerTypeLocal _flagMarkerType;
-_mainEnemyBaseMarker setMarkerTextLocal "Enemy Base";
-
-// Create denied area marker over enemy base
-private _deniedAreaMarker = createMarker ["Enemy Base Denied Area", _mainEnemyBase];
-_deniedAreaMarker setMarkerShapeLocal "ELLIPSE";
-_deniedAreaMarker setMarkerSizeLocal [800, 800];
-_deniedAreaMarker setMarkerColorLocal "ColorRed";
-_deniedAreaMarker setMarkerAlphaLocal 0.3;
-
-// ******  TODO  ******, main base unit setup will happen here eventually.........
+// ******  TODO  ******, main enemy airbase location setup will happen here.........
+// ******  TODO  ******, main insurgent base location setup will happen here.........
 
 // ============================================================================
 // STEP 2: Get Faction group data using new classification system
@@ -103,7 +81,7 @@ while { true } do {
     diag_log "DSC: Generating group for mission...";
 
     // Determine Target Location
-    private _randomMilLoc = selectRandom (_milCamps + _milOutposts);
+    private _randomMilLoc = selectRandom (_milCamps + _milOutposts + _milBases);
     private _radiusOuter = 400;
 
     private _targetMarker = createMarker ["target_location_marker", _randomMilLoc];
@@ -111,80 +89,17 @@ while { true } do {
     _targetMarker setMarkerColorLocal "ColorRed";
     _targetMarker setMarkerTextLocal "Target Location";
 
-    private _targetAreaMarker = createMarker ["target_location_area_marker", _randomMilLoc];
-    _targetAreaMarker setMarkerShapeLocal "ELLIPSE";
-    _targetAreaMarker setMarkerSizeLocal [400, 400];
-    _targetAreaMarker setMarkerColorLocal "ColorRed";
-    _targetAreaMarker setMarkerAlphaLocal 0.3;
-
-    // Get Structures for Garrison Units
-    private _locationStructs = [_randomMilLoc, 200] call DSC_core_fnc_getAreaStructures;
-    // private _mainStructures = _locationStructs get "mainStructures";
-    // private _sideStructures = _locationStructs get "sideStructures";
-
     // Setup Group/Units
-    private _noOfGarrisonGroups = selectRandom [1, 2];
-    private _noOfGuardGroups = selectRandom [1, 2, 3];
-    private _noOfPatrolGroups = selectRandom [1, 2, 3, 4, 5];
     private _missionGroups = [];
     private _tagsPerGroup = [];
-
-    private _garrisonUnits = [];
-    private _guardUnits = [];
     private _totalUnits = [];
     private _totalVehicles = [];
 
-    private _garrisonGroupTypes = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
-    private _guardGroupTypes = _garrisonGroupTypes + _basicRecceSquadGroups + _basicRecceFireteamGroups + _eliteRecceSquadGroups + _eliteRecceFireteamGroups;
-    private _specialGroupTypes = _atInfantryGroups + _aaInfantryGroups; // AT and AA Infantry Teams
-
-    private _getPerimeterPositions = {
-        params ["_struct"];
-
-        private _bbox = boundingBoxReal _struct;
-        private _min = _bbox select 0;
-        private _max = _bbox select 1;
-        private _corners = [
-            _struct modelToWorld [_min select 0, _min select 1, 0],
-            _struct modelToWorld [_max select 0, _min select 1, 0],
-            _struct modelToWorld [_min select 0, _max select 1, 0],
-            _struct modelToWorld [_max select 0, _max select 1, 0]
-        ];
-
-        _corners;
-    };
-
-    private _setUnitsAtPositions = {
-        params ["_units", "_positions", "_vehicles"];
-
-        {
-            private _unit = vehicle _x;
-
-            _unit disableAI "MOVE";
-            _unit disableAI "TARGET";
-            _unit disableAI "AUTOTARGET";
-
-            if (_unit == _x) then {
-                private _randomPosition = selectRandom _positions;
-
-                _unit setPos _randomPosition;
-                _randomPosition = _randomPosition - [_randomPosition];
-            } else {
-                // This will handle if an actual vehicle is spawned later
-                _vehicles pushBackUnique _unit;
-                    if (driver _unit == _x) then {
-                        _unit engineOn true;
-                    };
-            };
-
-            sleep 1;
-        } forEach _units;
-    };
-
     // ==================================
     // Static Units (Garrison)
-    // =================================
-    // Get building cluster based on random structure, push interier and perimeter positions to list
+    // =================================    
+    // Get Structures for Garrison Units
+    private _locationStructs = [_randomMilLoc, 200] call DSC_core_fnc_getAreaStructures;
     private _validGarrisonPositionsForUnits = [];
 
     {
@@ -193,11 +108,15 @@ while { true } do {
         _validGarrisonPositionsForUnits = _validGarrisonPositionsForUnits + _allStructurePositions;
 
         if ((count _allStructurePositions) > 1) then {
-                _validGarrisonPositionsForUnits = _validGarrisonPositionsForUnits + ([_structure] call _getPerimeterPositions);
+                _validGarrisonPositionsForUnits = _validGarrisonPositionsForUnits + ([_structure] call DSC_core_fnc_getPerimeterPositions);
         };
     } forEach _locationStructs;
 
     diag_log format ["All Garrison Positions for Units: %1", (count _validGarrisonPositionsForUnits)];
+
+    private _noOfGarrisonGroups = selectRandom [1, 2];
+    private _garrisonGroupTypes = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
+    private _garrisonUnits = [];
 
     for "_i" from 1 to _noOfGarrisonGroups do {
         private _selectedGroup = selectRandom _garrisonGroupTypes; // Infantry Squads and Fireteams (Basic and Elite)
@@ -229,7 +148,7 @@ while { true } do {
     };
 
     // Set Garrison Positions
-    [_garrisonUnits, _validGarrisonPositionsForUnits, _totalVehicles] call _setUnitsAtPositions;
+    [_garrisonUnits, _validGarrisonPositionsForUnits, _totalVehicles] call DSC_core_fnc_setUnitsAtPositions;
 
     // ==================================
     // Static Units (Guards)
@@ -237,6 +156,10 @@ while { true } do {
     private _validGuardPositionsForUnits = [_randomMilLoc] call DSC_core_fnc_getGuardPosts;
 
     diag_log format ["All Guard Positions for Units: %1", (count _validGuardPositionsForUnits)];
+
+    private _noOfGuardGroups = selectRandom [1, 2, 3];
+    private _guardGroupTypes = _garrisonGroupTypes + _basicRecceSquadGroups + _basicRecceFireteamGroups + _eliteRecceSquadGroups + _eliteRecceFireteamGroups;
+    private _guardUnits = [];
 
     for "_i" from 1 to _noOfGuardGroups do {
         private _selectedGroup = selectRandom _guardGroupTypes; // Garrison groups + Recce
@@ -268,11 +191,14 @@ while { true } do {
     };
 
     // Set Guard Positions
-    [_guardUnits, _validGuardPositionsForUnits, _totalVehicles] call _setUnitsAtPositions;
+    [_guardUnits, _validGuardPositionsForUnits, _totalVehicles] call DSC_core_fnc_setUnitsAtPositions;
 
     // ==================================
     // Dynamic Units (Patrols)
     // =================================
+    private _noOfPatrolGroups = selectRandom [1, 2, 3, 4, 5];
+    private _specialGroupTypes = _atInfantryGroups + _aaInfantryGroups; // AT and AA Infantry Teams
+
     for "_i" from 1 to _noOfPatrolGroups do {
         if ((random 100) < 15) then {
             private _selectedGroup = selectRandom _specialGroupTypes;
@@ -309,33 +235,15 @@ while { true } do {
         sleep 1;
     };
 
-    // {
-    //     private _unit = vehicle _x;
-
-    //     _unit disableAI "MOVE";
-    //     _unit disableAI "TARGET";
-    //     _unit disableAI "AUTOTARGET";
-
-    //     if (_unit == _x) then {
-    //         private _randomPosition = selectRandom _validPositionsForUnits;
-
-    //         _unit setPos _randomPosition;
-    //         _randomPosition = _randomPosition - [_randomPosition];
-    //     } else {
-    //         // This will handle if an actual vehicle is spawned later
-    //         _totalVehicles pushBackUnique _unit;
-    //             if (driver _unit == _x) then {
-    //                 _unit engineOn true;
-    //             };
-    //     };
-
-    //     sleep 1;
-    // } forEach _totalUnits;
-
     // ============================================================================
     // STEP 4: Mission has begun after group has been created
     // ============================================================================
     diag_log format ["DSC: Spawned %1 group at %2", count _missionGroups, _randomMilLoc];
+
+    // Re-enable damage for all spawned units
+    {
+        _x allowDamage true;
+    } forEach _totalUnits;
 
     // Add units/vehicles to zeus
     _curator = ((allCurators) select 0); // The curator object
