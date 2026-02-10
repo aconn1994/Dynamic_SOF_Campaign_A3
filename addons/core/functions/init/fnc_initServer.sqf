@@ -95,162 +95,36 @@ while { true } do {
     private _totalUnits = [];
     private _totalVehicles = [];
 
-    // Notes for feature:
-    //  - Check for vehicle spawn in immediate target area
-    //  - If valid vehicle spawn position is found, spawn vehicle w/ infantry group and use for vehicle spawn and garrison/guard
+    // ==================================
+    // Guards (Static Weapons on Towers)
+    // ==================================
+    private _guardResult = [_randomMilLoc, "military", _opForFaction, east] call DSC_core_fnc_setupGuards;
+    _missionGroups append (_guardResult get "groups");
+    _totalUnits append (_guardResult get "units");
+    _totalVehicles append (_guardResult get "vehicles");
 
     // ==================================
-    // Static Units (Garrison)
-    // =================================    
-    // Get Structures for Garrison Units
-    private _locationStructs = [_randomMilLoc, 200] call DSC_core_fnc_getAreaStructures;
-    private _validGarrisonPositionsForUnits = [];
-
-    // Notes for update:
-    //  - Update _validGarrisonPositionsForUnits to hold a array of sub-array of structure positions
-    //  - Sub array will have structure positions and border positions
-    //  - Individual positions will be checked for collision and spawn position will be adjusted accordingly
-    
-    // Notes to consider:
-    //  - Get good position for static weapon on towers/patrol military structures
-    //  - Get expected positions for towers/patrol structures, ie don't spawn all units on stairs
-    //  - Experiment with check for falling units
-    {
-        private _structure = _x;
-        private _allStructurePositions = (_structure buildingPos -1);
-        _validGarrisonPositionsForUnits = _validGarrisonPositionsForUnits + _allStructurePositions;
-
-        if ((count _allStructurePositions) > 1) then {
-                _validGarrisonPositionsForUnits = _validGarrisonPositionsForUnits + ([_structure] call DSC_core_fnc_getPerimeterPositions);
-        };
-    } forEach _locationStructs;
-
-    diag_log format ["All Garrison Positions for Units: %1", (count _validGarrisonPositionsForUnits)];
-
-    private _noOfGarrisonGroups = selectRandom [1, 2];
-    private _garrisonGroupTypes = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
-    private _garrisonUnits = [];
-
-    for "_i" from 1 to _noOfGarrisonGroups do {
-        private _selectedGroup = selectRandom _garrisonGroupTypes; // Infantry Squads and Fireteams (Basic and Elite)
-        private _groupPath = _selectedGroup get "path";
-        private _groupName = _selectedGroup get "groupName";
-        private _doctrineTags = _selectedGroup get "doctrineTags";
-
-        diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
-        diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
-
-        private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos; // Spawn in safe space, then move units to static spots
-
-        // Parse the group path and traverse config
-        private _pathParts = _groupPath splitString "/";
-        private _groupConfig = configFile >> "CfgGroups";
-        { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-        
-        private _spawnedGroup = [_groupSpawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
-        _missionGroups pushBack _spawnedGroup;
-        _tagsPerGroup pushBack _doctrineTags;
-        
-        // Set all units to careless so they don't move or attack
-        _spawnedGroup setBehaviour "CARELESS";
-        private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
-        _garrisonUnits = _garrisonUnits + _spawnedUnits;
-        _totalUnits = _totalUnits + _spawnedUnits;
-
-        sleep 1;
-    };
-
-    // Set Garrison Positions
-    [_garrisonUnits, _validGarrisonPositionsForUnits, _totalVehicles] call DSC_core_fnc_setUnitsAtPositions;
+    // Garrison (Infantry in Structures)
+    // ==================================
+    private _garrisonGroups = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
+    private _garrisonResult = [_randomMilLoc, _garrisonGroups, east] call DSC_core_fnc_setupGarrison;
+    _missionGroups append (_garrisonResult get "groups");
+    _totalUnits append (_garrisonResult get "units");
+    _tagsPerGroup append (_garrisonResult get "tags");
 
     // ==================================
-    // Static Units (Guards)
-    // =================================
-    private _validGuardPositionsForUnits = [_randomMilLoc] call DSC_core_fnc_getGuardPosts;
-
-    diag_log format ["All Guard Positions for Units: %1", (count _validGuardPositionsForUnits)];
-
-    // Notes for update:
-    //  - Find one position and spawn entire group at position instead of individual random spots
-    //  - Consider using simple compositions for cover
-
-    private _noOfGuardGroups = selectRandom [1, 2, 3];
-    private _guardGroupTypes = _garrisonGroupTypes + _basicRecceSquadGroups + _basicRecceFireteamGroups + _eliteRecceSquadGroups + _eliteRecceFireteamGroups;
-    private _guardUnits = [];
-
-    for "_i" from 1 to _noOfGuardGroups do {
-        private _selectedGroup = selectRandom _guardGroupTypes; // Garrison groups + Recce
-        private _groupPath = _selectedGroup get "path";
-        private _groupName = _selectedGroup get "groupName";
-        private _doctrineTags = _selectedGroup get "doctrineTags";
-
-        diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
-        diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
-
-        private _groupSpawnPos = [_randomMilLoc, 0, _radiusOuter, 5, 0, 20, 0] call BIS_fnc_findSafePos; // Spawn in safe space, then move units to static spots
-
-        // Parse the group path and traverse config
-        private _pathParts = _groupPath splitString "/";
-        private _groupConfig = configFile >> "CfgGroups";
-        { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-        
-        private _spawnedGroup = [_groupSpawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
-        _missionGroups pushBack _spawnedGroup;
-        _tagsPerGroup pushBack _doctrineTags;
-        
-        // Set all units to careless so they don't move or attack
-        _spawnedGroup setBehaviour "CARELESS";
-        private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
-        _guardUnits = _guardUnits + _spawnedUnits;
-        _totalUnits = _totalUnits + _spawnedUnits;
-
-        sleep 1;
-    };
-
-    // Set Guard Positions
-    [_guardUnits, _validGuardPositionsForUnits, _totalVehicles] call DSC_core_fnc_setUnitsAtPositions;
-
+    // Patrols (Mobile Units)
     // ==================================
-    // Dynamic Units (Patrols)
-    // =================================
-    private _noOfPatrolGroups = selectRandom [1, 2, 3, 4, 5];
-    private _specialGroupTypes = _atInfantryGroups + _aaInfantryGroups; // AT and AA Infantry Teams
-
-    for "_i" from 1 to _noOfPatrolGroups do {
-        if ((random 100) < 15) then {
-            private _selectedGroup = selectRandom _specialGroupTypes;
-        } else {
-            private _selectedGroup = selectRandom _garrisonGroupTypes; // Infantry Squads and Fireteams (Basic and Elite)
-        };
-        private _selectedGroup = selectRandom _garrisonGroupTypes; // Infantry Squads and Fireteams (Basic and Elite)
-        private _groupPath = _selectedGroup get "path";
-        private _groupName = _selectedGroup get "groupName";
-        private _doctrineTags = _selectedGroup get "doctrineTags";
-
-        diag_log format ["DSC: Selected group %1: %2", _i, _groupName];
-        diag_log format ["DSC: Doctrine tags: %1", _doctrineTags];
-
-        private _groupSpawnPos = [_randomMilLoc, 0, 1200, 5, 0, 20, 0] call BIS_fnc_findSafePos; // Spawn in safe space, then move units to static spots
-
-        // Parse the group path and traverse config
-        private _pathParts = _groupPath splitString "/";
-        private _groupConfig = configFile >> "CfgGroups";
-        { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-        
-        private _spawnedGroup = [_groupSpawnPos, east, _groupConfig] call BIS_fnc_spawnGroup;
-        _missionGroups pushBack _spawnedGroup;
-        _tagsPerGroup pushBack _doctrineTags;
-        
-        // Set all units to careless so they don't move or attack
-        _spawnedGroup setBehaviour "CARELESS";
-        private _spawnedUnits = +units _spawnedGroup; // Copy array to track all units for cleanup
-        _garrisonUnits = _garrisonUnits + _spawnedUnits;
-        _totalUnits = _totalUnits + _spawnedUnits;
-
-        [_spawnedGroup, _groupSpawnPos, selectRandom [400, 800, 1000, 1200]] call BIS_fnc_taskPatrol;
-
-        sleep 1;
-    };
+    private _patrolGroups = _garrisonGroups; // Reuse infantry groups for patrols
+    private _specialGroups = _atInfantryGroups + _aaInfantryGroups;
+    private _patrolConfig = createHashMapFromArray [
+        ["specialGroups", _specialGroups],
+        ["specialChance", 0.15]
+    ];
+    private _patrolResult = [_randomMilLoc, _patrolGroups, east, _patrolConfig] call DSC_core_fnc_setupPatrols;
+    _missionGroups append (_patrolResult get "groups");
+    _totalUnits append (_patrolResult get "units");
+    _tagsPerGroup append (_patrolResult get "tags");
 
     // ============================================================================
     // STEP 4: Mission has begun after group has been created
@@ -303,13 +177,13 @@ while { true } do {
     // Delete all tracked units including dead bodies
     {
         deleteVehicle _x;
-        sleep 1;
+        sleep 0.1;
     } forEach _totalUnits;
 
     // Delete all tracked vehicles (works even if destroyed)
     {
         deleteVehicle _x;
-        sleep 1;
+        sleep 0.1;
     } forEach _totalVehicles;
 
     // Delete group after units and vehicles
@@ -319,7 +193,7 @@ while { true } do {
 
     _missionCleanupInProgress = false;
     waitUntil { !_missionCleanupInProgress };
-    sleep 3;
+    sleep 1;
     missionNamespace setVariable ["missionState", "IDLE", true];
 
     // Remove Target Markers
@@ -331,5 +205,5 @@ while { true } do {
     // ================================================================================
     // STEP 7: Once cleanup is done the next mission generation begins, back to Step 2
     // ================================================================================
-    sleep 3;
+    sleep 1;
 };

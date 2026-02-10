@@ -20,14 +20,14 @@ class EditorData
 	};
 	class Camera
 	{
-		pos[]={26739.926,51.544159,24579.428};
-		dir[]={0.59976721,-0.48521629,0.63629454};
-		up[]={0.33281556,0.87439376,0.35308519};
-		aside[]={0.72769409,-1.3096724e-07,-0.68591809};
+		pos[]={26769.693,28.473894,24609.057};
+		dir[]={-0.76611823,-0.36230075,0.53107953};
+		up[]={-0.29781184,0.93199897,0.20643979};
+		aside[]={0.5697757,-3.0675437e-07,0.82194608};
 	};
 };
 binarizationWanted=0;
-sourceName="dsc_altis";
+sourceName="~dsc_altis";
 addons[]=
 {
 	"A3_Characters_F",
@@ -2504,7 +2504,6 @@ class Mission
 			};
 			id=1217;
 			type="Land_Cargo_Tower_V1_No1_F";
-			atlOffset=1.9073486e-06;
 		};
 		class Item137
 		{
@@ -5725,7 +5724,6 @@ class Mission
 			};
 			id=1426;
 			type="Land_Cargo_Tower_V1_No2_F";
-			atlOffset=-1.9073486e-06;
 		};
 		class Item330
 		{

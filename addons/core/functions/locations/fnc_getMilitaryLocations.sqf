@@ -56,6 +56,19 @@ _militaryEntitiesList = _militaryEntitiesList select {
     !([_x, _excludedTypes] call _isRuins)
 };
 
+// Filter out structures inside player base marker
+private _playerBaseMarker = "player_base";
+if (getMarkerType _playerBaseMarker != "") then {
+    private _countBefore = count _militaryEntitiesList;
+    _militaryEntitiesList = _militaryEntitiesList select {
+        !(getPos _x inArea _playerBaseMarker)
+    };
+    private _excluded = _countBefore - count _militaryEntitiesList;
+    if (_excluded > 0) then {
+        diag_log format ["DSC: Excluded %1 structures inside player_base marker", _excluded];
+    };
+};
+
 diag_log format ["DSC: Found %1 military structures on map", count _militaryEntitiesList];
 
 // ============================================================================
