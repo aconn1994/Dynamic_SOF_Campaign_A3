@@ -21,9 +21,9 @@ class EditorData
 	class Camera
 	{
 		pos[]={26772.508,41.454433,24592.715};
-		dir[]={-0.571293,-0.48651072,0.66103548};
-		up[]={-0.31812161,0.87367332,0.36809483};
-		aside[]={0.7566123,6.7753717e-08,0.65389311};
+		dir[]={-0.49439916,-0.52254599,0.69466186};
+		up[]={-0.30299926,0.85260904,0.42573372};
+		aside[]={0.81474233,8.0326572e-08,0.57985991};
 	};
 };
 binarizationWanted=0;
@@ -142,6 +142,59 @@ randomSeed=7419307;
 class ScenarioData
 {
 	author="Acorn";
+	respawnDialog=0;
+	respawn=2;
+	class Header
+	{
+		maxPlayers=16;
+	};
+	wreckRemovalMaxTime=3600;
+};
+class CustomAttributes
+{
+	class Category0
+	{
+		name="Multiplayer";
+		class Attribute0
+		{
+			property="ReviveForceRespawnDelay";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=3.7745113;
+				};
+			};
+		};
+		class Attribute1
+		{
+			property="RespawnTemplates";
+			expression="true";
+			class Value
+			{
+				class data
+				{
+					singleType="ARRAY";
+				};
+			};
+		};
+		class Attribute2
+		{
+			property="ReviveMode";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=1;
+				};
+			};
+		};
+		nAttributes=3;
+	};
 };
 class Mission
 {
@@ -7300,7 +7353,7 @@ class Mission
 			class PositionInfo
 			{
 				position[]={26741.246,22.111597,24621.799};
-				angles[]={-0,0.73090893,0};
+				angles[]={0,0.73090893,0};
 			};
 			side="Empty";
 			flags=4;
