@@ -1,4 +1,5 @@
 // AI
+PREP_SUB(ai,addCombatActivation);
 PREP_SUB(ai,setupGarrison);
 PREP_SUB(ai,setupGuards);
 PREP_SUB(ai,setupPatrols);

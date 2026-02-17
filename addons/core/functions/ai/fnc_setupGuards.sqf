@@ -164,6 +164,9 @@ if (_locationType == "military") then {
     // Track group if it has units
     if (units _guardsGroup isNotEqualTo []) then {
         (_result get "groups") pushBack _guardsGroup;
+        
+        // Add combat activation - guards stay in place until shots fired nearby
+        [_guardsGroup] call DSC_core_fnc_addCombatActivation;
     } else {
         deleteGroup _guardsGroup;
     };

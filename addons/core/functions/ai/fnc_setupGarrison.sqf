@@ -272,10 +272,12 @@ diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors", count _anchors]
             
             _x allowDamage false;
             _x setPos (_allPositions select _unitsSpawned);
-            _x disableAI "PATH";
             
             _unitsSpawned = _unitsSpawned + 1;
         } forEach units _spawnedGroup;
+        
+        // Add combat activation - garrison stays in place until shots fired nearby
+        [_spawnedGroup] call DSC_core_fnc_addCombatActivation;
         
         (_result get "units") append (units _spawnedGroup);
     };
