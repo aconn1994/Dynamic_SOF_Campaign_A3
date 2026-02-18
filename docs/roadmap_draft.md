@@ -35,7 +35,7 @@ I've put together a rough outline of the phases I envisioned to try and make thi
         - Surveillance
         - Hack
         - Sabotage
-    Influence/Foreign Internal Defense/Village Stability Operations
+    Influence/Foreign Internal Defense/Village Stability Operations:
         - Search/Cordon Area
         - Patrol with Conventional/Partner Force Troops
 

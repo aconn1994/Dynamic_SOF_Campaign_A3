@@ -27,6 +27,10 @@ PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(init,initServer);
 PREP_SUB(init,initPlayerLocal);
 
+// Missions
+PREP_SUB(missions,generateKillCaptureMission);
+PREP_SUB(missions,cleanupMission);
+
 // Location
 PREP_SUB(locations,getAreaStructures);
 PREP_SUB(locations,getCivilianLocations);

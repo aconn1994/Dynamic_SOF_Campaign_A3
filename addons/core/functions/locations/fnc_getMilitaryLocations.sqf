@@ -144,4 +144,50 @@ _result set ["outposts", _outposts];
 _result set ["camps", _camps];
 _result set ["clusters", _clusters]; // Raw cluster data for debugging
 
+// ============================================================================
+// DEBUG MARKERS
+// ============================================================================
+#ifdef DEBUG_MODE_FULL
+    // Clear any existing debug markers
+    {
+        if ("DSC_milloc_" in _x) then { deleteMarker _x };
+    } forEach allMapMarkers;
+    
+    // Base markers (red)
+    {
+        private _markerName = format ["DSC_milloc_base_%1", _forEachIndex];
+        private _marker = createMarker [_markerName, _x];
+        _marker setMarkerShapeLocal "ICON";
+        _marker setMarkerTypeLocal "mil_objective";
+        _marker setMarkerColorLocal "ColorRed";
+        _marker setMarkerSizeLocal [1, 1];
+        _marker setMarkerText "Base";
+    } forEach _bases;
+    
+    // Outpost markers (red, smaller)
+    {
+        private _markerName = format ["DSC_milloc_outpost_%1", _forEachIndex];
+        private _marker = createMarker [_markerName, _x];
+        _marker setMarkerShapeLocal "ICON";
+        _marker setMarkerTypeLocal "mil_triangle";
+        _marker setMarkerColorLocal "ColorRed";
+        _marker setMarkerSizeLocal [0.8, 0.8];
+        _marker setMarkerText "Outpost";
+    } forEach _outposts;
+    
+    // Camp markers (red, smallest)
+    {
+        private _markerName = format ["DSC_milloc_camp_%1", _forEachIndex];
+        private _marker = createMarker [_markerName, _x];
+        _marker setMarkerShapeLocal "ICON";
+        _marker setMarkerTypeLocal "mil_dot";
+        _marker setMarkerColorLocal "ColorRed";
+        _marker setMarkerSizeLocal [0.6, 0.6];
+        _marker setMarkerText "Camp";
+    } forEach _camps;
+    
+    diag_log format ["DSC: fnc_getMilitaryLocations - Created %1 debug markers", 
+        (count _bases) + (count _outposts) + (count _camps)];
+#endif
+
 _result

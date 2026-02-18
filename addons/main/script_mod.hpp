@@ -11,7 +11,7 @@
 // 0 = No debug
 // 1 = RPT only
 // 2 = RPT + screen
-#define DEBUG_MODE_FULL
+#define DEBUG_MODE_MINIMAL // DEBUG_MODE_FULL
 #define DEBUGGER 2
 
 #include "script_version.hpp"
