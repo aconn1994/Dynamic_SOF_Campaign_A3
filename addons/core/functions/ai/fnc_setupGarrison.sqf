@@ -75,7 +75,7 @@ private _densityProfile = if (_densityChoice == "random") then {
 private _defaultDensityConfig = switch (_densityProfile) do {
     case "light": {
         createHashMapFromArray [
-            ["anchorCount", [1, 3]],
+            ["anchorCount", [2, 4]],
             ["groupsPerAnchor", [1, 1]],
             ["satelliteCount", [0, 1]],
             ["positionFill", 0.5]
@@ -91,7 +91,7 @@ private _defaultDensityConfig = switch (_densityProfile) do {
     };
     case "heavy": {
         createHashMapFromArray [
-            ["anchorCount", [4, 7]],
+            ["anchorCount", [4, 6]],
             ["groupsPerAnchor", [1, 2]],
             ["satelliteCount", [2, 3]],
             ["positionFill", 0.9]

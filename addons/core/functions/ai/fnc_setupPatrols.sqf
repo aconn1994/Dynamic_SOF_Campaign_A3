@@ -59,9 +59,9 @@ if (_groupTemplates isEqualTo []) exitWith {
 };
 
 // Config defaults with overrides
-private _patrolCountRange = _configOverrides getOrDefault ["patrolCount", [3, 6]];
-private _spawnRadiusRange = _configOverrides getOrDefault ["spawnRadius", [400, 600, 800, 1000, 1200]];
-private _patrolRadiusRange = _configOverrides getOrDefault ["patrolRadius", [400, 600, 800, 1000, 1200]];
+private _patrolCountRange = _configOverrides getOrDefault ["patrolCount", [3, 10]];
+private _spawnRadiusRange = _configOverrides getOrDefault ["spawnRadius", [600, 1200, 1800, 2400, 3200]];
+private _patrolRadiusRange = _configOverrides getOrDefault ["patrolRadius", [600, 1200, 1800, 2400, 3200]];
 private _specialGroups = _configOverrides getOrDefault ["specialGroups", []];
 private _specialChance = _configOverrides getOrDefault ["specialChance", 0.15];
 

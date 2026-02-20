@@ -97,19 +97,21 @@ private _tagsPerGroup = [];
 
 // Density settings
 private _patrolCount = switch (_density) do {
-    case "light": { [1, 2] };
-    case "medium": { [2, 3] };
-    case "heavy": { [3, 5] };
-    default { [2, 3] };
+    case "light": { [3, 5] };
+    case "medium": { [4, 6] };
+    case "heavy": { [6, 9] };
+    default { [3, 5] };
 };
 
 // ==================================
 // Guards (Static Weapons on Towers)
 // ==================================
+private _guardUnits = [];
 if (_locationType == "military") then {
     private _guardResult = [_locationPos, "military", _opForFaction, _opForSide] call DSC_core_fnc_setupGuards;
     _missionGroups append (_guardResult get "groups");
-    _totalUnits append (_guardResult get "units");
+    _guardUnits = _guardResult get "units";
+    _totalUnits append _guardUnits;
     _totalVehicles append (_guardResult get "vehicles");
 };
 
@@ -177,14 +179,19 @@ if (_garrisonUnits isNotEqualTo []) then {
             _hvtUnit = _hvtGroup createUnit [_hvtClass, _hvtPos, [], 0, "NONE"];
             _hvtUnit setPos _hvtPos;
             _hvtUnit setUnitPos "UP";
+            _hvtUnit disableAI "PATH";
             
             _placedWithBodyguard = true;
             diag_log format ["DSC: HVT placed with bodyguards in %1", _hvtBuilding];
+        } else {
+            diag_log format ["DSC: No free positions in bodyguard building %1 (%2 positions, %3 occupied)", _hvtBuilding, count _buildingPositions, count _occupiedPositions];
         };
+    } else {
+        diag_log format ["DSC: No candidate garrison units in buildings with 3+ positions (checked %1 units)", count _garrisonUnits];
     };
 };
 
-// Fallback - place HVT in any building alone
+// Fallback - place HVT in a building near the location center (not far away)
 if (!_placedWithBodyguard) then {
     private _buildings = nearestTerrainObjects [_locationPos, ["BUILDING", "HOUSE"], 100];
     _buildings = _buildings select { count (_x buildingPos -1) > 0 };
@@ -223,8 +230,9 @@ _totalUnits pushBack _hvtUnit;
 // ==================================
 // Patrols (Mobile Units)
 // ==================================
+private _patrolGroupsSpawned = [];
 private _patrolGroups = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
-if (count _patrolGroups > 0) then {
+if (_patrolGroups isNotEqualTo []) then {
     private _specialGroups = _atInfantryGroups + _aaInfantryGroups;
     private _patrolConfig = createHashMapFromArray [
         ["specialGroups", _specialGroups],
@@ -232,7 +240,8 @@ if (count _patrolGroups > 0) then {
         ["patrolCount", _patrolCount]
     ];
     private _patrolResult = [_locationPos, _patrolGroups, _opForSide, _patrolConfig] call DSC_core_fnc_setupPatrols;
-    _missionGroups append (_patrolResult get "groups");
+    _patrolGroupsSpawned = _patrolResult get "groups";
+    _missionGroups append _patrolGroupsSpawned;
     _totalUnits append (_patrolResult get "units");
     _tagsPerGroup append (_patrolResult get "tags");
 };
@@ -240,8 +249,9 @@ if (count _patrolGroups > 0) then {
 // ============================================================================
 // Create Mission Marker
 // ============================================================================
-private _targetMarker = createMarker ["target_location_marker", _locationPos];
-_targetMarker setMarkerTypeLocal "mil_objective";
+private _markerPos = if (!isNull _hvtBuilding) then { getPos _hvtBuilding } else { _locationPos };
+private _targetMarker = createMarker ["target_location_marker", _markerPos];
+_targetMarker setMarkerTypeLocal "hd_objective";
 _targetMarker setMarkerColorLocal "ColorRed";
 _targetMarker setMarkerText format ["HVT: %1", _locationName];
 
@@ -257,6 +267,8 @@ private _mission = createHashMapFromArray [
     ["entity", _hvtUnit],
     ["entityBuilding", _hvtBuilding],
     ["groups", _missionGroups],
+    ["patrolGroups", _patrolGroupsSpawned],
+    ["defenderUnits", _guardUnits + _garrisonUnits],
     ["units", _totalUnits],
     ["vehicles", _totalVehicles],
     ["tags", _tagsPerGroup],
