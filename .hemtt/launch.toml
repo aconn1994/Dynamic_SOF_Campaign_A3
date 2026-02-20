@@ -2,9 +2,6 @@
 workshop = [
     "450814997", # CBA_A3
 ]
-dlc = [
-    "Western Sahara"
-]
 # mission = "test.VR"
 mission = "DSC_Altis.Altis"
 
@@ -18,6 +15,9 @@ workshop = [
 
 [developer_aegis]
 extends = "developer"
+dlc = [
+    "Western Sahara"
+]
 workshop = [
     "949252631", # Aegis Mod
 ]
@@ -25,7 +25,6 @@ workshop = [
 [play_test_aegis]
 extends = "developer_aegis"
 workshop = [
-    "949252631", # Aegis Mod
     "333310405", # Enhanced Movement
     "632435682", # Remove Stamina
     "2034363662", # Enhanced Movement Rework
@@ -38,12 +37,21 @@ workshop = [
     "3407948300", # JSRS Soundmod 2025
 ]
 
-[developer_extended_factions]
+[play_test_rhs]
 extends = "developer"
 workshop = [
-    "949252631", # Aegis Mod
     "843577117", # RHSUSAF
     "843425103", # RHSAFRF
     "843593391", # RHSGREF
     "843632231", # RHSSAF
+    "333310405", # Enhanced Movement
+    "632435682", # Remove Stamina
+    "2034363662", # Enhanced Movement Rework
+    "1638341685", # DUI - Squad Radar
+    "338988835", # MCC
+    "2791403093", # Better Inventory
+    "2884936024", # Blastcore Compiled
+    "1770265310", # No More Aircraft Bouncing
+    "2041057379", # A3 Thermal Improvement
+    "3407948300", # JSRS Soundmod 2025
 ]

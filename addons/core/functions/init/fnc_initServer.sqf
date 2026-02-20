@@ -44,7 +44,7 @@ private _civLandmarks = _civilianLocations get "landmarks";
 // ============================================================================
 diag_log "=============== DSC: Initializing Faction Data =================";
 
-private _opForFaction = missionNamespace getVariable ["opForFaction", "OPF_R_F"];
+private _opForFaction = missionNamespace getVariable ["opForFaction", "rhs_faction_msv"];
 private _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
 private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 
