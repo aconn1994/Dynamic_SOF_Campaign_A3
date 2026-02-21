@@ -539,7 +539,7 @@ class Mission
 						class data
 						{
 							singleType="STRING";
-							value="";
+							value="#adminLogged";
 						};
 					};
 				};
