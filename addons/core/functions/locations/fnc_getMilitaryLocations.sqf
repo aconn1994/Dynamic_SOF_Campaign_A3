@@ -49,12 +49,12 @@ private _clusterRadius = 400;
 
 // Find all military structures on map
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
-private _militaryEntitiesList = nearestObjects [_centerPosition, _militaryObjects, worldSize];
+private _militaryEntitiesList = [_centerPosition, _militaryObjects, worldSize] call DSC_core_fnc_getMapStructures;
 
 // Filter out ruins
-_militaryEntitiesList = _militaryEntitiesList select {
-    !([_x, _excludedTypes] call _isRuins)
-};
+// _militaryEntitiesList = _militaryEntitiesList select {
+//     !([_x, _excludedTypes] call _isRuins)
+// };
 
 // Filter out structures inside player base marker
 private _playerBaseMarker = "player_base";

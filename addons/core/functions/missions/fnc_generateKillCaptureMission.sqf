@@ -193,7 +193,7 @@ if (_garrisonUnits isNotEqualTo []) then {
 
 // Fallback - place HVT in a building near the location center (not far away)
 if (!_placedWithBodyguard) then {
-    private _buildings = nearestTerrainObjects [_locationPos, ["BUILDING", "HOUSE"], 100];
+    private _buildings = [_locationPos, ["BUILDING", "HOUSE", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"], 100] call DSC_core_fnc_getMapStructures;
     _buildings = _buildings select { count (_x buildingPos -1) > 0 };
     
     private _hvtGroup = createGroup [_opForSide, true];

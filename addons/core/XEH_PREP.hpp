@@ -36,6 +36,7 @@ PREP_SUB(missions,cleanupMission);
 PREP_SUB(locations,getAreaStructures);
 PREP_SUB(locations,getCivilianLocations);
 PREP_SUB(locations,getGuardPosts);
+PREP_SUB(locations,getMapStructures);
 PREP_SUB(locations,getMilitaryLocations);
 PREP_SUB(locations,getPerimeterPositions);
 

@@ -120,7 +120,7 @@ diag_log format ["DSC: fnc_setupGarrison - Density: %1", _densityProfile];
 // FIND AND CATEGORIZE STRUCTURES
 // ============================================================================
 private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"];
-private _locationStructures = nearestObjects [_locationPos, _structureCategories, _radius];
+private _locationStructures = [_locationPos, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
 
 private _mainStructures = [];
 private _sideStructures = [];

@@ -24,11 +24,11 @@ private _allGuardPosts = [];
 private _offsetDist = 2;
 
 // // TODO: add perimeter sampling for walls/gates
-private _perimeterObjs = nearestTerrainObjects [
+private _perimeterObjs = [
     _location,
     ["FENCE", "WALL", "HIDE"],
     selectRandom [250, 400, 600]
-];
+] call DSC_core_fnc_getMapStructures;
 
 // Filter: only keep objects near the marker’s border
 private _minBorderDist = (10 * 0.75);  // tweak 0.75 for tighter/looser filtering

@@ -54,7 +54,7 @@ if (_locationPos isEqualTo []) exitWith {
 // Default config with overrides
 private _maxStatics = _configOverrides getOrDefault ["maxStatics", 2 + floor random 2]; // 2-3
 private _staticChance = _configOverrides getOrDefault ["staticChance", 0.5];
-private _radius = _configOverrides getOrDefault ["radius", 300];
+private _radius = _configOverrides getOrDefault ["radius", 600];
 
 // ============================================================================
 // MILITARY LOCATION GUARDS
@@ -65,7 +65,7 @@ if (_locationType == "military") then {
     
     // Find guard structures in area
     private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "MILITARY"];
-    private _locationStructures = nearestObjects [_locationPos, _structureCategories, _radius];
+    private _locationStructures = [_locationPos, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
     
     private _guardStructures = [];
     {
