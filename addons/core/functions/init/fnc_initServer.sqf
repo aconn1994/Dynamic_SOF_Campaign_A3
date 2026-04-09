@@ -102,8 +102,8 @@ while { true } do {
     // Re-enable damage for all spawned units
     {
         _x allowDamage true;
-        _x setSkill ["general", 0.8];
-        _x setSkill ["aimingAccuracy", 0.3];
+        _x setSkill ["general", 0.6];
+        _x setSkill ["aimingAccuracy", 0.2];
     } forEach _totalUnits;
     
     // Add units to zeus

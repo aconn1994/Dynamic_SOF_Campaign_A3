@@ -193,8 +193,19 @@ if (_garrisonUnits isNotEqualTo []) then {
 
 // Fallback - place HVT in a building near the location center (not far away)
 if (!_placedWithBodyguard) then {
-    private _buildings = [_locationPos, ["BUILDING", "HOUSE", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"], 100] call DSC_core_fnc_getMapStructures;
-    _buildings = _buildings select { count (_x buildingPos -1) > 0 };
+    private _structureTypes = call DSC_core_fnc_getStructureTypes;
+    private _validTypes = (_structureTypes get "main") + (_structureTypes get "side");
+    private _exclusions = _structureTypes get "exclusions";
+    
+    private _buildings = [_locationPos, ["BUILDING", "HOUSE", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"], 300] call DSC_core_fnc_getMapStructures;
+    _buildings = _buildings select {
+        private _struct = _x;
+        private _hasPositions = (_struct buildingPos -1) isNotEqualTo [];
+        private _isExcluded = false;
+        { if (_struct isKindOf _x) exitWith { _isExcluded = true } } forEach _exclusions;
+        private _isValid = (_validTypes findIf { _struct isKindOf _x }) > -1;
+        _hasPositions && !_isExcluded && _isValid
+    };
     
     private _hvtGroup = createGroup [_opForSide, true];
     

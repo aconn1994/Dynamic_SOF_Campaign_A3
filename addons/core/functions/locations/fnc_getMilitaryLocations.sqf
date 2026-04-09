@@ -29,20 +29,9 @@ private _militaryObjects = [
     "Land_MilOffices_V1_F"
 ];
 
-// List of config parent types to exclude
-private _excludedTypes = ["Ruins", "Ruins_F", "_V2_"]; // _V2_ is for rusty structures, typically in abandoned areas
-
-// Helper function that checks if an object inherits from any excluded type
-private _isRuins = {
-    params ["_obj", "_excludedTypes"];
-    private _result = false;
-    
-    {
-        if ((_obj isKindOf _x) || (_x in (typeOf _obj))) exitWith { _result = true };
-    } forEach _excludedTypes;
-
-    _result
-};
+// Get map-specific exclusions from structure types config
+private _structureTypes = call DSC_core_fnc_getStructureTypes;
+private _exclusions = _structureTypes get "exclusions";
 
 // Cluster radius - structures within this distance are considered part of same location
 private _clusterRadius = 400;
@@ -51,10 +40,20 @@ private _clusterRadius = 400;
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
 private _militaryEntitiesList = [_centerPosition, _militaryObjects, worldSize] call DSC_core_fnc_getMapStructures;
 
-// Filter out ruins
-// _militaryEntitiesList = _militaryEntitiesList select {
-//     !([_x, _excludedTypes] call _isRuins)
-// };
+// Filter out map-excluded structures (e.g. rusty V2 on Altis)
+if (_exclusions isNotEqualTo []) then {
+    private _countBefore = count _militaryEntitiesList;
+    _militaryEntitiesList = _militaryEntitiesList select {
+        private _struct = _x;
+        private _isExcluded = false;
+        { if (_struct isKindOf _x) exitWith { _isExcluded = true } } forEach _exclusions;
+        !_isExcluded
+    };
+    private _excluded = _countBefore - count _militaryEntitiesList;
+    if (_excluded > 0) then {
+        diag_log format ["DSC: Excluded %1 military structures by map rules", _excluded];
+    };
+};
 
 // Filter out structures inside player base marker
 private _playerBaseMarker = "player_base";

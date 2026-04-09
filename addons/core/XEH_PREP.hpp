@@ -13,6 +13,7 @@ PREP_SUB(classification,classifyGroups);
 // Data
 PREP_SUB(data,getFactionAssets);
 PREP_SUB(data,getStructurePositions);
+PREP_SUB(data,getStructureTypes);
 PREP_SUB(data,getStructureVariants);
 PREP_SUB(data,recordStructurePositions);
 PREP_SUB(data,spawnAtStructurePosition);

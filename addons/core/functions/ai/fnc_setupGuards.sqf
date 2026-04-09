@@ -63,6 +63,10 @@ if (_locationType == "military") then {
     // Guard structure types - Patrol and Tower only (HQ is for garrison)
     private _guardStructureTypes = ["Cargo_Patrol_base_F", "Cargo_Tower_base_F"];
     
+    // Get map-specific exclusions
+    private _structureTypes = call DSC_core_fnc_getStructureTypes;
+    private _exclusions = _structureTypes get "exclusions";
+    
     // Find guard structures in area
     private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "MILITARY"];
     private _locationStructures = [_locationPos, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
@@ -70,6 +74,12 @@ if (_locationType == "military") then {
     private _guardStructures = [];
     {
         private _struct = _x;
+        
+        // Check map exclusions first
+        private _isExcluded = false;
+        { if (_struct isKindOf _x) exitWith { _isExcluded = true } } forEach _exclusions;
+        if (_isExcluded) then { continue };
+        
         {
             if (_struct isKindOf _x) exitWith { 
                 _guardStructures pushBack _struct;

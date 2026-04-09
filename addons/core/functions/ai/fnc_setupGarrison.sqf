@@ -119,31 +119,52 @@ diag_log format ["DSC: fnc_setupGarrison - Density: %1", _densityProfile];
 // ============================================================================
 // FIND AND CATEGORIZE STRUCTURES
 // ============================================================================
-private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"];
-private _locationStructures = [_locationPos, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
+private _structureTypes = call DSC_core_fnc_getStructureTypes;
+private _mainTypes = _structureTypes get "main";
+private _sideTypes = _structureTypes get "side";
+private _exclusions = _structureTypes get "exclusions";
+
+// Search area for all House-based objects
+private _locationStructures = [_locationPos, ["House"], _radius] call DSC_core_fnc_getMapStructures;
 
 private _mainStructures = [];
 private _sideStructures = [];
 
-// Military tower/lookout structure types (count as main structures)
-private _towerTypes = ["Cargo_HQ_base_F", "Cargo_Patrol_base_F", "Cargo_Tower_base_F"];
-
 {
     private _struct = _x;
-    private _noOfPositions = count (_x buildingPos -1);
 
-    if (_noOfPositions == 0) then { continue };
+    if ((_struct buildingPos -1) isEqualTo []) then { continue };
 
-    // Check if this is a military tower structure
-    private _isTower = false;
+    // Check map exclusions first
+    private _isExcluded = false;
     {
-        if (_struct isKindOf _x) exitWith { _isTower = true };
-    } forEach _towerTypes;
+        if (_struct isKindOf _x) exitWith { _isExcluded = true };
+    } forEach _exclusions;
 
-    if (_isTower || _noOfPositions >= 5) then {
+    if (_isExcluded) then { continue };
+
+    // Check against curated type lists using isKindOf
+    private _isMain = false;
+    private _isSide = false;
+
+    {
+        if (_struct isKindOf _x) exitWith { _isMain = true };
+    } forEach _mainTypes;
+
+    if (!_isMain) then {
+        {
+            if (_struct isKindOf _x) exitWith { _isSide = true };
+        } forEach _sideTypes;
+    };
+
+    if (_isMain) then {
         _mainStructures pushBack _struct;
     } else {
-        _sideStructures pushBack _struct;
+        if (_isSide) then {
+            _sideStructures pushBack _struct;
+        } else {
+            diag_log format ["DSC: fnc_setupGarrison - Unclassified structure: %1 (%2 positions)", typeOf _struct, count (_struct buildingPos -1)];
+        };
     };
 } forEach _locationStructures;
 
@@ -189,6 +210,9 @@ diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors", count _anchors]
 // ============================================================================
 // SPAWN GROUPS AT ANCHORS WITH SATELLITES
 // ============================================================================
+private _mainStructureCapacity = 4;
+private _sideStructureCapacity = 2;
+
 {
     private _anchor = _x;
     private _anchorPos = getPos _anchor;
@@ -211,30 +235,41 @@ diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors", count _anchors]
     
     diag_log format ["DSC: fnc_setupGarrison - Anchor %1 has %2 satellites", _anchor, count _satellites];
     
-    // Collect all positions for this cluster (anchor + satellites)
+    // Build per-building position lists with capacity limits
     private _clusterBuildings = [_anchor] + _satellites;
-    private _allPositions = [];
+    private _buildingSlots = []; // Array of [building, [capped positions]]
+    private _totalCappedPositions = 0;
     
     {
-        private _positions = _x buildingPos -1;
-        _allPositions append _positions;
+        private _building = _x;
+        private _positions = _building buildingPos -1;
+        private _isMain = _building in _mainStructures;
+        private _cap = [_sideStructureCapacity, _mainStructureCapacity] select (_isMain);
+        private _cappedCount = _cap min (count _positions);
+        
+        // Randomly select positions up to the cap
+        private _shuffled = _positions call BIS_fnc_arrayShuffle;
+        private _selectedPositions = _shuffled select [0, _cappedCount];
+        
+        _buildingSlots pushBack [_building, _selectedPositions];
+        _totalCappedPositions = _totalCappedPositions + _cappedCount;
     } forEach _clusterBuildings;
     
     // Determine how many groups for this anchor
     private _numGroups = (_groupsPerAnchorRange select 0) + floor random ((_groupsPerAnchorRange select 1) - (_groupsPerAnchorRange select 0) + 1);
     
-    // Calculate target unit count based on position fill
-    private _targetUnits = floor ((count _allPositions) * _positionFill);
+    // Calculate target unit count based on position fill (capped total)
+    private _targetUnits = floor (_totalCappedPositions * _positionFill);
     private _unitsSpawned = 0;
     
-    diag_log format ["DSC: fnc_setupGarrison - Cluster has %1 positions, targeting %2 units", count _allPositions, _targetUnits];
+    diag_log format ["DSC: fnc_setupGarrison - Cluster: %1 buildings, %2 capped positions, targeting %3 units", count _clusterBuildings, _totalCappedPositions, _targetUnits];
     
     // Spawn groups until we hit target or run out of groups
     for "_g" from 1 to _numGroups do {
         if (_unitsSpawned >= _targetUnits) exitWith {};
         if (_groupTemplates isEqualTo []) exitWith {};
         
-        private _remainingPositions = (count _allPositions) - _unitsSpawned;
+        private _remainingPositions = _targetUnits - _unitsSpawned;
         
         // Filter to groups that fit, or if none fit, use smallest available
         private _fittingGroups = _groupTemplates select { 
@@ -266,14 +301,28 @@ diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors", count _anchors]
         (_result get "groups") pushBack _spawnedGroup;
         (_result get "tags") pushBack _doctrineTags;
         
-        // Place units in building positions
+        // Distribute units across buildings respecting per-building caps
         {
-            if (_unitsSpawned >= count _allPositions) exitWith {};
+            if (_unitsSpawned >= _targetUnits) exitWith {};
             
-            _x allowDamage false;
-            _x setPos (_allPositions select _unitsSpawned);
+            private _unit = _x;
+            private _placed = false;
             
-            _unitsSpawned = _unitsSpawned + 1;
+            // Find a building with remaining slots
+            {
+                _x params ["_building", "_positions"];
+                
+                if (_positions isNotEqualTo []) exitWith {
+                    private _pos = _positions deleteAt 0;
+                    _unit allowDamage false;
+                    _unit setPos _pos;
+                    _placed = true;
+                };
+            } forEach _buildingSlots;
+            
+            if (_placed) then {
+                _unitsSpawned = _unitsSpawned + 1;
+            };
         } forEach units _spawnedGroup;
         
         // Add combat activation - garrison stays in place until shots fired nearby
