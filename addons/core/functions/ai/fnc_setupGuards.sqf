@@ -68,8 +68,7 @@ if (_locationType == "military") then {
     private _exclusions = _structureTypes get "exclusions";
     
     // Find guard structures in area
-    private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "MILITARY"];
-    private _locationStructures = [_locationPos, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
+    private _locationStructures = [_locationPos, ["House", "Building", "Strategic"], _radius] call DSC_core_fnc_getMapStructures;
     
     private _guardStructures = [];
     {

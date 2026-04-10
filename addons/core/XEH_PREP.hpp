@@ -20,6 +20,7 @@ PREP_SUB(data,spawnAtStructurePosition);
 
 // Debug
 PREP_SUB(debug,mapPositionsOnMilLocations);
+PREP_SUB(debug,scanMapStructures);
 
 // Faction
 PREP_SUB(faction,extractGroups);

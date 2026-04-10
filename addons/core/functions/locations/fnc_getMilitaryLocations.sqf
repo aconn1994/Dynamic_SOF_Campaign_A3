@@ -38,7 +38,7 @@ private _clusterRadius = 400;
 
 // Find all military structures on map
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
-private _militaryEntitiesList = [_centerPosition, _militaryObjects, worldSize] call DSC_core_fnc_getMapStructures;
+private _militaryEntitiesList = [_centerPosition, _militaryObjects, worldSize, ["MILITARY"]] call DSC_core_fnc_getMapStructures;
 
 // Filter out map-excluded structures (e.g. rusty V2 on Altis)
 if (_exclusions isNotEqualTo []) then {

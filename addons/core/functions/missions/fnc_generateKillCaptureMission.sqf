@@ -197,7 +197,7 @@ if (!_placedWithBodyguard) then {
     private _validTypes = (_structureTypes get "main") + (_structureTypes get "side");
     private _exclusions = _structureTypes get "exclusions";
     
-    private _buildings = [_locationPos, ["BUILDING", "HOUSE", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"], 300] call DSC_core_fnc_getMapStructures;
+    private _buildings = [_locationPos, ["House", "Building", "Strategic"], 300] call DSC_core_fnc_getMapStructures;
     _buildings = _buildings select {
         private _struct = _x;
         private _hasPositions = (_struct buildingPos -1) isNotEqualTo [];

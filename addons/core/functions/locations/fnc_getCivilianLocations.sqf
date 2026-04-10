@@ -147,14 +147,14 @@ private _rawData = [];
                     } else {
                         // Structure scan for remaining unmarked locations
                         // Check for maritime structures (piers, docks)
-                        private _nearbyMaritime = [_pos, _maritimeStructures, 100] call DSC_core_fnc_getMapStructures;
+                        private _nearbyMaritime = [_pos, _maritimeStructures, 100, []] call DSC_core_fnc_getMapStructures;
                         
                         if (_nearbyMaritime isNotEqualTo []) then {
                             _maritime pushBack _pos;
                             diag_log format ["DSC: Maritime: %1 at %2 (%3 structures)", _name, _pos, count _nearbyMaritime];
                         } else {
                             // Check for buildings (potential compound)
-                            private _nearbyBuildings = [_pos, ["BUILDING", "HOUSE", "VILLAGE", "CITY"], 300] call DSC_core_fnc_getMapStructures;
+                            private _nearbyBuildings = [_pos, ["House", "Building"], 300] call DSC_core_fnc_getMapStructures;
                             // Filter to only buildings with interiors (enterable) and exclude non-structure types
                             _nearbyBuildings = _nearbyBuildings select { 
                                 private _obj = _x;

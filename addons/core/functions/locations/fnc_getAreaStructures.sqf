@@ -21,8 +21,7 @@ params ["_location", "_radius"];
 private _mainStructures = [];
 private _sideStructures = [];
 
-private _structureCategories = ["BUILDING", "HOUSE", "BUNKER", "FORTRESS", "HOSPITAL", "VIEW-TOWER", "MILITARY", "VILLAGE", "CITY"];
-private _locationStructures = [_location, _structureCategories, _radius] call DSC_core_fnc_getMapStructures;
+private _locationStructures = [_location, ["House", "Building", "Strategic"], _radius] call DSC_core_fnc_getMapStructures;
 
 {
     private _struct = _x;
