@@ -3,11 +3,11 @@ workshop = [
     "450814997", # CBA_A3
 ]
 # mission = "test.VR"
-# mission = "DSC_Altis.Altis"
+mission = "DSC_Altis.Altis"
 # mission = "DSC_Livonia.enoch"
 # mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"
-mission = "DSC_Tanoa.Tanoa"
+# mission = "DSC_Tanoa.Tanoa"
 
 [developer]
 extends = "default"

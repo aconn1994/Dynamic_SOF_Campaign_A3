@@ -41,6 +41,7 @@ PREP_SUB(locations,getGuardPosts);
 PREP_SUB(locations,getMapStructures);
 PREP_SUB(locations,getMilitaryLocations);
 PREP_SUB(locations,getPerimeterPositions);
+PREP_SUB(locations,scanLocations);
 
 // Validators
 PREP_SUB(validators,groupActive);
