@@ -1,46 +1,29 @@
 // DSC - Dynamic SOF Campaign
+// Server initialization - orchestrates world scanning, faction setup, and mission loop
 
-missionNamespace setVariable ["initGlobalsComplete", false, true];
 // ============================================================================
 // STEP 0: Init Server Globals
 // ============================================================================
-// Faction Vars
+missionNamespace setVariable ["initGlobalsComplete", false, true];
+
 missionNamespace setVariable ["playerFaction", "BLU_F", true];
 missionNamespace setVariable ["opForFaction", "OPF_F", true];
-
-// Mission Vars
-missionNamespace setVariable ["missionState", "IDLE", true]; // IDLE -> ACTIVE -> DEBRIEF -> CLEANUP -> IDLE
+missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
 
 missionNamespace setVariable ["initGlobalsComplete", true, true];
 
 // ============================================================================
-// STEP 1: Scan Map for Military Locations
+// STEP 1: Scan World - One pass, all locations with structures + tags
 // ============================================================================
-private _militaryLocations = [] call DSC_core_fnc_getMilitaryLocations;
+private _locations = [] call DSC_core_fnc_scanLocations;
+missionNamespace setVariable ["DSC_locations", _locations, true];
 
-private _milBases = _militaryLocations get "bases";
-private _milOutposts = _militaryLocations get "outposts";
-private _milCamps = _militaryLocations get "camps";
-
-// ============================================================================
-// STEP 1b: Scan Map for Civilian Locations
-// ============================================================================
-private _civilianLocations = [] call DSC_core_fnc_getCivilianLocations;
-
-private _civCities = _civilianLocations get "cities";
-private _civVillages = _civilianLocations get "villages";
-private _civCompounds = _civilianLocations get "compounds";
-private _civMaritime = _civilianLocations get "maritime";
-private _civSpecial = _civilianLocations get "special";
-private _civLandmarks = _civilianLocations get "landmarks";
-
-// ******  TODO  ******, main enemy airbase location setup will happen here.........
-// ******  TODO  ******, main insurgent base location setup will happen here.........
+diag_log format ["DSC: World scan complete - %1 locations indexed", count _locations];
 
 // ============================================================================
-// STEP 2: Get Faction group data using classification system
+// STEP 2: Faction Data
 // ============================================================================
 diag_log "=============== DSC: Initializing Faction Data =================";
 
@@ -50,8 +33,7 @@ private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 
 diag_log format ["DSC: Classified %1 groups for faction %2", count _classifiedGroups, _opForFaction];
 
-// Fallback check
-if (count _classifiedGroups == 0) then {
+if (_classifiedGroups isEqualTo []) then {
     diag_log "DSC: No groups found, falling back to OPF_F";
     _opForFaction = "OPF_F";
     missionNamespace setVariable ["opForFaction", _opForFaction, true];
@@ -59,7 +41,6 @@ if (count _classifiedGroups == 0) then {
     _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 };
 
-// Store classified groups globally
 missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 
 // ============================================================================
@@ -68,59 +49,160 @@ missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 while { true } do {
     diag_log "DSC: ========== Starting Mission Generation ==========";
     
-    // Generate kill/capture mission
-    private _missionConfig = createHashMapFromArray [
-        ["validMilTypes", ["camps", "outposts"]],
-        ["validCivTypes", ["compounds", "villages", "cities"]],
-        ["density", "medium"]
-    ];
+    // --- Select Location ---
+    // Filter to locations suitable for kill/capture (has structures to garrison)
+    private _validLocations = _locations select {
+        (_x get "mainCount") >= 1 && (_x get "buildingCount") >= 3
+    };
     
-    private _mission = [
-        _militaryLocations,
-        _civilianLocations,
-        _classifiedGroups,
-        _missionConfig
-    ] call DSC_core_fnc_generateKillCaptureMission;
-    
-    // Check if mission generated successfully
-    if (count _mission == 0) then {
-        diag_log "DSC: ERROR - Mission generation failed, retrying in 10s";
-        sleep 10;
+    if (_validLocations isEqualTo []) then {
+        diag_log "DSC: ERROR - No valid locations found, retrying in 30s";
+        sleep 30;
         continue;
     };
     
-    // ============================================================================
-    // STEP 4: Mission Active
-    // ============================================================================
-    private _hvtUnit = _mission get "entity";
-    private _locationPos = _mission get "location";
-    private _locationName = _mission get "locationName";
-    private _missionGroups = _mission get "groups";
-    private _patrolGroups = _mission get "patrolGroups";
-    private _totalUnits = _mission get "units";
+    private _selectedLocation = selectRandom _validLocations;
+    private _locationPos = _selectedLocation get "position";
+    private _locationName = _selectedLocation get "name";
+    private _locationTags = _selectedLocation get "tags";
     
-    // Re-enable damage for all spawned units
+    diag_log format ["DSC: Selected location: %1 (%2 buildings, tags: %3)", 
+        _locationName, _selectedLocation get "buildingCount", _locationTags];
+    
+    // --- Populate AO ---
+    private _ao = [_selectedLocation, _classifiedGroups] call DSC_core_fnc_populateAO;
+    
+    private _aoGroups = _ao get "groups";
+    private _aoUnits = _ao get "units";
+    private _aoVehicles = _ao get "vehicles";
+    private _defenderUnits = _ao get "defenderUnits";
+    private _patrolGroups = _ao get "patrolGroups";
+    private _garrisonUnits = _ao get "garrisonUnits";
+    
+    // --- Place HVT ---
+    private _opForSide = east;
+    private _hvtUnit = objNull;
+    private _hvtBuilding = objNull;
+    
+    // Get officer class from faction
+    private _hvtClass = "O_officer_F";
+    private _filterStr = format ["getNumber (_x >> 'scope') >= 2 && getText (_x >> 'faction') == '%1' && getNumber (_x >> 'isMan') == 1", _opForFaction];
+    private _factionUnits = _filterStr configClasses (configFile >> "CfgVehicles");
+    
+    {
+        private _unitName = toLower (configName _x);
+        if ("officer" in _unitName || "commander" in _unitName || "leader" in _unitName) exitWith {
+            _hvtClass = configName _x;
+        };
+    } forEach _factionUnits;
+    
+    // Try placing HVT with garrison bodyguards
+    private _placedWithBodyguard = false;
+    
+    if (_garrisonUnits isNotEqualTo []) then {
+        private _candidateUnits = _garrisonUnits select {
+            private _building = nearestBuilding _x;
+            !isNull _building && { count (_building buildingPos -1) >= 3 }
+        };
+        
+        if (_candidateUnits isNotEqualTo []) then {
+            private _bodyguard = selectRandom _candidateUnits;
+            _hvtBuilding = nearestBuilding _bodyguard;
+            private _buildingPositions = _hvtBuilding buildingPos -1;
+            
+            private _occupiedPositions = _garrisonUnits apply { getPos _x };
+            private _freePositions = _buildingPositions select {
+                private _pos = _x;
+                (_occupiedPositions findIf { _x distance _pos < 1 }) == -1
+            };
+            
+            if (_freePositions isNotEqualTo []) then {
+                private _hvtPos = selectRandom _freePositions;
+                private _hvtGroup = group _bodyguard;
+                _hvtUnit = _hvtGroup createUnit [_hvtClass, _hvtPos, [], 0, "NONE"];
+                _hvtUnit setPos _hvtPos;
+                _hvtUnit setUnitPos "UP";
+                _hvtUnit disableAI "PATH";
+                _placedWithBodyguard = true;
+                diag_log format ["DSC: HVT placed with bodyguards in %1", _hvtBuilding];
+            };
+        };
+    };
+    
+    // Fallback: place in any location structure
+    if (!_placedWithBodyguard) then {
+        private _allStructures = (_selectedLocation get "mainStructures") + (_selectedLocation get "sideStructures");
+        _allStructures = _allStructures select { (_x buildingPos -1) isNotEqualTo [] };
+        
+        private _hvtGroup = createGroup [_opForSide, true];
+        
+        if (_allStructures isNotEqualTo []) then {
+            _hvtBuilding = selectRandom _allStructures;
+            private _buildingPositions = _hvtBuilding buildingPos -1;
+            private _hvtPos = selectRandom _buildingPositions;
+            _hvtUnit = _hvtGroup createUnit [_hvtClass, _hvtPos, [], 0, "NONE"];
+            _hvtUnit setPos _hvtPos;
+            _hvtUnit setUnitPos "UP";
+            diag_log format ["DSC: HVT placed alone in %1", _hvtBuilding];
+        } else {
+            _hvtUnit = _hvtGroup createUnit [_hvtClass, _locationPos, [], 5, "NONE"];
+            diag_log "DSC: HVT spawned at location center (no buildings)";
+        };
+        
+        _hvtGroup setBehaviour "SAFE";
+        _hvtGroup setCombatMode "GREEN";
+        _hvtGroup enableAttack false;
+        [_hvtGroup] call DSC_core_fnc_addCombatActivation;
+        _aoGroups pushBack _hvtGroup;
+    };
+    
+    _hvtUnit setVariable ["DSC_isHVT", true, true];
+    _hvtUnit setVariable ["DSC_hvtName", format ["Target %1", floor (random 1000)], true];
+    _aoUnits pushBack _hvtUnit;
+    
+    // --- Mission Marker ---
+    private _markerPos = if (!isNull _hvtBuilding) then { getPos _hvtBuilding } else { _locationPos };
+    private _targetMarker = createMarker ["target_location_marker", _markerPos];
+    _targetMarker setMarkerTypeLocal "hd_objective";
+    _targetMarker setMarkerColorLocal "ColorRed";
+    _targetMarker setMarkerText format ["HVT: %1", _locationName];
+    
+    // --- Configure Units ---
     {
         _x allowDamage true;
         _x setSkill ["general", 0.6];
         _x setSkill ["aimingAccuracy", 0.2];
-    } forEach _totalUnits;
+    } forEach _aoUnits;
     
-    // Add units to zeus
+    // Add to zeus
     private _curator = (allCurators) select 0;
     if (!isNull _curator) then {
-        {
-            _curator addCuratorEditableObjects [[_x], true];
-        } forEach allUnits;
+        { _curator addCuratorEditableObjects [[_x], true] } forEach allUnits;
     };
     
-    // ============================================================================
-    // STEP 4b: Setup Combat Response - Patrols converge when defenders take fire
-    // ============================================================================
-    private _defenderUnits = _mission getOrDefault ["defenderUnits", []];
-    private _qrfDelaySeconds = 5; // 120 + random 60; // 2-3 minute delay for QRF response
+    // --- Build Mission Data ---
+    private _mission = createHashMapFromArray [
+        ["type", "KILL_CAPTURE"],
+        ["location", _locationPos],
+        ["locationName", _locationName],
+        ["locationTags", _locationTags],
+        ["entity", _hvtUnit],
+        ["entityBuilding", _hvtBuilding],
+        ["groups", _aoGroups],
+        ["patrolGroups", _patrolGroups],
+        ["defenderUnits", _defenderUnits],
+        ["units", _aoUnits],
+        ["vehicles", _aoVehicles],
+        ["marker", _targetMarker],
+        ["startTime", serverTime],
+        ["status", "ACTIVE"]
+    ];
     
-    // Always include HVT as trigger unit, plus any defenders
+    missionNamespace setVariable ["DSC_currentMission", _mission, true];
+    
+    // --- QRF Combat Response ---
+    private _qrfDelaySeconds = 120 + random 60;
+    
     private _triggerUnits = +_defenderUnits;
     if (!isNull _hvtUnit && !(_hvtUnit in _triggerUnits)) then {
         _triggerUnits pushBack _hvtUnit;
@@ -131,17 +213,13 @@ while { true } do {
             _x addEventHandler ["FiredNear", {
                 params ["_unit", "_firer", "_distance", "_weapon", "_muzzle", "_mode", "_ammo", "_gunner"];
                 
-                // Only trigger for player or player's AI squad mates
                 private _isPlayerOrSquadmate = isPlayer _gunner || { isPlayer (leader group _gunner) };
                 if (!_isPlayerOrSquadmate) exitWith {};
                 
                 private _mission = missionNamespace getVariable ["DSC_currentMission", createHashMap];
                 if (_mission isEqualTo createHashMap) exitWith {};
-                
-                // Check if already triggered
                 if (_mission getOrDefault ["combatResponseTriggered", false]) exitWith {};
                 
-                // Mark as triggered immediately so other units don't re-trigger
                 _mission set ["combatResponseTriggered", true];
                 missionNamespace setVariable ["DSC_currentMission", _mission, true];
                 
@@ -151,56 +229,45 @@ while { true } do {
                 
                 if (_patrolGroups isEqualTo [] || _locationPos isEqualTo []) exitWith {};
                 
-                diag_log format ["DSC: Combat response triggered - QRF dispatched in %1 seconds", _qrfDelay];
+                diag_log format ["DSC: QRF dispatched in %1 seconds", _qrfDelay];
                 
-                // Delayed QRF response
                 [_patrolGroups, _locationPos, _qrfDelay] spawn {
                     params ["_patrols", "_pos", "_delay"];
-                    
                     sleep _delay;
                     
-                    // Verify mission still active
-                    private _mission = missionNamespace getVariable ["DSC_currentMission", createHashMap];
-                    if (_mission isEqualTo createHashMap) exitWith {};
                     if (!(missionNamespace getVariable ["missionInProgress", false])) exitWith {};
                     
                     [_patrols, _pos] call DSC_core_fnc_convergePatrols;
-                    
                     systemChat "Enemy QRF is responding to the engagement!";
-                    diag_log "DSC: QRF patrols now converging on objective";
+                    diag_log "DSC: QRF patrols converging on objective";
                 };
                 
-                // Remove EH from all trigger units
                 private _triggerUnits = _mission getOrDefault ["triggerUnits", []];
-                {
-                    _x removeEventHandler ["FiredNear", _thisEventHandler];
-                } forEach _triggerUnits;
+                { _x removeEventHandler ["FiredNear", _thisEventHandler] } forEach _triggerUnits;
             }];
         } forEach _triggerUnits;
         
-        // Store in mission for cleanup
         _mission set ["qrfDelay", _qrfDelaySeconds];
         _mission set ["triggerUnits", _triggerUnits];
         missionNamespace setVariable ["DSC_currentMission", _mission, true];
         
-        diag_log format ["DSC: Combat response EH added to %1 units (QRF delay: %2s)", count _triggerUnits, _qrfDelaySeconds];
+        diag_log format ["DSC: QRF EH on %1 units (delay: %2s)", count _triggerUnits, _qrfDelaySeconds];
     };
     
+    // --- Mission Active ---
     missionNamespace setVariable ["missionInProgress", true, true];
     missionNamespace setVariable ["missionState", "ACTIVE", true];
     
     diag_log format ["DSC: Mission ACTIVE - Kill/Capture at %1 (%2 groups, %3 units)", 
-        _locationName, count _missionGroups, count _totalUnits];
+        _locationName, count _aoGroups, count _aoUnits];
     
-    // Wait for mission end (triggered externally by player RTB)
+    // Wait for debrief (triggered by player at flagpole)
     waitUntil { 
         sleep 1;
         !(missionNamespace getVariable ["missionInProgress", true])
     };
     
-    // ============================================================================
-    // STEP 5: Mission Debrief
-    // ============================================================================
+    // --- Debrief ---
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
     
     private _hvtKilled = !alive _hvtUnit;
@@ -216,9 +283,7 @@ while { true } do {
         diag_log "DSC: Mission INCOMPLETE";
     };
     
-    // ============================================================================
-    // STEP 6: Mission Cleanup
-    // ============================================================================
+    // --- Cleanup ---
     missionNamespace setVariable ["missionState", "CLEANUP", true];
     
     [_mission] call DSC_core_fnc_cleanupMission;
@@ -227,9 +292,6 @@ while { true } do {
     missionNamespace setVariable ["missionComplete", false, true];
     missionNamespace setVariable ["missionState", "IDLE", true];
     
-    // ============================================================================
-    // STEP 7: Brief pause before next mission
-    // ============================================================================
     diag_log "DSC: Waiting before next mission...";
     sleep 5;
 };

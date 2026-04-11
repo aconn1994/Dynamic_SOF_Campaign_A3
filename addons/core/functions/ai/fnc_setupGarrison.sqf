@@ -170,8 +170,8 @@ private _sideStructures = [];
 
 diag_log format ["DSC: fnc_setupGarrison - Main: %1, Side: %2 structures", count _mainStructures, count _sideStructures];
 
-if (_mainStructures isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupGarrison - No main structures found";
+if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) exitWith {
+    diag_log "DSC: fnc_setupGarrison - No structures found";
     _result
 };
 
@@ -179,14 +179,16 @@ if (_mainStructures isEqualTo []) exitWith {
 // SELECT ANCHOR BUILDINGS
 // ============================================================================
 private _numAnchors = (_anchorRange select 0) + floor random ((_anchorRange select 1) - (_anchorRange select 0) + 1);
-_numAnchors = _numAnchors min (count _mainStructures);
+private _maxAnchors = (count _mainStructures) + (count _sideStructures);
+_numAnchors = _numAnchors min _maxAnchors;
 
 private _availableMain = +_mainStructures;
 private _availableSide = +_sideStructures;
 private _anchors = [];
 
-// Pick anchors spread apart (not all clustered together)
-for "_i" from 1 to _numAnchors do {
+// Pick main structures as anchors first (priority)
+private _mainAnchors = _numAnchors min (count _availableMain);
+for "_i" from 1 to _mainAnchors do {
     if (_availableMain isEqualTo []) exitWith {};
     
     private _anchor = if (_anchors isEqualTo []) then {
@@ -205,7 +207,30 @@ for "_i" from 1 to _numAnchors do {
     _availableMain = _availableMain - [_anchor];
 };
 
-diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors", count _anchors];
+// Promote side structures to anchors if we need more coverage
+private _remainingAnchors = _numAnchors - count _anchors;
+for "_i" from 1 to _remainingAnchors do {
+    if (_availableSide isEqualTo []) exitWith {};
+    
+    // Pick side structures spread from existing anchors
+    private _anchor = if (_anchors isEqualTo []) then {
+        selectRandom _availableSide
+    } else {
+        private _sorted = [_availableSide, [], {
+            private _struct = _x;
+            private _minDist = 999999;
+            { _minDist = _minDist min (_struct distance2D _x) } forEach _anchors;
+            -_minDist
+        }, "ASCEND"] call BIS_fnc_sortBy;
+        _sorted select 0
+    };
+    
+    _anchors pushBack _anchor;
+    _availableSide = _availableSide - [_anchor];
+};
+
+diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors (%2 main, %3 promoted side)", 
+    count _anchors, _mainAnchors, count _anchors - _mainAnchors];
 
 // ============================================================================
 // SPAWN GROUPS AT ANCHORS WITH SATELLITES
