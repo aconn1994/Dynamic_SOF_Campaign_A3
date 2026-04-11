@@ -637,7 +637,7 @@ private _sideCivilian = [
     "Land_Sawmill_01_illuminati_tower_F",
 
     // Deer Stands
-    "Land_DeerStand_01_F",
+    // "Land_DeerStand_01_F",
     "Land_DeerStand_02_F",
 
     // Industrial (Small)
@@ -708,7 +708,9 @@ private _mapExclusions = createHashMapFromArray [
     ["Malden", []],
 
     // Livonia
-    ["Enoch", []]
+    ["Enoch", [
+        "Land_DeerStand_02_F"
+    ]]
 ];
 
 private _currentMap = worldName;
