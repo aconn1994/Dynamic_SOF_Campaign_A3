@@ -64,6 +64,11 @@ if (_marker isEqualType "") then {
     };
 };
 
+// Delete player drop markers
+{
+    deleteMarker format ["dsc_drop_%1", getPlayerUID _x];
+} forEach allPlayers;
+
 // Clear global mission variable
 missionNamespace setVariable ["DSC_currentMission", nil, true];
 

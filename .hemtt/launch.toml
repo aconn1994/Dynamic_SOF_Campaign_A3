@@ -3,11 +3,11 @@ workshop = [
     "450814997", # CBA_A3
 ]
 # mission = "test.VR"
-mission = "DSC_Altis.Altis"
+# mission = "DSC_Altis.Altis"
 # mission = "DSC_Livonia.enoch"
 # mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"
-# mission = "DSC_Tanoa.Tanoa"
+mission = "DSC_Tanoa.Tanoa"
 
 [developer]
 extends = "default"
@@ -45,9 +45,6 @@ workshop = [
 extends = "developer"
 workshop = [
     "843577117", # RHSUSAF
-    "843425103", # RHSAFRF
-    "843593391", # RHSGREF
-    "843632231", # RHSSAF
     "333310405", # Enhanced Movement
     "632435682", # Remove Stamina
     "2034363662", # Enhanced Movement Rework
@@ -58,4 +55,8 @@ workshop = [
     "1770265310", # No More Aircraft Bouncing
     "2041057379", # A3 Thermal Improvement
     "3407948300", # JSRS Soundmod 2025
+    "2975268929", # TPNVG
+    "2595680138", # NI Arms
+    "3564392635", # Modern Sniper Systems
+    "3540049844", # DZN XPI
 ]
