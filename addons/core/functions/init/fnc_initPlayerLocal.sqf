@@ -82,3 +82,35 @@ player addAction [
     ""
 ];
 
+// ============================================================================
+// Base Recruitment Actions (on Joint Operations Center flagpole)
+// ============================================================================
+jointOperationCenter addAction [
+    'Recruit Medic',
+    {
+        [player] call DSC_core_fnc_recruitMedic;
+    },
+    [],
+    3,
+    false,
+    true,
+    "",
+    "_target distance _this < 5"
+];
+
+// ============================================================================
+// Player Down/Revive System
+// ============================================================================
+player addEventHandler ["HandleDamage", {
+    params ["_unit", "_selection", "_damage", "_source", "_projectile", "_hitIndex", "_instigator", "_hitPoint"];
+    
+    if (_unit getVariable ["DSC_isDown", false]) exitWith { 0 };
+    
+    if (_damage >= 1 || (damage _unit) + _damage >= 1) exitWith {
+        [_unit] spawn DSC_core_fnc_handlePlayerDown;
+        0
+    };
+    
+    _damage
+}];
+

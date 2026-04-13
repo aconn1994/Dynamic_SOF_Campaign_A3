@@ -31,13 +31,16 @@ PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(init,initServer);
 PREP_SUB(init,initPlayerLocal);
 
-// Insertion
-PREP_SUB(insertion,haloJump);
-PREP_SUB(insertion,requestExtraction);
-PREP_SUB(insertion,simulateFastTravel);
-PREP_SUB(insertion,spawnTransportHelo);
+// Base (player base actions, recruitment, insertions)
+PREP_SUB(base,haloJump);
+PREP_SUB(base,handlePlayerDown);
+PREP_SUB(base,recruitMedic);
+PREP_SUB(base,requestExtraction);
+PREP_SUB(base,simulateFastTravel);
+PREP_SUB(base,spawnTransportHelo);
 
 // Missions
+PREP_SUB(missions,createMissionBriefing);
 PREP_SUB(missions,generateKillCaptureMission);
 PREP_SUB(missions,cleanupMission);
 
