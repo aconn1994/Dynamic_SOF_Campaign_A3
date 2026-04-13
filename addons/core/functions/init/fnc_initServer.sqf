@@ -87,6 +87,9 @@ while { true } do {
     private _defenderUnits = _mission get "defenderUnits";
     private _patrolGroups = _mission get "patrolGroups";
     
+    // --- Mission Briefing ---
+    private _taskId = [_mission, _ao, _selectedLocation] call DSC_core_fnc_createMissionBriefing;
+    
     // --- Configure Units ---
     {
         _x allowDamage true;
@@ -174,14 +177,19 @@ while { true } do {
     private _success = _hvtKilled || (missionNamespace getVariable ["missionComplete", false]);
     
     if (_success) then {
+        [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
         hint format ["Mission SUCCESS\nHVT at %1 eliminated", _locationName];
         systemChat format ["DSC: Mission SUCCESS - HVT at %1 eliminated", _locationName];
         diag_log format ["DSC: Mission SUCCESS - HVT killed: %1", _hvtKilled];
     } else {
+        [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
         hint format ["Mission INCOMPLETE\nHVT at %1 status unknown", _locationName];
         systemChat format ["DSC: Mission INCOMPLETE - %1", _locationName];
         diag_log "DSC: Mission INCOMPLETE";
     };
+    
+    sleep 5;
+    [_taskId] call BIS_fnc_deleteTask;
     
     // --- Cleanup ---
     missionNamespace setVariable ["missionState", "CLEANUP", true];
