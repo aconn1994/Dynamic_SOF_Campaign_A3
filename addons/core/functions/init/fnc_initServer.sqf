@@ -27,7 +27,7 @@ diag_log format ["DSC: World scan complete - %1 locations indexed", count _locat
 // ============================================================================
 diag_log "=============== DSC: Initializing Faction Data =================";
 
-private _opForFaction = missionNamespace getVariable ["opForFaction", "rhsgref_faction_chdkz"];
+private _opForFaction = missionNamespace getVariable ["opForFaction", "OPF_F"];
 private _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
 private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 
