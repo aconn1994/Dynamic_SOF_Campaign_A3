@@ -54,6 +54,31 @@ _player setVariable ["DSC_assignedMedic", _medic, true];
 // Set custom name
 _medic setName "Combat Medic";
 
+// ACE Medical integration
+if (missionNamespace getVariable ["DSC_hasACEMedical", false]) then {
+    _medic setVariable ["ace_medical_medicClass", 2, true];
+    
+    // Stock medical supplies
+    {
+        _medic addItemToBackpack _x;
+    } forEach [
+        "ACE_fieldDressing", "ACE_fieldDressing", "ACE_fieldDressing", "ACE_fieldDressing",
+        "ACE_fieldDressing", "ACE_fieldDressing", "ACE_fieldDressing", "ACE_fieldDressing",
+        "ACE_packingBandage", "ACE_packingBandage", "ACE_packingBandage", "ACE_packingBandage",
+        "ACE_elasticBandage", "ACE_elasticBandage", "ACE_elasticBandage", "ACE_elasticBandage",
+        "ACE_tourniquet", "ACE_tourniquet", "ACE_tourniquet", "ACE_tourniquet",
+        "ACE_morphine", "ACE_morphine", "ACE_morphine", "ACE_morphine",
+        "ACE_epinephrine", "ACE_epinephrine", "ACE_epinephrine", "ACE_epinephrine",
+        "ACE_salineIV", "ACE_salineIV",
+        "ACE_salineIV_500", "ACE_salineIV_500",
+        "ACE_splint", "ACE_splint",
+        "ACE_surgicalKit",
+        "ACE_personalAidKit"
+    ];
+    
+    diag_log "DSC: ACE Medical traits and supplies set on medic";
+};
+
 diag_log format ["DSC: Medic recruited for %1 at %2", name _player, _spawnPos];
 systemChat format ["Combat Medic assigned to %1.", name _player];
 hint "Combat Medic recruited and assigned to your squad.";

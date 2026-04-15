@@ -1,6 +1,9 @@
 // AI
 PREP_SUB(ai,addCombatActivation);
+PREP_SUB(ai,applySkillProfile);
 PREP_SUB(ai,convergePatrols);
+PREP_SUB(ai,getSkillProfile);
+PREP_SUB(ai,persistentUAV);
 PREP_SUB(ai,populateAO);
 PREP_SUB(ai,setupGarrison);
 PREP_SUB(ai,setupGuards);

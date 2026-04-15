@@ -33,6 +33,7 @@ if (isNull _unit || _targetPos isEqualTo []) exitWith {
 };
 
 private _altitude = _config getOrDefault ["altitude", 2000];
+private _hasACEParachute = isClass (configFile >> "CfgPatches" >> "ace_parachute");
 
 private _startPosition = [_targetPos select 0, _targetPos select 1, (_targetPos select 2) + _altitude];
 _unit setPos _startPosition;
@@ -48,6 +49,8 @@ if (count _backpack > 0) then {
     removeBackpack _unit;
 };
 
+// Use ACE steerable parachute if available, otherwise vanilla
+// private _chuteClass = ["B_Parachute", "ACE_Steerable_Parachute_Pack"] select _hasACEParachute;
 _unit addBackpack "B_Parachute";
 _unit allowDamage false;
 _unit disableAI "ANIM";

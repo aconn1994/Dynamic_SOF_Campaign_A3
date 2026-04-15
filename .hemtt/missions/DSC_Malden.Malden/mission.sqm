@@ -17,9 +17,9 @@ class EditorData
 	class Camera
 	{
 		pos[]={9716.9238,49.451496,3905.8604};
-		dir[]={0.82410997,-0.40179098,-0.39941525};
-		up[]={0.36158964,0.91570997,-0.17524835};
-		aside[]={-0.43616578,1.1787051e-07,-0.89993632};
+		dir[]={0.82405818,-0.40176567,-0.3993901};
+		up[]={0.36154082,0.91574252,-0.17522527};
+		aside[]={-0.436138,1.4901161e-08,-0.89987975};
 	};
 };
 binarizationWanted=0;
@@ -30,13 +30,14 @@ addons[]=
 	"A3_Weapons_F",
 	"A3_Structures_F_Mil_Flags",
 	"A3_Modules_F_Curator_Curator",
-	"A3_Weapons_F_Ammoboxes"
+	"A3_Weapons_F_Ammoboxes",
+	"ace_cargo"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=4;
+		items=5;
 		class Item0
 		{
 			className="A3_Characters_F";
@@ -64,6 +65,13 @@ class AddonsMetaData
 			name="Arma 3 Zeus Update - Scripted Modules";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
+		};
+		class Item4
+		{
+			className="ace_cargo";
+			name="ACE3 - Cargo";
+			author="ACE-Team";
+			url="https://ace3.acemod.org/";
 		};
 	};
 };
@@ -129,6 +137,8 @@ class Mission
 		forecastWind=0.1;
 		forecastWaves=0.1;
 		forecastLightnings=0.1;
+		wavesForced=1;
+		windForced=1;
 		year=2035;
 		month=6;
 		day=24;

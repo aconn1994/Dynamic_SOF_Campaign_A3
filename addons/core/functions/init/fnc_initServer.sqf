@@ -27,7 +27,7 @@ diag_log format ["DSC: World scan complete - %1 locations indexed", count _locat
 // ============================================================================
 diag_log "=============== DSC: Initializing Faction Data =================";
 
-private _opForFaction = missionNamespace getVariable ["opForFaction", "OPF_F"];
+private _opForFaction = missionNamespace getVariable ["opForFaction", "rhsgref_faction_chdkz"];
 private _opForGroups = [_opForFaction] call DSC_core_fnc_extractGroups;
 private _classifiedGroups = [_opForGroups] call DSC_core_fnc_classifyGroups;
 
@@ -48,6 +48,20 @@ missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 // ============================================================================
 while { true } do {
     diag_log "DSC: ========== Starting Mission Generation ==========";
+    
+    // --- Randomize Time and Weather ---
+    private _hour = selectRandom [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+    private _minute = floor random 60;
+    setDate [date select 0, date select 1, date select 2, _hour, _minute];
+    
+    0 setOvercast (random 1);
+    0 setFog ([random 0.3, 0, 0] select (random 1 > 0.7));
+    0 setRain 0;
+    forceWeatherChange;
+    sleep 1;
+    0 setRain (if (overcast > 0.5) then { random 0.4 } else { 0 });
+    
+    diag_log format ["DSC: Time set to %1:%2, overcast: %3", _hour, _minute, overcast];
     
     // --- Select Location ---
     // Filter to locations suitable for kill/capture (has structures to garrison)
@@ -90,12 +104,25 @@ while { true } do {
     // --- Mission Briefing ---
     private _taskId = [_mission, _ao, _selectedLocation] call DSC_core_fnc_createMissionBriefing;
     
+    // --- ISR Drone ---
+    private _hvtBuilding = _mission get "entityBuilding";
+    private _uavTargetPos = if (!isNull _hvtBuilding) then { getPos _hvtBuilding } else { _locationPos };
+    missionNamespace setVariable ["DSC_uavTargetPos", _uavTargetPos, true];
+    
+    // Spawn UAV if none active (first mission or after shoot-down)
+    private _activeUAV = missionNamespace getVariable ["DSC_activeUAV", objNull];
+    if (isNull _activeUAV || !alive _activeUAV) then {
+        [_uavTargetPos] spawn DSC_core_fnc_persistentUAV;
+    };
+    
     // --- Configure Units ---
-    {
-        _x allowDamage true;
-        _x setSkill ["general", 0.6];
-        _x setSkill ["aimingAccuracy", 0.2];
-    } forEach _aoUnits;
+    { _x allowDamage true } forEach _aoUnits;
+    
+    // Apply skill profile - change this string to test different profiles:
+    // "moderate" - forgiving, casual coop
+    // "hard"     - challenging, accurate AI
+    // "realism"  - lethal, fast reactions
+    [_aoUnits, "hard"] call DSC_core_fnc_applySkillProfile;
     
     // Add to zeus
     private _curator = (allCurators) select 0;

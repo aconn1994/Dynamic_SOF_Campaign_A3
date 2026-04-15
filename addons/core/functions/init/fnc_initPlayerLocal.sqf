@@ -99,18 +99,37 @@ jointOperationCenter addAction [
 ];
 
 // ============================================================================
-// Player Down/Revive System
+// Player Down/Revive System (ACE or Vanilla)
 // ============================================================================
-player addEventHandler ["HandleDamage", {
-    params ["_unit", "_selection", "_damage", "_source", "_projectile", "_hitIndex", "_instigator", "_hitPoint"];
+private _hasACEMedical = isClass (configFile >> "CfgPatches" >> "ace_medical");
+missionNamespace setVariable ["DSC_hasACEMedical", _hasACEMedical, true];
+
+if (_hasACEMedical) then {
+    diag_log "DSC: ACE Medical detected - using ACE unconscious events";
     
-    if (_unit getVariable ["DSC_isDown", false]) exitWith { 0 };
-    
-    if (_damage >= 1 || (damage _unit) + _damage >= 1) exitWith {
+    // Listen for ACE unconscious state change
+    ["ace_unconscious", {
+        params ["_unit", "_state"];
+        if (_unit != player) exitWith {};
+        if (!_state) exitWith {};
+        if (_unit getVariable ["DSC_isDown", false]) exitWith {};
+        
         [_unit] spawn DSC_core_fnc_handlePlayerDown;
-        0
-    };
+    }] call CBA_fnc_addEventHandler;
+} else {
+    diag_log "DSC: Vanilla damage model - using HandleDamage EH";
     
-    _damage
-}];
+    player addEventHandler ["HandleDamage", {
+        params ["_unit", "_selection", "_damage", "_source", "_projectile", "_hitIndex", "_instigator", "_hitPoint"];
+        
+        if (_unit getVariable ["DSC_isDown", false]) exitWith { 0 };
+        
+        if (_damage >= 1 || (damage _unit) + _damage >= 1) exitWith {
+            [_unit] spawn DSC_core_fnc_handlePlayerDown;
+            0
+        };
+        
+        _damage
+    }];
+};
 

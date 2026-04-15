@@ -2,12 +2,14 @@
 /*
  * Function: DSC_core_fnc_handlePlayerDown
  * Description:
- *     Handles player incapacitation. Instead of dying, the player goes
- *     unconscious. If a medic is assigned, the medic moves to the player
- *     and performs a revive. If no medic, player respawns at base after timeout.
+ *     Handles player incapacitation. Sends assigned medic to revive.
+ *     Works with both vanilla damage model and ACE Medical.
  *
- *     Called from a HandleDamage EH when fatal damage is detected.
+ *     Vanilla: Intercepts fatal damage, sets unconscious, heals with setDamage 0
+ *     ACE: Listens for ACE unconscious event, heals with ace fullHeal
+ *
  *     Should be spawned, not called (contains sleep/waitUntil).
+ *     Works in SP, hosted MP, and dedicated server.
  *
  * Arguments:
  *     0: _player <OBJECT> - The downed player
@@ -28,14 +30,18 @@ if (_player getVariable ["DSC_isDown", false]) exitWith {};
 
 _player setVariable ["DSC_isDown", true, true];
 
+private _hasACEMedical = missionNamespace getVariable ["DSC_hasACEMedical", false];
+
 // ============================================================================
 // Enter incapacitated state
 // ============================================================================
-_player allowDamage false;
-_player setUnconscious true;
+if (!_hasACEMedical) then {
+    _player allowDamage false;
+    _player setUnconscious true;
+};
 
-systemChat format ["%1 is down!", name _player];
-diag_log format ["DSC: Player %1 is incapacitated", name _player];
+[format ["%1 is down!", name _player]] remoteExec ["systemChat", 0];
+diag_log format ["DSC: Player %1 is incapacitated (ACE: %2)", name _player, _hasACEMedical];
 
 // ============================================================================
 // Find medic
@@ -43,46 +49,54 @@ diag_log format ["DSC: Player %1 is incapacitated", name _player];
 private _medic = _player getVariable ["DSC_assignedMedic", objNull];
 
 if (isNull _medic || !alive _medic) then {
-    // No medic available - respawn at base after timeout
     diag_log "DSC: No medic available - respawning at base after timeout";
-    hint "No medic available.\nRespawning at base in 15 seconds...";
+    ["No medic available.\nRespawning at base in 15 seconds..."] remoteExec ["hint", _player];
     
     sleep 15;
     
-    _player setUnconscious false;
-    _player setDamage 0;
-    _player allowDamage true;
+    if (_hasACEMedical) then {
+        [_player] call ace_medical_treatment_fnc_fullHealLocal;
+    } else {
+        _player setUnconscious false;
+        _player setDamage 0;
+        _player allowDamage true;
+    };
+    
     _player setVariable ["DSC_isDown", false, true];
     _player setPos ((getPos jointOperationCenter) getPos [3, random 360]);
     
-    hint "Respawned at base.";
+    ["Respawned at base."] remoteExec ["hint", _player];
 } else {
-    // Medic available - send to revive
-    hint "Medic is on the way...";
+    ["Medic is on the way..."] remoteExec ["hint", _player];
     
     // Order medic to move to player
-    _medic doMove (getPos _player);
-    _medic setSpeedMode "FULL";
-    _medic setBehaviour "CARELESS";
+    private _medicOwner = owner _medic;
+    [_medic, getPos _player] remoteExec ["doMove", _medicOwner];
+    [_medic, "FULL"] remoteExec ["setSpeedMode", _medicOwner];
+    [_medic, "CARELESS"] remoteExec ["setBehaviour", _medicOwner];
     
     // Wait for medic to arrive (within 3m) or timeout after 120s
     private _timeout = time + 120;
     waitUntil {
         sleep 1;
-        _medic doMove (getPos _player);
+        [_medic, getPos _player] remoteExec ["doMove", _medicOwner];
         (_medic distance2D _player < 3) || (time > _timeout) || !alive _medic
     };
     
     if (!alive _medic || time > _timeout) exitWith {
-        // Medic died or took too long - respawn at base
         diag_log "DSC: Medic failed to reach player - respawning at base";
-        hint "Medic could not reach you.\nRespawning at base...";
+        ["Medic could not reach you.\nRespawning at base..."] remoteExec ["hint", _player];
         
         sleep 3;
         
-        _player setUnconscious false;
-        _player setDamage 0;
-        _player allowDamage true;
+        if (_hasACEMedical) then {
+            [_player] call ace_medical_treatment_fnc_fullHealLocal;
+        } else {
+            _player setUnconscious false;
+            _player setDamage 0;
+            _player allowDamage true;
+        };
+        
         _player setVariable ["DSC_isDown", false, true];
         _player setPos ((getPos jointOperationCenter) getPos [3, random 360]);
     };
@@ -92,32 +106,33 @@ if (isNull _medic || !alive _medic) then {
     // ============================================================================
     diag_log "DSC: Medic arrived - performing revive";
     
-    // Stop medic and face patient
-    doStop _medic;
-    _medic setDir (_medic getDir _player);
+    [_medic] remoteExec ["doStop", _medicOwner];
+    [_medic, _medic getDir _player] remoteExec ["setDir", _medicOwner];
+    [_medic, "AinvPknlMstpSnonWnonDnon_medic"] remoteExec ["playMoveNow", _medicOwner];
     
-    // Play healing animation
-    _medic playMoveNow "AinvPknlMstpSnonWnonDnon_medic";
+    ["Medic is treating you..."] remoteExec ["hint", _player];
     
-    hint "Medic is treating you...";
-    
-    // Simulate treatment time
     sleep 8;
     
-    // Revive player
-    _player setUnconscious false;
-    _player setDamage 0;
-    _player allowDamage true;
+    // Heal player (ACE or vanilla)
+    if (_hasACEMedical) then {
+        [_player] call ace_medical_treatment_fnc_fullHealLocal;
+    } else {
+        _player setUnconscious false;
+        _player setDamage 0;
+        _player allowDamage true;
+    };
+    
     _player setVariable ["DSC_isDown", false, true];
     
     // Reset medic behavior
-    _medic playMoveNow "";
-    _medic doFollow leader group _medic;
-    _medic setSpeedMode "NORMAL";
-    _medic setBehaviour "AWARE";
+    [_medic, ""] remoteExec ["playMoveNow", _medicOwner];
+    [_medic, leader group _medic] remoteExec ["doFollow", _medicOwner];
+    [_medic, "NORMAL"] remoteExec ["setSpeedMode", _medicOwner];
+    [_medic, "AWARE"] remoteExec ["setBehaviour", _medicOwner];
     
-    systemChat format ["%1 has been revived!", name _player];
-    hint "You have been revived.";
+    [format ["%1 has been revived!", name _player]] remoteExec ["systemChat", 0];
+    ["You have been revived."] remoteExec ["hint", _player];
     
     diag_log format ["DSC: Player %1 revived by medic", name _player];
 };
