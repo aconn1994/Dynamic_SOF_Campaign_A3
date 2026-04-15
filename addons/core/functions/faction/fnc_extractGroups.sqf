@@ -52,6 +52,14 @@ if (_sideName == "") exitWith {
     _result
 };
 
+// Workaround for Faction Class Name and 3Den Category name desync (Seriously Arma?)
+// Vanilla
+if (_factionClass isEqualTo "BLU_G_F") then { _factionClass = "Guerilla" }; // FIA
+if (_factionClass isEqualTo "BLU_GEN_F") then { _factionClass = "Gendarmerie" }; // Gendarmerie
+
+// RHSUSAF
+if (_factionClass isEqualTo "rhs_faction_socom") then { _factionClass = "rhs_faction_socom_marsoc" }; // US Socom
+
 // Check if faction exists in CfgGroups
 private _groupsFactionCfg = configFile >> "CfgGroups" >> _sideName >> _factionClass;
 if (!isClass _groupsFactionCfg) exitWith {

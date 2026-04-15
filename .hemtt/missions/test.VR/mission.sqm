@@ -6,13 +6,17 @@ class EditorData
 	scaleGridStep=1;
 	autoGroupingDist=10;
 	toggles=1;
+	mods[]=
+	{
+		"3denEnhanced"
+	};
 	class ItemIDProvider
 	{
 		nextID=53;
 	};
 	class Camera
 	{
-		pos[]={7627.5771,43.248413,5295.7041};
+		pos[]={7647.8628,11.282775,5298.2783};
 		dir[]={0.87815833,-0.47775379,-0.024301868};
 		up[]={0.47757155,0.87849319,-0.013216146};
 		aside[]={-0.027663091,-8.7311491e-11,-0.99961698};
@@ -23,14 +27,13 @@ sourceName="test";
 addons[]=
 {
 	"A3_Modules_F_Curator_Curator",
-	"A3_Structures_F_Mil_Cargo",
 	"A3_Characters_F"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=3;
+		items=2;
 		class Item0
 		{
 			className="A3_Modules_F_Curator";
@@ -39,13 +42,6 @@ class AddonsMetaData
 			url="https://www.arma3.com";
 		};
 		class Item1
-		{
-			className="A3_Structures_F_Mil";
-			name="Arma 3 - Military Buildings and Structures";
-			author="Bohemia Interactive";
-			url="https://www.arma3.com";
-		};
-		class Item2
 		{
 			className="A3_Characters_F";
 			name="Arma 3 Alpha - Characters and Clothing";
@@ -80,7 +76,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=3;
+		items=2;
 		class Item0
 		{
 			dataType="Logic";
@@ -149,21 +145,6 @@ class Mission
 			};
 		};
 		class Item1
-		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={7688.1807,17.886209,5292.7075};
-			};
-			side="Empty";
-			flags=5;
-			class Attributes
-			{
-			};
-			id=16;
-			type="Land_Cargo_Tower_V1_F";
-		};
-		class Item2
 		{
 			dataType="Group";
 			side="Civilian";

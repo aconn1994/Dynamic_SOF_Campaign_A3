@@ -2,8 +2,8 @@
 workshop = [
     "450814997", # CBA_A3
 ]
-# mission = "test.VR"
-mission = "DSC_Altis.Altis"
+mission = "test.VR"
+# mission = "DSC_Altis.Altis"
 # mission = "DSC_Livonia.enoch"
 # mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"
@@ -32,6 +32,15 @@ dlc = [
 ]
 workshop = [
     "949252631", # Aegis Mod
+]
+
+[developer_rhs]
+extends = "developer"
+workshop = [
+    "843577117", # RHSUSAF
+    "843425103", # RHSAFRF
+    # "843593391", # RHSGREF
+    "843632231", # RHSSAF
 ]
 
 [play_test_aegis]
