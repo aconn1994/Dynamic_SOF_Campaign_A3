@@ -25,9 +25,9 @@ class EditorData
 	class Camera
 	{
 		pos[]={26749.217,23.310221,24624.271};
-		dir[]={-0.97082609,-0.16580391,0.17322247};
-		up[]={-0.16322602,0.98615879,0.029124077};
-		aside[]={0.17565374,0,0.98445219};
+		dir[]={-0.97082597,-0.16580401,0.17322245};
+		up[]={-0.16322611,0.98615873,0.029124094};
+		aside[]={0.17565373,1.8626451e-09,0.98445207};
 	};
 };
 binarizationWanted=0;
@@ -43,14 +43,13 @@ addons[]=
 	"A3_Structures_F_Naval_Piers",
 	"A3_Characters_F",
 	"A3_Weapons_F",
-	"A3_Weapons_F_Ammoboxes",
-	"ace_cargo"
+	"A3_Weapons_F_Ammoboxes"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=8;
+		items=7;
 		class Item0
 		{
 			className="A3_Structures_F_Mil";
@@ -99,13 +98,6 @@ class AddonsMetaData
 			name="Arma 3 Alpha - Weapons and Accessories";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
-		};
-		class Item7
-		{
-			className="ace_cargo";
-			name="ACE3 - Cargo";
-			author="ACE-Team";
-			url="https://ace3.acemod.org/";
 		};
 	};
 };
@@ -179,8 +171,6 @@ class Mission
 		forecastWind=0.1;
 		forecastWaves=0.1;
 		forecastLightnings=0.1;
-		wavesForced=1;
-		windForced=1;
 		year=2035;
 		month=6;
 		day=24;

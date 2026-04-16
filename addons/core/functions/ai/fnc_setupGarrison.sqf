@@ -117,56 +117,48 @@ private _positionFill = _configOverrides getOrDefault ["positionFill", _defaultD
 diag_log format ["DSC: fnc_setupGarrison - Density: %1", _densityProfile];
 
 // ============================================================================
-// FIND AND CATEGORIZE STRUCTURES
+// GET STRUCTURES (pre-classified from location object or scan fresh)
 // ============================================================================
-private _structureTypes = call DSC_core_fnc_getStructureTypes;
-private _mainTypes = _structureTypes get "main";
-private _sideTypes = _structureTypes get "side";
-private _exclusions = _structureTypes get "exclusions";
+private _mainStructures = _configOverrides getOrDefault ["mainStructures", []];
+private _sideStructures = _configOverrides getOrDefault ["sideStructures", []];
 
-// Search area for all House-based objects
-private _locationStructures = [_locationPos, ["House"], _radius] call DSC_core_fnc_getMapStructures;
+// Fallback: scan and classify if not provided
+if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) then {
+    private _structureTypes = call DSC_core_fnc_getStructureTypes;
+    private _mainTypes = _structureTypes get "main";
+    private _sideTypes = _structureTypes get "side";
+    private _exclusions = _structureTypes get "exclusions";
 
-private _mainStructures = [];
-private _sideStructures = [];
-
-{
-    private _struct = _x;
-
-    if ((_struct buildingPos -1) isEqualTo []) then { continue };
-
-    // Check map exclusions first
-    private _isExcluded = false;
-    {
-        if (_struct isKindOf _x) exitWith { _isExcluded = true };
-    } forEach _exclusions;
-
-    if (_isExcluded) then { continue };
-
-    // Check against curated type lists using isKindOf
-    private _isMain = false;
-    private _isSide = false;
+    private _locationStructures = [_locationPos, ["House"], _radius] call DSC_core_fnc_getMapStructures;
 
     {
-        if (_struct isKindOf _x) exitWith { _isMain = true };
-    } forEach _mainTypes;
+        private _struct = _x;
 
-    if (!_isMain) then {
-        {
-            if (_struct isKindOf _x) exitWith { _isSide = true };
-        } forEach _sideTypes;
-    };
+        if ((_struct buildingPos -1) isEqualTo []) then { continue };
 
-    if (_isMain) then {
-        _mainStructures pushBack _struct;
-    } else {
-        if (_isSide) then {
-            _sideStructures pushBack _struct;
-        } else {
-            diag_log format ["DSC: fnc_setupGarrison - Unclassified structure: %1 (%2 positions)", typeOf _struct, count (_struct buildingPos -1)];
+        private _isExcluded = false;
+        { if (_struct isKindOf _x) exitWith { _isExcluded = true } } forEach _exclusions;
+        if (_isExcluded) then { continue };
+
+        private _isMain = false;
+        private _isSide = false;
+
+        { if (_struct isKindOf _x) exitWith { _isMain = true } } forEach _mainTypes;
+        if (!_isMain) then {
+            { if (_struct isKindOf _x) exitWith { _isSide = true } } forEach _sideTypes;
         };
-    };
-} forEach _locationStructures;
+
+        if (_isMain) then {
+            _mainStructures pushBack _struct;
+        } else {
+            if (_isSide) then {
+                _sideStructures pushBack _struct;
+            } else {
+                diag_log format ["DSC: fnc_setupGarrison - Unclassified structure: %1 (%2 positions)", typeOf _struct, count (_struct buildingPos -1)];
+            };
+        };
+    } forEach _locationStructures;
+};
 
 diag_log format ["DSC: fnc_setupGarrison - Main: %1, Side: %2 structures", count _mainStructures, count _sideStructures];
 

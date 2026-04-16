@@ -56,6 +56,12 @@ private _sideStructures = _location get "sideStructures";
 private _milCount = _location get "militaryCount";
 private _buildingCount = _location get "buildingCount";
 
+// Pre-extracted assets (passed in or extract now)
+private _opForAssets = _config getOrDefault ["assets", createHashMap];
+if (_opForAssets isEqualTo createHashMap) then {
+    _opForAssets = [_opForFaction] call DSC_core_fnc_extractAssets;
+};
+
 // Determine density from location tags if not overridden
 private _density = _config getOrDefault ["density", ""];
 if (_density == "") then {
@@ -91,38 +97,56 @@ if (_locationPos isEqualTo []) exitWith {
 // ============================================================================
 // Get Group Classifications
 // ============================================================================
-private _basicInfantrySquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "PATROL"], ["ELITE", "SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
-private _basicInfantryFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "PATROL"], ["ELITE", "SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
-private _eliteInfantrySquadGroups = [_classifiedGroups, ["FOOT", "INFANTRY_SQUAD", "PATROL", "ELITE"], ["SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
-private _eliteInfantryFireteamGroups = [_classifiedGroups, ["FOOT", "FIRETEAM", "PATROL", "ELITE"], ["SCOUT_RECON", "AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
+// Broad filters - get any foot infantry that can garrison/patrol
+private _footGroups = [_classifiedGroups, ["FOOT"], ["AMPHIBIOUS", "NAVAL"]] call DSC_core_fnc_getGroupsByTag;
 private _atInfantryGroups = [_classifiedGroups, ["FOOT", "AT_TEAM"], ["AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
 private _aaInfantryGroups = [_classifiedGroups, ["FOOT", "AA_TEAM"], ["AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag;
 
-private _garrisonTemplates = _basicInfantrySquadGroups + _basicInfantryFireteamGroups + _eliteInfantrySquadGroups + _eliteInfantryFireteamGroups;
+// If no FOOT groups found, try any non-armor non-air group
+if (_footGroups isEqualTo []) then {
+    _footGroups = [_classifiedGroups, ["PATROL"], ["ARMOR", "ARMORED", "AMPHIBIOUS", "NAVAL"]] call DSC_core_fnc_getGroupsByTag;
+};
+
+// Last resort: use all classified groups
+if (_footGroups isEqualTo []) then {
+    _footGroups = _classifiedGroups select { 
+        private _tags = _x get "doctrineTags";
+        !("ARMOR" in _tags) && !("ARMORED" in _tags) && !("NAVAL" in _tags)
+    };
+};
+
+private _garrisonTemplates = _footGroups;
 private _specialGroups = _atInfantryGroups + _aaInfantryGroups;
 
+diag_log format ["DSC: populateAO - Found %1 garrison templates, %2 special groups", count _garrisonTemplates, count _specialGroups];
+
 // ============================================================================
-// GUARDS (Static weapons on towers - military locations only)
+// GUARDS (dedicated structures + overwatch positions)
 // ============================================================================
-if ("military" in _locationTags) then {
-    private _guardResult = [_locationPos, "military", _opForFaction, _opForSide] call DSC_core_fnc_setupGuards;
-    
-    private _guardGroups = _guardResult get "groups";
-    private _guardUnits = _guardResult get "units";
-    private _guardVehicles = _guardResult get "vehicles";
-    
-    (_aoResult get "groups") append _guardGroups;
-    (_aoResult get "units") append _guardUnits;
-    (_aoResult get "vehicles") append _guardVehicles;
-    (_aoResult get "defenderUnits") append _guardUnits;
-    
-    diag_log format ["DSC: populateAO - Guards: %1 units, %2 vehicles", count _guardUnits, count _guardVehicles];
-};
+private _guardLocType = ["civilian", "military"] select ("military" in _locationTags);
+private _guardConfig = createHashMapFromArray [
+    ["assets", _opForAssets],
+    ["structures", (_location get "mainStructures") + (_location get "sideStructures")],
+    ["mainStructures", _mainStructures],
+    ["sideStructures", _sideStructures]
+];
+private _guardResult = [_locationPos, _guardLocType, _opForFaction, _opForSide, _guardConfig] call DSC_core_fnc_setupGuards;
+
+private _guardGroups = _guardResult get "groups";
+private _guardUnits = _guardResult get "units";
+private _guardVehicles = _guardResult get "vehicles";
+
+(_aoResult get "groups") append _guardGroups;
+(_aoResult get "units") append _guardUnits;
+(_aoResult get "vehicles") append _guardVehicles;
+(_aoResult get "defenderUnits") append _guardUnits;
+
+diag_log format ["DSC: populateAO - Guards: %1 units, %2 vehicles", count _guardUnits, count _guardVehicles];
 
 // ============================================================================
 // GARRISON (Infantry in structures)
 // ============================================================================
-if (_garrisonTemplates isNotEqualTo [] && _mainStructures isNotEqualTo []) then {
+if (_garrisonTemplates isNotEqualTo [] && (_mainStructures isNotEqualTo [] || _sideStructures isNotEqualTo [])) then {
     private _garrisonConfig = createHashMapFromArray [
         ["density", _config getOrDefault ["garrisonDensity", _density]],
         ["mainStructures", _mainStructures],

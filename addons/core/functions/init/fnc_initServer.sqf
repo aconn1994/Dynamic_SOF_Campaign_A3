@@ -7,7 +7,7 @@
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 
 missionNamespace setVariable ["playerFaction", "BLU_F", true];
-missionNamespace setVariable ["opForFaction", "OPF_F", true];
+missionNamespace setVariable ["opForFaction", "OPF_F", true]; // rhsgref_faction_chdkz
 missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
@@ -44,6 +44,12 @@ if (_classifiedGroups isEqualTo []) then {
 missionNamespace setVariable ["DSC_classifiedGroups", _classifiedGroups, true];
 
 // ============================================================================
+// STEP 2b: Extract Faction Assets (vehicles, statics, aircraft)
+// ============================================================================
+private _opForAssets = [_opForFaction] call DSC_core_fnc_extractAssets;
+missionNamespace setVariable ["DSC_opForAssets", _opForAssets, true];
+
+// ============================================================================
 // STEP 3: Mission Generation Loop
 // ============================================================================
 while { true } do {
@@ -66,7 +72,7 @@ while { true } do {
     // --- Select Location ---
     // Filter to locations suitable for kill/capture (has structures to garrison)
     private _validLocations = _locations select {
-        (_x get "mainCount") >= 1 && (_x get "buildingCount") >= 3
+        (_x get "mainCount") >= 1 && (_x get "buildingCount") >= 3 // && (_x get "militaryCount") >= 5
     };
     
     if (_validLocations isEqualTo []) then {
@@ -84,7 +90,7 @@ while { true } do {
         _locationName, _selectedLocation get "buildingCount", _locationTags];
     
     // --- Populate AO ---
-    private _ao = [_selectedLocation, _classifiedGroups] call DSC_core_fnc_populateAO;
+    private _ao = [_selectedLocation, _classifiedGroups, createHashMapFromArray [["assets", _opForAssets]]] call DSC_core_fnc_populateAO;
     
     // --- Generate Kill/Capture Mission ---
     private _mission = [_selectedLocation, _ao] call DSC_core_fnc_generateKillCaptureMission;
