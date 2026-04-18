@@ -23,6 +23,7 @@ PREP_SUB(data,getStructureTypes);
 PREP_SUB(faction,extractAssets);
 PREP_SUB(faction,extractGroups);
 PREP_SUB(faction,getGroupsByTag);
+PREP_SUB(faction,initFactionData);
 
 // Init
 PREP_SUB(init,initServer);
@@ -43,7 +44,9 @@ PREP_SUB(missions,cleanupMission);
 
 // Location
 PREP_SUB(locations,getMapStructures);
+PREP_SUB(locations,initInfluence);
 PREP_SUB(locations,scanLocations);
+PREP_SUB(locations,updateInfluence);
 
 // Validators
 PREP_SUB(validators,groupActive);

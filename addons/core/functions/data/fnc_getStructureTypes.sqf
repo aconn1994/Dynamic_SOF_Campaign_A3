@@ -43,7 +43,7 @@ private _mainMilitary = [
 
     // Military Offices
     "Land_MilOffices_V1_F",
-    "Land_Offices_01_V1_F",
+    // "Land_Offices_01_V1_F", // This is a civilian structure
 
     // Research/Command
     "Land_Research_house_V1_F",
@@ -91,6 +91,9 @@ private _mainCivilian = [
     "Land_i_House_Big_02_V1_F",
     "Land_i_House_Big_02_V2_F",
     "Land_i_House_Big_02_V3_F",
+
+    // Office Building
+    "Land_Offices_01_V1_F",
 
     // Malden Big Houses (color variants)
     "Land_i_House_Big_01_b_yellow_F",
@@ -340,7 +343,7 @@ private _sideMilitary = [
     "Land_Cargo_House_V2_F",
     "Land_Cargo_House_V3_F",
     "Land_Cargo_House_V4_F",
-    "Land_cargo_house_slum_F",
+    // "Land_cargo_house_slum_F", // BUGGGGGGGGGGGGG
     "Land_Cargo_House_V3_derelict_F",
 
     // Derelict Cargo (Malden Side)

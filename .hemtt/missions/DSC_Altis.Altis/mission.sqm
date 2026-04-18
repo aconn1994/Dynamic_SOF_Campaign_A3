@@ -12,7 +12,7 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=1597;
+		nextID=1655;
 	};
 	class MarkerIDProvider
 	{
@@ -24,10 +24,10 @@ class EditorData
 	};
 	class Camera
 	{
-		pos[]={26749.217,23.310221,24624.271};
-		dir[]={-0.97082597,-0.16580401,0.17322245};
-		up[]={-0.16322611,0.98615873,0.029124094};
-		aside[]={0.17565373,1.8626451e-09,0.98445207};
+		pos[]={26758.73,32.977966,24595.254};
+		dir[]={0.2317865,-0.43080512,0.87217081};
+		up[]={0.11064919,0.90244496,0.41635296};
+		aside[]={0.96645314,0,-0.25684279};
 	};
 };
 binarizationWanted=0;
@@ -181,7 +181,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=416;
+		items=421;
 		class Item0
 		{
 			dataType="Object";
@@ -6440,7 +6440,7 @@ class Mission
 		{
 			dataType="Marker";
 			position[]={26893.734,19.809,24791.561};
-			name="player_base";
+			name="player_base_0";
 			markerType="RECTANGLE";
 			type="";
 			alpha=0;
@@ -6451,6 +6451,23 @@ class Mission
 			drawBorder=1;
 			id=1481;
 			atlOffset=7.0571899e-05;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
 		};
 		class Item371
 		{
@@ -7577,6 +7594,166 @@ class Mission
 					};
 				};
 				nAttributes=2;
+			};
+		};
+		class Item416
+		{
+			dataType="Marker";
+			position[]={23344.898,3.1900001,18546.822};
+			name="player_base_1";
+			markerType="RECTANGLE";
+			type="";
+			alpha=0;
+			fillName="SolidBorder";
+			a=300;
+			b=500;
+			drawBorder=1;
+			id=1650;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item417
+		{
+			dataType="Marker";
+			position[]={14832.56,17.91,16817.732};
+			name="player_base_2";
+			markerType="RECTANGLE";
+			type="";
+			alpha=0;
+			fillName="SolidBorder";
+			a=300;
+			b=1000;
+			angle=43.999992;
+			drawBorder=1;
+			id=1651;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item418
+		{
+			dataType="Marker";
+			position[]={20968.287,24.956795,7346.2988};
+			name="player_base_3";
+			markerType="RECTANGLE";
+			type="";
+			alpha=0;
+			fillName="SolidBorder";
+			a=350;
+			b=350;
+			drawBorder=1;
+			id=1652;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item419
+		{
+			dataType="Marker";
+			position[]={11533.309,22.861536,11739.73};
+			name="player_base_4";
+			markerType="RECTANGLE";
+			type="";
+			alpha=0;
+			fillName="SolidBorder";
+			a=250;
+			b=325;
+			angle=30;
+			drawBorder=1;
+			id=1653;
+			atlOffset=1.9073486e-06;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item420
+		{
+			dataType="Marker";
+			position[]={9088.4844,15.501093,21523.451};
+			name="player_base_5";
+			markerType="RECTANGLE";
+			type="";
+			alpha=0;
+			fillName="SolidBorder";
+			a=100;
+			b=200;
+			angle=52.999992;
+			drawBorder=1;
+			id=1654;
+			atlOffset=1.9073486e-06;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
 			};
 		};
 	};

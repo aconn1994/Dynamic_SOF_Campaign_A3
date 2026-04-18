@@ -26,7 +26,7 @@ workshop = [
 ]
 
 [developer_factions]
-extends = "developer_ace"
+extends = "developer"
 # dlc = [
 #     "Western Sahara"
 # ]
