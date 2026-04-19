@@ -61,11 +61,11 @@ Configured in `.hemtt/launch.toml` — currently `DSC_Altis.Altis`. Other maps a
 See `.crush/architecture.md` for the full init flow and system relationships.
 
 **Server init pipeline** (`fnc_initServer`):
-1. Set globals (faction profile, mission state)
-2. `fnc_scanLocations` → clusters all enterable structures on the map with tags
-3. *(Commented out)* `fnc_initFactionData` → extract groups + assets per role
-4. *(Commented out)* `fnc_initInfluence` → assign faction control to locations
-5. *(Commented out)* Mission generation loop
+1. Set globals (faction profile, mission state, `playerMainBase` marker)
+2. `fnc_scanLocations` → anchor-based scan, assigns structures to named locations, tags military tiers
+3. `fnc_initFactionData` → extract groups + assets per role
+4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
+5. *(Not yet wired)* Mission generation loop
 
 **Client init** (`fnc_initPlayerLocal`):
 - Waits for server globals
@@ -76,12 +76,12 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 
 | System | Entry Point | Details |
 |--------|------------|---------|
-| Location Scanner | `fnc_scanLocations` | Clusters structures, tags (military/civilian/density/size) |
+| Location Scanner | `fnc_scanLocations` | Anchor-based: assigns structures to named locations, military tier (base/outpost/camp) |
 | Faction Pipeline | `fnc_initFactionData` → `fnc_extractGroups` → `fnc_classifyGroups` | Mod-agnostic group extraction + doctrine tagging |
 | Asset Extraction | `fnc_extractAssets` | Auto-classifies vehicles, statics, aircraft per faction |
 | AO Population | `fnc_populateAO` | Spawns guards/garrison/patrols from classified groups |
 | Kill/Capture | `fnc_generateKillCaptureMission` | Places HVT in populated AO with briefing |
-| Influence | `fnc_initInfluence` / `fnc_updateInfluence` | Control points propagate to nearby areas |
+| Influence | `fnc_initInfluence` / `fnc_updateInfluence` | Tiered military occupation, base→outpost propagation, safe zone |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
 
 ## SQF Conventions
@@ -121,8 +121,14 @@ Groups are tagged by the classifier for downstream filtering:
 - `editorSubcategory` reliability varies by mod (RHS excellent, CFP less so)
 - Structure `buildingPos -1` returns empty array for non-enterable buildings — always check
 - Combat activation uses `FiredNear` EH with cleanup after trigger
-- Steps 2-4 in initServer are currently commented out — only location scanning is live
+- Steps 1-3 in initServer are active; Step 4 (mission loop) is not yet wired
 - The `jointOperationCenter` object is placed in each map's `mission.sqm` via Eden editor
+- Airbase/airfield named locations are excluded from scanning — manually configured in 3den
+- Player base markers (`player_base_*`) exclude structures and locations from automated systems
+- `playerMainBase` global determines the 5km opFor-free safe zone
+- HEMTT renames Eden markers (e.g. `player_base` → `player_base_0`) — use prefix matching
+- Use `hemtt check` for SQF linting; HEMTT parser requires parens around unary commands in comparisons
+- Use `select` instead of `if/then/else` for constant-value assignments (HEMTT L-S05 warning)
 
 ## Detailed System Docs
 

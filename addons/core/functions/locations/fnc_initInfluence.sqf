@@ -178,12 +178,23 @@ private _bluForControlChance = switch (_campaignProfile) do {
                 _assignedFaction = selectRandom _bluForFactions;
             };
         } else {
-            _controlledBy = "contested";
-            _influence = 0.3 + random 0.4;
+            // Remainder: secondary enemy faction (opForPartner > irregulars > opFor fallback)
+            // Bases always have a definite owner — never "contested"
+            _controlledBy = "opFor";
+            _influence = 0.5 + random 0.3;
             private _partnerData = _factionData getOrDefault ["opForPartner", createHashMap];
             private _partnerFactions = _partnerData getOrDefault ["factions", []];
-            if (_partnerFactions isNotEqualTo []) then {
-                _assignedFaction = selectRandom _partnerFactions;
+            private _irregularData = _factionData getOrDefault ["irregulars", createHashMap];
+            private _irregularFactions = _irregularData getOrDefault ["factions", []];
+            private _candidateFactions = _partnerFactions + _irregularFactions;
+            if (_candidateFactions isNotEqualTo []) then {
+                _assignedFaction = selectRandom _candidateFactions;
+            } else {
+                private _opForData = _factionData getOrDefault ["opFor", createHashMap];
+                private _opForFactions = _opForData getOrDefault ["factions", []];
+                if (_opForFactions isNotEqualTo []) then {
+                    _assignedFaction = selectRandom _opForFactions;
+                };
             };
         };
     };
@@ -224,17 +235,34 @@ private _outpostInfluenceRadius = 4000;
         };
     } forEach _bases;
 
-    private _controlledBy = "contested";
+    private _controlledBy = "opFor";
     private _influence = 0.3 + random 0.2;
     private _assignedFaction = "";
 
     if (_nearestBaseId != "") then {
+        // Inherit from nearest base
         private _baseInf = _influenceMap get _nearestBaseId;
         _controlledBy = _baseInf get "controlledBy";
         _assignedFaction = _baseInf get "faction";
         private _distFactor = 1 - (_nearestBaseDist / _outpostInfluenceRadius);
         _influence = (_baseInf get "influence") * _distFactor * 0.8;
         _influence = _influence max 0.2;
+    } else {
+        // No base nearby — assign a secondary enemy faction
+        private _partnerData = _factionData getOrDefault ["opForPartner", createHashMap];
+        private _partnerFactions = _partnerData getOrDefault ["factions", []];
+        private _irregularData = _factionData getOrDefault ["irregulars", createHashMap];
+        private _irregularFactions = _irregularData getOrDefault ["factions", []];
+        private _candidateFactions = _partnerFactions + _irregularFactions;
+        if (_candidateFactions isNotEqualTo []) then {
+            _assignedFaction = selectRandom _candidateFactions;
+        } else {
+            private _opForData = _factionData getOrDefault ["opFor", createHashMap];
+            private _opForFactions = _opForData getOrDefault ["factions", []];
+            if (_opForFactions isNotEqualTo []) then {
+                _assignedFaction = selectRandom _opForFactions;
+            };
+        };
     };
 
     _influenceMap set [_opId, createHashMapFromArray [
