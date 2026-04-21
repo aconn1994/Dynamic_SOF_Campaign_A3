@@ -109,7 +109,7 @@ private _getTimeAsString = {
 // ============================================================================
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 
-missionNamespace setVariable ["playerMainBase", "player_base_0", true];
+missionNamespace setVariable ["playerMainBase", "player_base_1", true];
 missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigRhs, true];
 missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
@@ -320,14 +320,82 @@ missionNamespace setVariable ["DSC_outpostMarkerData", _outpostMarkerData, true]
 diag_log format ["DSC: Published %1 bases and %2 outposts for map rendering", count _baseMarkerData, count _outpostMarkerData];
 
 // ============================================================================
-// STEP 4: Mission Generation Loop
+// STEP 5: Mission Generation Loop
 // ============================================================================
-while { false } do {
+while { true } do {
     diag_log "DSC: ========== Starting Mission Generation ==========";
-    // I think this will stay very identical to loop at line 54 in `addons\core\functions\init\fnc_initServerBACKUP.sqf`
-    // This loop was written to test the infinite generation functionality as you can see in the backup file
-    // with one faction hardcoded as a global variable and generating a mission with the faction groups.  The full
-    // vision for the mission is to make these feel fluid based on the influence map.  Such as a mission area faction
-    // based on how the mission is generated could be separate from the factions that occupy the area or the surroundings.
-    // How can we keep this modular as we add features/factions/mission types in the future?
+
+    // --- Select Mission ---
+    private _missionConfig = [_influenceData, _factionData] call DSC_core_fnc_selectMission;
+
+    if (_missionConfig isEqualTo createHashMap) then {
+        diag_log "DSC: Mission selection failed, retrying in 30s";
+        sleep 30;
+        continue;
+    };
+
+    // --- Generate Mission ---
+    private _missionData = [_missionConfig] call DSC_core_fnc_generateMission;
+
+    if (_missionData isEqualTo createHashMap) then {
+        diag_log "DSC: Mission generation failed, retrying in 10s";
+        sleep 10;
+        continue;
+    };
+
+    private _mission = _missionData get "mission";
+    private _taskId = _missionData get "taskId";
+    private _locationName = (_missionConfig get "location") get "name";
+    private _locationId = (_missionConfig get "location") get "id";
+
+    // --- Mission Active ---
+    missionNamespace setVariable ["missionInProgress", true, true];
+    missionNamespace setVariable ["missionState", "ACTIVE", true];
+
+    diag_log format ["DSC: Mission ACTIVE - %1 at %2", _missionConfig get "type", _locationName];
+
+    // Wait for debrief (triggered by player at flagpole)
+    waitUntil {
+        sleep 1;
+        !(missionNamespace getVariable ["missionInProgress", true])
+    };
+
+    // --- Debrief ---
+    missionNamespace setVariable ["missionState", "DEBRIEF", true];
+
+    private _hvtUnit = _mission getOrDefault ["entity", objNull];
+    private _hvtKilled = !isNull _hvtUnit && { !alive _hvtUnit };
+    private _success = _hvtKilled || (missionNamespace getVariable ["missionComplete", false]);
+
+    if (_success) then {
+        [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
+        hint format ["Mission SUCCESS\nHVT at %1 eliminated", _locationName];
+        systemChat format ["DSC: Mission SUCCESS - HVT at %1 eliminated", _locationName];
+        diag_log format ["DSC: Mission SUCCESS - HVT killed: %1", _hvtKilled];
+    } else {
+        [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
+        hint format ["Mission INCOMPLETE\nHVT at %1 status unknown", _locationName];
+        systemChat format ["DSC: Mission INCOMPLETE - %1", _locationName];
+        diag_log "DSC: Mission INCOMPLETE";
+    };
+
+    // --- Update Influence ---
+    private _result = ["failure", "success"] select _success;
+    _influenceData = [_influenceData, _locationId, _result, _missionConfig get "type"] call DSC_core_fnc_updateInfluence;
+    missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
+
+    sleep 5;
+    [_taskId] call BIS_fnc_deleteTask;
+
+    // --- Cleanup ---
+    missionNamespace setVariable ["missionState", "CLEANUP", true];
+
+    [_mission] call DSC_core_fnc_cleanupMission;
+
+    missionNamespace setVariable ["missionInProgress", false, true];
+    missionNamespace setVariable ["missionComplete", false, true];
+    missionNamespace setVariable ["missionState", "IDLE", true];
+
+    diag_log "DSC: Waiting before next mission...";
+    sleep 5;
 };

@@ -26,7 +26,19 @@ params [
 private _missionType = _mission getOrDefault ["type", "UNKNOWN"];
 private _locationName = _mission getOrDefault ["locationName", "Unknown"];
 private _locationPos = _mission getOrDefault ["location", [0,0,0]];
-private _locationTags = _location getOrDefault ["tags", []];
+// Build location tags from enriched location fields (new scanner format)
+private _locationTags = [];
+if (_location getOrDefault ["isMilitary", false]) then { _locationTags pushBack "military" };
+private _locType = _location getOrDefault ["locType", ""];
+private _milTier = _location getOrDefault ["militaryTier", ""];
+if (_milTier != "") then { _locationTags pushBack _milTier };
+switch (_locType) do {
+    case "NameCityCapital": { _locationTags append ["city", "urban"] };
+    case "NameCity":        { _locationTags append ["city", "urban"] };
+    case "NameVillage":     { _locationTags append ["settlement", "rural"] };
+    case "NameLocal":       { _locationTags pushBack "isolated" };
+    case "Military":        { _locationTags pushBack "military" };
+};
 
 private _defenderUnits = _ao getOrDefault ["defenderUnits", []];
 private _garrisonUnits = _ao getOrDefault ["garrisonUnits", []];

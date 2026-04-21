@@ -1,13 +1,18 @@
 // AI
 PREP_SUB(ai,addCombatActivation);
 PREP_SUB(ai,applySkillProfile);
+PREP_SUB(ai,buildRoadRoute);
 PREP_SUB(ai,convergePatrols);
+PREP_SUB(ai,findParkingPosition);
 PREP_SUB(ai,getSkillProfile);
 PREP_SUB(ai,persistentUAV);
 PREP_SUB(ai,populateAO);
 PREP_SUB(ai,setupGarrison);
 PREP_SUB(ai,setupGuards);
 PREP_SUB(ai,setupPatrols);
+PREP_SUB(ai,setupVehiclePatrol);
+PREP_SUB(ai,setupVehicles);
+PREP_SUB(ai,vehiclePatrolLoop);
 
 // Classification
 PREP_SUB(classification,classifyUnit);
@@ -40,6 +45,8 @@ PREP_SUB(base,spawnTransportHelo);
 // Missions
 PREP_SUB(missions,createMissionBriefing);
 PREP_SUB(missions,generateKillCaptureMission);
+PREP_SUB(missions,generateMission);
+PREP_SUB(missions,selectMission);
 PREP_SUB(missions,cleanupMission);
 
 // Location

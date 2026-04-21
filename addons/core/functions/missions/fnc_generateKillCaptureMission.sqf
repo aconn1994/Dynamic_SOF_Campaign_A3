@@ -45,7 +45,11 @@ private _opForSide = _config getOrDefault ["side", east];
 
 private _locationPos = _location get "position";
 private _locationName = _location get "name";
-private _locationTags = _location get "tags";
+private _locationTags = [];
+if (_location getOrDefault ["isMilitary", false]) then { _locationTags pushBack "military" };
+private _milTier = _location getOrDefault ["militaryTier", ""];
+if (_milTier != "") then { _locationTags pushBack _milTier };
+_locationTags pushBack (_location getOrDefault ["locType", ""]);
 
 private _aoGroups = _ao get "groups";
 private _aoUnits = _ao get "units";
@@ -107,7 +111,7 @@ if (_garrisonUnits isNotEqualTo []) then {
 
 // Fallback: place in any location structure
 if (!_placedWithBodyguard) then {
-    private _allStructures = (_location get "mainStructures") + (_location get "sideStructures");
+    private _allStructures = _location getOrDefault ["structures", []];
     _allStructures = _allStructures select { (_x buildingPos -1) isNotEqualTo [] };
     
     private _hvtGroup = createGroup [_opForSide, true];
@@ -137,13 +141,53 @@ _hvtUnit setVariable ["DSC_hvtName", format ["Target %1", floor (random 1000)], 
 _aoUnits pushBack _hvtUnit;
 
 // ============================================================================
-// Mission Marker
+// Mission Markers — SOF raid-style compound intel
 // ============================================================================
-private _markerPos = if (!isNull _hvtBuilding) then { getPos _hvtBuilding } else { _locationPos };
-private _targetMarker = createMarker ["target_location_marker", _markerPos];
-_targetMarker setMarkerTypeLocal "hd_objective";
-_targetMarker setMarkerColorLocal "ColorRed";
-_targetMarker setMarkerText format ["HVT: %1", _locationName];
+// Circle markers on garrison clusters (possible HVT locations)
+// Alpha-numeric dot markers on individual structures for callout reference
+// A1=anchor, A2,A3=satellites for cluster A; B1,B2... for cluster B, etc.
+
+private _garrisonClusters = _ao getOrDefault ["garrisonClusters", []];
+private _missionMarkers = [];
+private _clusterLetters = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+
+// Large locations (cities/towns/villages) only mark buildings near the cluster anchor.
+// Small/isolated locations mark all buildings in the cluster for full compound detail.
+private _locType = _location getOrDefault ["locType", ""];
+private _buildingCount = _location getOrDefault ["buildingCount", 0];
+private _isLargeLocation = _locType in ["NameCityCapital", "NameCity", "NameVillage"] || _buildingCount > 25;
+private _dotRadius = [999, 30] select _isLargeLocation;
+
+{
+    private _cluster = _x;
+    private _clusterCenter = _cluster get "center";
+    private _clusterBuildings = _cluster get "buildings";
+    private _letter = _clusterLetters select (_forEachIndex min (count _clusterLetters - 1));
+
+    // Contact circle on the anchor building
+    private _circleName = format ["dsc_cluster_%1", _forEachIndex];
+    private _circleMarker = createMarker [_circleName, _clusterCenter];
+    _circleMarker setMarkerTypeLocal "Contact_circle4";
+    _circleMarker setMarkerColor "ColorRed";
+    _missionMarkers pushBack _circleName;
+
+    // Dot markers on buildings within marking radius of the anchor
+    private _buildingsToMark = _clusterBuildings select { _x distance2D _clusterCenter < _dotRadius };
+
+    {
+        private _bldgPos = getPos _x;
+        private _label = format ["%1%2", _letter, _forEachIndex + 1];
+        private _dotName = format ["dsc_bldg_%1_%2", _letter, _forEachIndex];
+        private _dotMarker = createMarker [_dotName, _bldgPos];
+        _dotMarker setMarkerTypeLocal "mil_dot";
+        _dotMarker setMarkerColorLocal "ColorBlack";
+        _dotMarker setMarkerTextLocal format [" %1", _label];
+        _dotMarker setMarkerSize [0.5, 0.5];
+        _missionMarkers pushBack _dotName;
+    } forEach _buildingsToMark;
+
+    diag_log format ["DSC: Mission markers - Cluster %1: %2/%3 buildings marked (%4)", _letter, count _buildingsToMark, count _clusterBuildings, ["full", "radius"] select _isLargeLocation];
+} forEach _garrisonClusters;
 
 // ============================================================================
 // Build Mission Data
@@ -160,7 +204,8 @@ private _mission = createHashMapFromArray [
     ["defenderUnits", _defenderUnits],
     ["units", _aoUnits],
     ["vehicles", _aoVehicles],
-    ["marker", _targetMarker],
+    ["marker", ""],
+    ["markers", _missionMarkers],
     ["startTime", serverTime],
     ["status", "ACTIVE"]
 ];

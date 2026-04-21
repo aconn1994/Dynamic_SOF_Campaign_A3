@@ -16,6 +16,8 @@ workshop = [
     "1779063631", # Zeus Enhanced
     "623475643", # Eden Enhanced
     "632435682", # Remove Stamina
+    "642912021", # ZEC
+    "3567067667", # ZEIC
 ]
 
 [developer_ace]
@@ -42,8 +44,7 @@ workshop = [
 [play_test_factions]
 extends = "developer_factions"
 workshop = [
-    "3283642267", # Speshal Core
-    "3283612524", # Animate - Rewrite
+
     "333310405", # Enhanced Movement
     "2034363662", # Enhanced Movement Rework
     "1638341685", # DUI - Squad Radar
@@ -53,8 +54,12 @@ workshop = [
     "1770265310", # No More Aircraft Bouncing
     "2041057379", # A3 Thermal Improvement
     "3407948300", # JSRS Soundmod 2025
-    "2975268929", # TPNVG
-    "2595680138", # NI Arms
+    "3283642267", # Speshal Core
+    "3283612524", # Animate - Rewrite
+    "2834576684", # ITN
+    # "3540049844", # DZN XPI
+    # "2595680138", # NI Arms
+    "3147482833", # TOTT AiO
     "3564392635", # Modern Sniper Systems
-    "3540049844", # DZN XPI
+    "2975268929", # TPNVG
 ]

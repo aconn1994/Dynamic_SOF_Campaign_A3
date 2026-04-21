@@ -42,7 +42,8 @@ params [
 private _result = createHashMapFromArray [
     ["units", []],
     ["groups", []],
-    ["tags", []]
+    ["tags", []],
+    ["clusters", []]
 ];
 
 if (_locationPos isEqualTo []) exitWith {
@@ -75,35 +76,35 @@ private _densityProfile = if (_densityChoice == "random") then {
 private _defaultDensityConfig = switch (_densityProfile) do {
     case "light": {
         createHashMapFromArray [
-            ["anchorCount", [2, 4]],
+            ["anchorCount", [1, 1]],
             ["groupsPerAnchor", [1, 1]],
             ["satelliteCount", [0, 1]],
-            ["positionFill", 0.5]
+            ["positionFill", 0.3]
         ]
     };
     case "medium": {
         createHashMapFromArray [
-            ["anchorCount", [3, 5]],
+            ["anchorCount", [1, 3]],
             ["groupsPerAnchor", [1, 2]],
             ["satelliteCount", [1, 2]],
-            ["positionFill", 0.7]
+            ["positionFill", 0.4]
         ]
     };
     case "heavy": {
         createHashMapFromArray [
-            ["anchorCount", [4, 6]],
+            ["anchorCount", [2, 3]],
             ["groupsPerAnchor", [1, 2]],
             ["satelliteCount", [2, 3]],
-            ["positionFill", 0.9]
+            ["positionFill", 0.6]
         ]
     };
     default {
         // Default to medium if invalid
         createHashMapFromArray [
-            ["anchorCount", [2, 4]],
+            ["anchorCount", [1, 3]],
             ["groupsPerAnchor", [1, 2]],
             ["satelliteCount", [1, 2]],
-            ["positionFill", 0.7]
+            ["positionFill", 0.4]
         ]
     };
 };
@@ -227,7 +228,7 @@ diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors (%2 main, %3 prom
 // ============================================================================
 // SPAWN GROUPS AT ANCHORS WITH SATELLITES
 // ============================================================================
-private _mainStructureCapacity = 4;
+private _mainStructureCapacity = 3;
 private _sideStructureCapacity = 2;
 
 {
@@ -254,6 +255,14 @@ private _sideStructureCapacity = 2;
     
     // Build per-building position lists with capacity limits
     private _clusterBuildings = [_anchor] + _satellites;
+
+    // Record cluster for downstream systems (mission markers, intel)
+    (_result get "clusters") pushBack createHashMapFromArray [
+        ["anchor", _anchor],
+        ["satellites", _satellites],
+        ["buildings", _clusterBuildings],
+        ["center", _anchorPos]
+    ];
     private _buildingSlots = []; // Array of [building, [capped positions]]
     private _totalCappedPositions = 0;
     

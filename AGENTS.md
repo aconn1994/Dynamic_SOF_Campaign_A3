@@ -65,12 +65,14 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 2. `fnc_scanLocations` → anchor-based scan, assigns structures to named locations, tags military tiers
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
-5. *(Not yet wired)* Mission generation loop
+4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
+5. Mission generation loop — select → generate → debrief → update influence → cleanup → repeat
 
 **Client init** (`fnc_initPlayerLocal`):
 - Waits for server globals
 - Adds actions to `jointOperationCenter` flagpole: Debrief, HALO, Extract, Recruit Medic
 - Sets up player down/revive (ACE or vanilla)
+- Map Draw EH renders faction flag textures on bases/outposts
 
 ## Key Systems
 
@@ -79,9 +81,12 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Location Scanner | `fnc_scanLocations` | Anchor-based: assigns structures to named locations, military tier (base/outpost/camp) |
 | Faction Pipeline | `fnc_initFactionData` → `fnc_extractGroups` → `fnc_classifyGroups` | Mod-agnostic group extraction + doctrine tagging |
 | Asset Extraction | `fnc_extractAssets` | Auto-classifies vehicles, statics, aircraft per faction |
-| AO Population | `fnc_populateAO` | Spawns guards/garrison/patrols from classified groups |
-| Kill/Capture | `fnc_generateKillCaptureMission` | Places HVT in populated AO with briefing |
 | Influence | `fnc_initInfluence` / `fnc_updateInfluence` | Tiered military occupation, base→outpost propagation, safe zone |
+| Mission Selection | `fnc_selectMission` | Weighted location pick, target vs area faction, influence-aware |
+| Mission Generation | `fnc_generateMission` | Orchestrator: populate → objective → briefing → QRF → skill → UAV |
+| AO Population | `fnc_populateAO` | Multi-faction: target at objective, area faction ambient, vehicles, patrols |
+| Kill/Capture | `fnc_generateKillCaptureMission` | HVT placement, SOF raid-style compound markers (Contact_circle4 + alpha-numeric dots) |
+| Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
 
 ## SQF Conventions
@@ -121,7 +126,7 @@ Groups are tagged by the classifier for downstream filtering:
 - `editorSubcategory` reliability varies by mod (RHS excellent, CFP less so)
 - Structure `buildingPos -1` returns empty array for non-enterable buildings — always check
 - Combat activation uses `FiredNear` EH with cleanup after trigger
-- Steps 1-3 in initServer are active; Step 4 (mission loop) is not yet wired
+- All 5 initServer steps are active; mission loop is live
 - The `jointOperationCenter` object is placed in each map's `mission.sqm` via Eden editor
 - Airbase/airfield named locations are excluded from scanning — manually configured in 3den
 - Player base markers (`player_base_*`) exclude structures and locations from automated systems
@@ -129,10 +134,15 @@ Groups are tagged by the classifier for downstream filtering:
 - HEMTT renames Eden markers (e.g. `player_base` → `player_base_0`) — use prefix matching
 - Use `hemtt check` for SQF linting; HEMTT parser requires parens around unary commands in comparisons
 - Use `select` instead of `if/then/else` for constant-value assignments (HEMTT L-S05 warning)
+- `setFriend` manages east/independent diplomacy during missions, reset at cleanup
+- Vehicle patrol dismount cycle is deferred — current implementation drives road loops only
 
 ## Detailed System Docs
 
 - `.crush/architecture.md` — Init flow, addon structure, data flow between systems
 - `.crush/faction-system.md` — Faction profiles, extraction pipeline, classification, doctrine tags
 - `.crush/mission-system.md` — AO population, mission types, briefing, cleanup, combat activation
+- `.crush/mission-generation.md` — Mission config object, multi-faction population, generation flow
+- `.crush/vehicle-systems.md` — Parked vehicles, vehicle patrols, dismount cycle design (deferred)
+- `.crush/grand-vision.md` — High-level project goals and inspiration
 - `.crush/roadmap.md` — What's done, what's next, design philosophy

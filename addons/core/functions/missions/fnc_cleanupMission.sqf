@@ -64,6 +64,10 @@ if (_marker isEqualType "") then {
     };
 };
 
+// Delete all mission markers (cluster circles, building dots, etc.)
+private _markers = _mission getOrDefault ["markers", []];
+{ deleteMarker _x } forEach _markers;
+
 // Delete player drop markers
 {
     deleteMarker format ["dsc_drop_%1", getPlayerUID _x];
@@ -71,6 +75,10 @@ if (_marker isEqualType "") then {
 
 // Clear global mission variable
 missionNamespace setVariable ["DSC_currentMission", nil, true];
+
+// Reset side diplomacy to default hostility
+east setFriend [independent, 0];
+independent setFriend [east, 0];
 
 diag_log format ["DSC: Cleanup complete - %1 units, %2 vehicles, %3 groups deleted", 
     count _units, count _vehicles, count _groups];
