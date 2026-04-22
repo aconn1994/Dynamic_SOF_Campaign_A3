@@ -31,8 +31,10 @@ PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(faction,initFactionData);
 
 // Init
+PREP_SUB(init,initBases);
 PREP_SUB(init,initServer);
 PREP_SUB(init,initPlayerLocal);
+PREP_SUB(init,setupBase);
 
 // Base (player base actions, recruitment, insertions)
 PREP_SUB(base,haloJump);

@@ -54,6 +54,16 @@
 - [x] **Side diplomacy** — `setFriend` ensures opFor + irregulars cooperate during missions, reset at cleanup
 - [ ] **Special zones** (logistics, factories, resources, ports) owned by faction
 
+### Base Initialization (Design: `.crush/base-initialization.md`)
+- [ ] **`fnc_initBases` + `fnc_setupBase`** — orchestrator + per-base worker, base registry pattern
+- [ ] **Player base guards** — `fnc_setupGuards` with heavy config, tower sentries + perimeter (Sprint 1)
+- [ ] **Player base helipads** — scan `player_base_1_heliport` marker, place transport helos on pads (Sprint 2)
+- [ ] **BluFor/OpFor base population** — iterate influence bases, side-appropriate guard configs + vehicles (Sprint 3)
+- [ ] **Transport helo from pad** — modify `fnc_spawnTransportHelo` + `fnc_requestExtraction` to use base registry (Sprint 2)
+- [ ] **Helo return to base** — `fnc_returnHeloToBase`, post-mission fly-back + crew despawn (Sprint 4)
+- [ ] **QRF from opFor bases** — QRF spawns from nearest opFor base in registry (Sprint 4)
+- [ ] **Dynamic simulation** — all base entities get `triggerDynamicSimulation true` for zero idle cost
+
 ### Faction Configuration
 - [ ] **Player-selectable factions** — currently hardcoded vanilla/RHS profiles
 - [ ] **Civilians** — neutral population spawning

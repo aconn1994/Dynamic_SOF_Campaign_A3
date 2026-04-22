@@ -110,7 +110,7 @@ private _getTimeAsString = {
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 
 missionNamespace setVariable ["playerMainBase", "player_base_1", true];
-missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigRhs, true];
+missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigVanilla, true];
 missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
@@ -318,6 +318,17 @@ missionNamespace setVariable ["DSC_baseMarkerData", _baseMarkerData, true];
 missionNamespace setVariable ["DSC_outpostMarkerData", _outpostMarkerData, true];
 
 diag_log format ["DSC: Published %1 bases and %2 outposts for map rendering", count _baseMarkerData, count _outpostMarkerData];
+
+// ============================================================================
+// STEP 4b: Initialize Military Bases (guards, vehicles, dynamic sim)
+// ============================================================================
+diag_log "DSC: ========== Initializing Military Bases ==========";
+systemChat format ["DSC - %1 - Initializing military bases...", call _getTimeAsString];
+
+private _baseRegistry = [_influenceData, _factionData] call DSC_core_fnc_initBases;
+missionNamespace setVariable ["DSC_baseRegistry", _baseRegistry, true];
+
+systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _getTimeAsString, count _baseRegistry];
 
 // ============================================================================
 // STEP 5: Mission Generation Loop

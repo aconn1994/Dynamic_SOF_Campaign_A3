@@ -151,7 +151,9 @@ if (_locationType == "military") then {
             _static setDir _dirFromCenter;
 
             private _gunner = _guardsGroup createUnit [_lookoutClass, _topPos, [], 0, "NONE"];
+            _gunner allowDamage false;
             _gunner moveInGunner _static;
+            [{_this allowDamage true}, _gunner, 3] call CBA_fnc_waitAndExecute;
 
             (_result get "vehicles") pushBack _static;
             (_result get "units") pushBack _gunner;
@@ -159,9 +161,11 @@ if (_locationType == "military") then {
             diag_log format ["DSC: fnc_setupGuards - %1: Static weapon (%2)", typeOf _structure, _weaponClass];
         } else {
             private _lookout = _guardsGroup createUnit [_lookoutClass, _topPos, [], 0, "NONE"];
+            _lookout allowDamage false;
             _lookout setPos _topPos;
             _lookout setDir (_locationPos getDir _topPos);
             _lookout disableAI "PATH";
+            [{_this allowDamage true}, _lookout, 3] call CBA_fnc_waitAndExecute;
 
             (_result get "units") pushBack _lookout;
             _lookoutsSpawned = _lookoutsSpawned + 1;
