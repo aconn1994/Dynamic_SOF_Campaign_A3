@@ -100,10 +100,14 @@
 - [ ] Intel-driven mission selection
 - [ ] Campaign threads — track faction engagement history
 
-### World Simulation (Future)
-- [ ] Real-time patrol injection near players
-- [ ] Forced encounter logic if no combat for extended period
-- [ ] QRF/response from nearby occupied bases
+### World Simulation — Presence Manager (Design: `.crush/base-initialization.md`)
+- [ ] **`fnc_presenceManager`** — sleep-loop (15-30s) checking player position against influence/base data
+- [ ] **Zone state machine** — `DORMANT → ACTIVATING → ACTIVE → DESPAWNING → DORMANT` per zone, prevents double-spawn
+- [ ] **OpFor base activation** — guards + garrison spawn when player within ~1.5km, despawn at ~2.5km
+- [ ] **BluFor base activation** — friendly ambient troops spawn on player approach
+- [ ] **Forced encounters** — if player in opFor territory with no combat for X min, inject patrol near position
+- [ ] **Civilian/ambient life** — populate towns with civilians when player approaches
+- [ ] **QRF from bases** — opFor bases spawn QRF toward active mission AO
 - [ ] Environmental immersion layer separate from mission system
 
 ## Design Philosophy

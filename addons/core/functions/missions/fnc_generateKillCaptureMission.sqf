@@ -156,7 +156,7 @@ private _clusterLetters = ["A","B","C","D","E","F","G","H","I","J","K","L"];
 private _locType = _location getOrDefault ["locType", ""];
 private _buildingCount = _location getOrDefault ["buildingCount", 0];
 private _isLargeLocation = _locType in ["NameCityCapital", "NameCity", "NameVillage"] || _buildingCount > 25;
-private _dotRadius = [999, 30] select _isLargeLocation;
+private _dotRadius = [999, 75] select _isLargeLocation;
 
 {
     private _cluster = _x;

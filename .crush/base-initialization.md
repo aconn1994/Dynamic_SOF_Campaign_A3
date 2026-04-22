@@ -378,12 +378,61 @@ This is the main new function. Pseudocode:
 4. Modify `fnc_requestExtraction` to use pad helo
 5. Test: see helos on pads, request extraction, helo lifts off from pad
 
-### Sprint 3: BluFor + OpFor Bases
-1. Extend `fnc_initBases` to iterate influence data bases
-2. Add side-appropriate configs for guard density
-3. Add helipad vehicle placement for all sides
-4. Test: fly near a bluFor base (friendly guards), fly near opFor base (get engaged)
-5. Publish `DSC_baseRegistry` for downstream use
+### Sprint 3: Presence Manager (replaces static base spawning)
+
+BluFor/opFor base population is **deferred** — not spawned at init. Instead, a presence manager handles dynamic spawning based on player proximity and game state.
+
+**`fnc_presenceManager`** — spawned from initServer, runs a sleep loop (15-30s):
+
+```
+while { true } do {
+    sleep 20;
+
+    // For each zone (bases, influence areas, towns):
+    //   Check player distance + zone state
+    //   Transition state machine as needed
+
+    // Zone states:
+    //   DORMANT     → no entities, no cost
+    //   ACTIVATING  → player within activation radius, spawning in progress
+    //   ACTIVE      → entities live, player nearby
+    //   DESPAWNING  → player left, cleanup after grace period (avoid pop-in/out)
+    //   COMBAT      → player engaged, never despawn mid-fight
+};
+```
+
+**Activation rules:**
+
+| Zone Type | Activate | Deactivate | Spawns |
+|-----------|----------|------------|--------|
+| OpFor base | Player <1.5km | Player >2.5km, no combat | Guards + garrison via fnc_setupBase |
+| BluFor base | Player <1.5km | Player >2.5km | Friendly guards + ambient vehicles |
+| OpFor influence area | Player enters | Player leaves + buffer | Patrols, checkpoints |
+| BluFor influence area | Player enters | Player leaves + buffer | Friendly patrols |
+| Town/populated area | Player <800m | Player >1.2km | Civilians, ambient life |
+
+**Forced encounters:**
+- Track `DSC_lastCombatTime` (updated by FiredNear/killed EHs)
+- If player in opFor territory and `time - DSC_lastCombatTime > threshold` (5-10 min):
+  - Spawn patrol 300-500m from player, moving toward them
+  - Or spawn vehicle patrol on nearest road
+- Threshold scales with influence — deeper in enemy territory = shorter timer
+
+**State machine prevents issues:**
+- `COMBAT` state locks the zone — no despawning during engagement
+- `ACTIVATING` checks prevent double-spawn if loop fires twice before spawn completes
+- Grace period on `DESPAWNING` (60-90s) prevents pop-in/out if player is circling zone edge
+
+**Data backbone** (already exists):
+- `DSC_baseRegistry` — what to spawn at each base
+- `DSC_influenceData` — who controls each area, influence strength
+- `DSC_locations` — structure data for garrison/patrol spawning
+- `fnc_setupBase` / `fnc_setupGuards` / `fnc_populateAO` — spawning functions already built
+
+**Key difference from mission AO population:**
+- Mission AOs are one-shot: populate → play → cleanup
+- Presence zones are persistent: activate → deactivate → reactivate
+- Presence zones track their spawned entities for cleanup but reuse them if player returns before despawn completes
 
 ### Sprint 4: QRF Integration + Transport Return
 1. Create `fnc_returnHeloToBase` for post-mission helo return

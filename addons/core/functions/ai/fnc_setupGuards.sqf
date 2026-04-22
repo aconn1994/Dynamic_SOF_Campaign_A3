@@ -72,7 +72,8 @@ private _highMG = _mgWeapons select { "high" in toLower _x || "TriPod" in _x };
 if (_highMG isEqualTo []) then { _highMG = _mgWeapons };
 
 private _lookoutClass = "";
-private _filterStr = format ["getNumber (_x >> 'scope') >= 2 && getText (_x >> 'faction') == '%1' && getNumber (_x >> 'isMan') == 1", _faction];
+private _guardFaction = _configOverrides getOrDefault ["guardFaction", _faction];
+private _filterStr = format ["getNumber (_x >> 'scope') >= 2 && getText (_x >> 'faction') == '%1' && getNumber (_x >> 'isMan') == 1", _guardFaction];
 private _factionMen = _filterStr configClasses (configFile >> "CfgVehicles");
 if (_factionMen isNotEqualTo []) then {
     _lookoutClass = configName (selectRandom _factionMen);
@@ -123,6 +124,8 @@ if (_locationType == "military") then {
 
     diag_log format ["DSC: fnc_setupGuards - Found %1 dedicated guard structures", count _guardStructures];
 
+    private _maxGuardsPerStructure = _configOverrides getOrDefault ["maxGuardsPerStructure", 1];
+
     {
         private _structure = _x;
         private _buildingPositions = _structure buildingPos -1;
@@ -171,6 +174,26 @@ if (_locationType == "military") then {
             _lookoutsSpawned = _lookoutsSpawned + 1;
             diag_log format ["DSC: fnc_setupGuards - %1: Lookout soldier%2", typeOf _structure, ["", " (covered)"] select (!_hasOpenSky)];
         };
+
+        // Additional lookouts on remaining building positions
+        private _extraPositions = if (count _buildingPositions > 1) then {
+            _buildingPositions select [1, (_maxGuardsPerStructure - 1) min (count _buildingPositions - 1)]
+        } else {
+            []
+        };
+
+        {
+            private _extraPos = _x;
+            private _lookout = _guardsGroup createUnit [_lookoutClass, _extraPos, [], 0, "NONE"];
+            _lookout allowDamage false;
+            _lookout setPos _extraPos;
+            _lookout setDir (_locationPos getDir _extraPos);
+            _lookout disableAI "PATH";
+            [{_this allowDamage true}, _lookout, 3] call CBA_fnc_waitAndExecute;
+
+            (_result get "units") pushBack _lookout;
+            _lookoutsSpawned = _lookoutsSpawned + 1;
+        } forEach _extraPositions;
     } forEach _guardStructures;
 };
 

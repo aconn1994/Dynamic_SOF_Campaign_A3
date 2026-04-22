@@ -185,6 +185,13 @@ if (_type == "playerBase") then {
 private _guardConfig = createHashMap;
 _guardConfig set ["structures", _structures];
 _guardConfig set ["assets", _assets];
+_guardConfig set ["maxGuardsPerStructure", 3];
+
+// Use guardFaction override if provided (e.g., conventional infantry instead of SOF)
+private _guardFaction = _baseConfig getOrDefault ["guardFaction", ""];
+if (_guardFaction != "") then {
+    _guardConfig set ["guardFaction", _guardFaction];
+};
 
 switch (_type) do {
     case "playerBase": {

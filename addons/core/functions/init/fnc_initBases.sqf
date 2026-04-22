@@ -38,7 +38,55 @@ private _getRoleData = {
     private _side = _roleData getOrDefault ["side", west];
     private _factions = _roleData getOrDefault ["factions", []];
     private _faction = if (_factions isNotEqualTo []) then { _factions select 0 } else { "" };
-    [_side, _faction]
+    [_side, _faction, _factions]
+};
+
+// Helper: merge assets from all factions in a role into one pooled hashmap
+private _mergeAssets = {
+    params ["_role", "_factionsList"];
+    private _roleData = _factionData getOrDefault [_role, createHashMap];
+    private _allRoleAssets = _roleData getOrDefault ["assets", createHashMap];
+
+    private _merged = createHashMapFromArray [
+        ["staticWeapons", createHashMapFromArray [["HMG",[]], ["GMG",[]], ["AT",[]], ["AA",[]], ["mortar",[]], ["cannon",[]], ["other",[]]]],
+        ["cars", createHashMapFromArray [["unarmed",[]], ["armed",[]], ["mrap",[]]]],
+        ["trucks", []],
+        ["apcs", []],
+        ["tanks", []],
+        ["helicopters", createHashMapFromArray [["attack",[]], ["transport",[]]]],
+        ["planes", createHashMapFromArray [["attack",[]], ["transport",[]]]],
+        ["boats", []],
+        ["drones", []]
+    ];
+
+    {
+        private _fac = _x;
+        private _facAssets = _allRoleAssets getOrDefault [_fac, createHashMap];
+        if (_facAssets isEqualTo createHashMap) then {
+            _facAssets = [_fac] call DSC_core_fnc_extractAssets;
+        };
+
+        // Merge each category
+        {
+            private _catKey = _x;
+            private _src = _facAssets getOrDefault [_catKey, []];
+            private _dst = _merged getOrDefault [_catKey, []];
+
+            if (_src isEqualType createHashMap) then {
+                // Sub-keyed category (staticWeapons, cars, helicopters, planes)
+                {
+                    private _subKey = _x;
+                    private _subSrc = _src getOrDefault [_subKey, []];
+                    private _subDst = _dst getOrDefault [_subKey, []];
+                    _dst set [_subKey, _subDst + _subSrc];
+                } forEach (keys _src);
+            } else {
+                _merged set [_catKey, _dst + _src];
+            };
+        } forEach ["staticWeapons", "cars", "trucks", "apcs", "tanks", "helicopters", "planes", "boats", "drones"];
+    } forEach _factionsList;
+
+    _merged
 };
 
 // ============================================================================
@@ -46,38 +94,33 @@ private _getRoleData = {
 // ============================================================================
 diag_log "DSC: fnc_initBases - Setting up player base(s)";
 
-// Find all player base root markers (player_base_N but NOT player_base_N_*)
+// Find the active player base marker (set in initServer Step 0)
+private _playerMainBase = missionNamespace getVariable ["playerMainBase", ""];
 private _allPlayerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 };
 
-// Separate root markers from zone sub-markers
+// Only initialize the active player base — other player_base markers are
+// reserved zones (exclusion from scanning/influence) but not populated
 private _rootMarkers = [];
-{
-    private _marker = _x;
-    // A root marker has format "player_base_N" — check it doesn't have more underscore segments
-    // after removing the "player_base_" prefix
-    private _suffix = _marker select [count "player_base_"];
-    private _parts = _suffix splitString "_";
-    // Root marker: suffix is just a number (e.g., "1")
-    if (count _parts == 1) then {
-        _rootMarkers pushBack _marker;
+if (_playerMainBase != "") then {
+    // Verify the marker exists
+    if ((getMarkerPos _playerMainBase) isNotEqualTo [0,0,0]) then {
+        _rootMarkers pushBack _playerMainBase;
+    } else {
+        diag_log format ["DSC: fnc_initBases - WARNING: playerMainBase '%1' marker not found", _playerMainBase];
     };
-} forEach _allPlayerBaseMarkers;
+};
 
 diag_log format ["DSC: fnc_initBases - Found %1 player base root marker(s): %2", count _rootMarkers, _rootMarkers];
 
-// Get bluFor faction data
+// Get bluFor faction data — pool assets from ALL bluFor factions
 private _bluForData = "bluFor" call _getRoleData;
-_bluForData params ["_bluForSide", "_bluForFaction"];
+_bluForData params ["_bluForSide", "_bluForFaction", "_bluForFactions"];
 
-// Pre-extract bluFor assets once for all player bases
-private _bluForAssets = createHashMap;
-if (_bluForFaction != "") then {
-    private _bluForRoleData = _factionData getOrDefault ["bluFor", createHashMap];
-    _bluForAssets = (_bluForRoleData getOrDefault ["assets", createHashMap]) getOrDefault [_bluForFaction, createHashMap];
-    if (_bluForAssets isEqualTo createHashMap) then {
-        _bluForAssets = [_bluForFaction] call DSC_core_fnc_extractAssets;
-    };
-};
+private _bluForAssets = ["bluFor", _bluForFactions] call _mergeAssets;
+diag_log format ["DSC: fnc_initBases - Pooled bluFor assets from %1 factions", count _bluForFactions];
+
+// Guard faction: prefer conventional (2nd faction) over SOF (1st) for base guards
+private _bluForGuardFaction = if (count _bluForFactions > 1) then { _bluForFactions select 1 } else { _bluForFaction };
 
 {
     private _marker = _x;
@@ -95,7 +138,8 @@ if (_bluForFaction != "") then {
         ["side", _bluForSide],
         ["faction", _bluForFaction],
         ["name", format ["Player Base (%1)", _marker]],
-        ["assets", _bluForAssets]
+        ["assets", _bluForAssets],
+        ["guardFaction", _bluForGuardFaction]
     ];
 
     private _baseEntry = [_config] call DSC_core_fnc_setupBase;
@@ -106,20 +150,16 @@ if (_bluForFaction != "") then {
 
 // ============================================================================
 // PHASE 2: BluFor Partner Bases (from influence)
+// DISABLED: Will be handled by presence manager when player approaches
 // ============================================================================
+/*
 diag_log "DSC: fnc_initBases - Setting up bluFor partner bases";
 
 private _partnerData = "bluForPartner" call _getRoleData;
-_partnerData params ["_partnerSide", "_partnerFaction"];
+_partnerData params ["_partnerSide", "_partnerFaction", "_partnerFactions"];
 
-private _partnerAssets = createHashMap;
-if (_partnerFaction != "") then {
-    private _partnerRoleData = _factionData getOrDefault ["bluForPartner", createHashMap];
-    _partnerAssets = (_partnerRoleData getOrDefault ["assets", createHashMap]) getOrDefault [_partnerFaction, createHashMap];
-    if (_partnerAssets isEqualTo createHashMap) then {
-        _partnerAssets = [_partnerFaction] call DSC_core_fnc_extractAssets;
-    };
-};
+private _partnerAssets = ["bluForPartner", _partnerFactions] call _mergeAssets;
+diag_log format ["DSC: fnc_initBases - Pooled bluForPartner assets from %1 factions", count _partnerFactions];
 
 {
     private _loc = _x;
@@ -159,23 +199,23 @@ if (_partnerFaction != "") then {
 
     diag_log format ["DSC: fnc_initBases - BluFor base '%1' initialized", _locName];
 } forEach _bases;
+*/
 
 // ============================================================================
 // PHASE 3: OpFor Bases (from influence)
+// DISABLED: Will be handled by presence manager when player approaches
 // ============================================================================
+/*
 diag_log "DSC: fnc_initBases - Setting up opFor bases";
 
 private _opForData = "opFor" call _getRoleData;
-_opForData params ["_opForSide", "_opForFaction"];
+_opForData params ["_opForSide", "_opForFaction", "_opForFactions"];
 
-private _opForAssets = createHashMap;
-if (_opForFaction != "") then {
-    private _opForRoleData = _factionData getOrDefault ["opFor", createHashMap];
-    _opForAssets = (_opForRoleData getOrDefault ["assets", createHashMap]) getOrDefault [_opForFaction, createHashMap];
-    if (_opForAssets isEqualTo createHashMap) then {
-        _opForAssets = [_opForFaction] call DSC_core_fnc_extractAssets;
-    };
-};
+private _opForAssets = ["opFor", _opForFactions] call _mergeAssets;
+diag_log format ["DSC: fnc_initBases - Pooled opFor assets from %1 factions", count _opForFactions];
+
+// Guard faction: prefer conventional (2nd faction) over elite (1st) for base guards
+private _opForGuardFaction = if (count _opForFactions > 1) then { _opForFactions select 1 } else { _opForFaction };
 
 {
     private _loc = _x;
@@ -200,6 +240,7 @@ if (_opForFaction != "") then {
         ["radius", _locRadius],
         ["structures", _locStructures],
         ["assets", _opForAssets],
+        ["guardFaction", _opForGuardFaction],
         ["influenceId", _locId]
     ];
 
@@ -208,6 +249,7 @@ if (_opForFaction != "") then {
 
     diag_log format ["DSC: fnc_initBases - OpFor base '%1' initialized", _locName];
 } forEach _bases;
+*/
 
 // ============================================================================
 // Publish Registry

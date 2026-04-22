@@ -57,7 +57,9 @@ private _factionProfileConfigRhs = createHashMapFromArray [
         ["factions", [
             "rhs_faction_socom",     // USA (SOCOM)
             "rhs_faction_usarmy_wd", // USA (Army - W)
-            "rhs_faction_usmc_wd"    // USA (USMC - W)
+            "rhs_faction_usmc_wd",   // USA (USMC - W)
+            "rhs_faction_usaf",      // USA (USAF)
+            "rhs_faction_usn"        // USA (Navy)
         ]]
     ]],
     ["bluForPartner", createHashMapFromArray [
@@ -110,7 +112,7 @@ private _getTimeAsString = {
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 
 missionNamespace setVariable ["playerMainBase", "player_base_1", true];
-missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigVanilla, true];
+missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigRhs, true];
 missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
