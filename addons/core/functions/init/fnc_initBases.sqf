@@ -145,6 +145,22 @@ private _bluForGuardFaction = if (count _bluForFactions > 1) then { _bluForFacti
     private _baseEntry = [_config] call DSC_core_fnc_setupBase;
     _baseRegistry set [_marker, _baseEntry];
 
+    // Style the main base marker: border-only outline visible on player maps
+    _marker setMarkerBrushLocal "Border";
+    _marker setMarkerColorLocal "ColorWEST";
+    _marker setMarkerAlpha 1;
+
+    // Hide all sub-zone markers (heliport, motorpool, toc, airstrip)
+    private _prefix = _marker + "_";
+    {
+        if (_x find _prefix == 0) then {
+            // _x setMarkerAlpha 0;
+            _x setMarkerBrushLocal "Border";
+            _x setMarkerColorLocal "ColorWEST";
+            _x setMarkerAlpha 1;
+        };
+    } forEach _allPlayerBaseMarkers;
+
     diag_log format ["DSC: fnc_initBases - Player base '%1' initialized", _marker];
 } forEach _rootMarkers;
 

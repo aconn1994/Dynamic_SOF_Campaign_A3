@@ -12,22 +12,22 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=18089;
+		nextID=18179;
 	};
 	class MarkerIDProvider
 	{
-		nextID=3;
+		nextID=9;
 	};
 	class LayerIndexProvider
 	{
-		nextID=321;
+		nextID=340;
 	};
 	class Camera
 	{
-		pos[]={23313.988,17.713055,17715.029};
-		dir[]={0.92119181,-0.38256219,-0.071075939};
-		up[]={0.38142848,0.92392969,-0.029429689};
-		aside[]={-0.076927856,-1.8626451e-09,-0.99703658};
+		pos[]={23496.658,266.12326,18087.742};
+		dir[]={0.09611655,-0.5896821,0.80189562};
+		up[]={0.070177965,0.80763549,0.58549124};
+		aside[]={0.99289304,-3.7252903e-09,-0.11900982};
 	};
 };
 binarizationWanted=0;
@@ -290,7 +290,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=4021;
+		items=4029;
 		class Item0
 		{
 			dataType="Object";
@@ -13021,7 +13021,7 @@ class Mission
 			dataType="Object";
 			class PositionInfo
 			{
-				position[]={23021.488,4.8898745,18307.314};
+				position[]={23021.375,4.8898745,18307.25};
 				angles[]={0,1.5626295,0};
 			};
 			side="Empty";
@@ -18246,7 +18246,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23323.404,3.6093116,17723.773};
-						angles[]={-0,5.4938416,0};
+						angles[]={0,5.4938416,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18263,7 +18263,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23311.031,3.6093116,17723.227};
-						angles[]={-0,6.2792401,0};
+						angles[]={0,6.2792401,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18280,7 +18280,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23324.02,3.6093116,17726.277};
-						angles[]={-0,4.7084436,0};
+						angles[]={0,4.7084436,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18297,7 +18297,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23320.906,3.6093116,17723.141};
-						angles[]={-0,3.1376469,0};
+						angles[]={0,3.1376469,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18314,7 +18314,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23316.5,3.1900001,17731};
-						angles[]={-0,4.7221808,0};
+						angles[]={0,4.7221808,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18706,7 +18706,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23307.895,3.6093116,17726.34};
-						angles[]={-0,4.7084436,0};
+						angles[]={0,4.7084436,0};
 					};
 					side="Empty";
 					flags=4;
@@ -18825,7 +18825,7 @@ class Mission
 					class PositionInfo
 					{
 						position[]={23308.529,3.6093116,17723.842};
-						angles[]={-0,0.78145242,0};
+						angles[]={0,0.78145242,0};
 					};
 					side="Empty";
 					flags=4;
@@ -79610,14 +79610,14 @@ class Mission
 		class Item3641
 		{
 			dataType="Marker";
-			position[]={23284.375,3.1900001,18560.125};
+			position[]={23277.5,3.1900001,18415.75};
 			name="player_base_1_airstrip_0";
 			markerType="RECTANGLE";
 			type="";
 			alpha=0.30024752;
 			fillName="SolidBorder";
 			a=250;
-			b=700;
+			b=550;
 			drawBorder=1;
 			id=17296;
 			class CustomAttributes
@@ -85716,6 +85716,212 @@ class Mission
 			};
 			id=18088;
 			type="Land_HelipadEmpty_F";
+		};
+		class Item4021
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={23021.375,4.8898745,18311.25};
+				angles[]={0,1.5626295,0};
+			};
+			side="Empty";
+			flags=5;
+			class Attributes
+			{
+			};
+			id=18089;
+			type="Land_Mil_WallBig_4m_F";
+		};
+		class Item4022
+		{
+			dataType="Marker";
+			position[]={23144.375,3.1900001,17612.25};
+			name="marker_3";
+			text="Motorpool";
+			type="respawn_motor";
+			colorName="ColorWEST";
+			id=18172;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4023
+		{
+			dataType="Marker";
+			position[]={23383.248,3.1900001,18183.469};
+			name="marker_4";
+			text="Airstrip";
+			type="respawn_plane";
+			colorName="ColorWEST";
+			id=18173;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4024
+		{
+			dataType="Marker";
+			position[]={23452.529,3.1900001,17631.969};
+			name="marker_5";
+			text="Heliport";
+			type="respawn_air";
+			colorName="ColorWEST";
+			id=18174;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4025
+		{
+			dataType="Marker";
+			position[]={23645.07,3.1900001,18783.846};
+			name="marker_6";
+			text="Training Facility";
+			type="respawn_unknown";
+			colorName="ColorWEST";
+			id=18175;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4026
+		{
+			dataType="Marker";
+			position[]={23336.029,3.1900001,17730.746};
+			name="marker_7";
+			text="Tactical Operations Center";
+			type="respawn_inf";
+			colorName="ColorWEST";
+			id=18176;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4027
+		{
+			dataType="Marker";
+			position[]={22928.539,5.5409999,18889.494};
+			name="marker_8";
+			text="Main Entrance";
+			type="mil_flag";
+			colorName="ColorWEST";
+			id=18177;
+			atlOffset=0.00040197372;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item4028
+		{
+			dataType="Marker";
+			position[]={23759.414,3.1900001,18870.221};
+			name="marker_9";
+			text="Training Facility Entrance";
+			type="mil_flag";
+			colorName="ColorWEST";
+			id=18178;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
 		};
 	};
 };

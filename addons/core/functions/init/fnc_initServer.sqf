@@ -89,7 +89,7 @@ private _factionProfileConfigRhs = createHashMapFromArray [
     ]],
     ["civilians", createHashMapFromArray [
         ["side", civilian],
-        ["factions", ["rhsgref_faction_chdkz_g"]] // ChDKZ (Civilian)
+        ["factions", ["CIV_F"]] // ChDKZ (Civilian)
     ]],
     ["environmentalActors", createHashMapFromArray [
         ["side", civilian],
