@@ -21,9 +21,9 @@ class EditorData
 	class Camera
 	{
 		pos[]={2165.5593,22.016581,3463.512};
-		dir[]={-0.19579965,-0.19050162,-0.9619624};
-		up[]={-0.037995975,0.98168683,-0.18667397};
-		aside[]={-0.97990751,-3.7252903e-09,0.19945224};
+		dir[]={-0.19579987,-0.19050162,-0.96196234};
+		up[]={-0.03799602,0.98168695,-0.18667397};
+		aside[]={-0.97990757,-3.7252903e-09,0.19945247};
 	};
 };
 binarizationWanted=0;
@@ -660,15 +660,15 @@ class Mission
 		class Item9
 		{
 			dataType="Marker";
-			position[]={2245.2439,11.97453,3462.5879};
-			name="player_base_0";
+			position[]={2245.2439,11.975,3462.5879};
+			name="player_base_1";
 			markerType="RECTANGLE";
 			type="";
 			a=100;
 			b=300;
 			angle=69.999992;
 			id=15;
-			atlOffset=-9.5367432e-07;
+			atlOffset=0.00046920776;
 			class CustomAttributes
 			{
 				class Attribute0

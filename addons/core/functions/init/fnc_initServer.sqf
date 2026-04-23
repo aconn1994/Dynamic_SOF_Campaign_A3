@@ -97,6 +97,31 @@ private _factionProfileConfigRhs = createHashMapFromArray [
     ]]
 ];
 
+// ============================================================================
+// Auto-detect faction profile: check if all RHS factions exist in CfgFactionClasses
+// ============================================================================
+private _rhsFactions = [];
+{
+    private _roleFactions = (_y getOrDefault ["factions", []]);
+    { _rhsFactions pushBackUnique _x } forEach _roleFactions;
+} forEach _factionProfileConfigRhs;
+
+private _allRhsPresent = true;
+{
+    if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
+        diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
+        _allRhsPresent = false;
+    };
+} forEach _rhsFactions;
+
+private _selectedProfile = if (_allRhsPresent) then {
+    diag_log "DSC: All RHS factions detected - using RHS faction profile";
+    _factionProfileConfigRhs
+} else {
+    diag_log "DSC: Using vanilla faction profile";
+    _factionProfileConfigVanilla
+};
+
 private _getTimeAsString = {
     private _daytime = dayTime;
     private _hours = floor _daytime;
@@ -112,7 +137,7 @@ private _getTimeAsString = {
 missionNamespace setVariable ["initGlobalsComplete", false, true];
 
 missionNamespace setVariable ["playerMainBase", "player_base_1", true];
-missionNamespace setVariable ["factionProfileConfig", _factionProfileConfigRhs, true];
+missionNamespace setVariable ["factionProfileConfig", _selectedProfile, true];
 missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
