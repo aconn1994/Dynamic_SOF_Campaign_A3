@@ -1,29 +1,62 @@
-// Test fnc_extractAssets
-diag_log "========== DSC fnc_extractAssets TEST ==========";
+diag_log "===================";
+diag_log "Starting Run 4...";
+diag_log "===================";
 
-private _testFactions = ["OPF_F", "IND_F", "BLU_F", "rhs_faction_usarmy_wd", "rhs_faction_usmc_d", "rhs_faction_msv"];
+// Mission start time
+private _missionStartTime = diag_tickTime;
+diag_log format ["[MISSION] Start time: %1", _missionStartTime];
 
+// Baseline Garrison Profile for daytime CQB, 3 units per structure is pretty balanced
+// Maybe drop spotTime if enemies are not NVG-capable.  Keep at 0.5 if they are
+// private _skillProfile = [
+//     ["aimingAccuracy", 0.2],
+//     ["aimingShake",    0.3],
+//     ["aimingSpeed",    0.3],
+//     ["spotDistance",   0.5],
+//     ["spotTime",       0.5],
+//     ["courage",        0.5],
+//     ["commanding",     0.5]
+// ];
+
+// Skill profile to apply
+private _skillProfile = [
+    ["aimingAccuracy", 0.2],
+    ["aimingShake",    0.3],
+    ["aimingSpeed",    0.3],
+    ["spotDistance",   0.5],
+    ["spotTime",       0.5],
+    ["courage",        0.5],
+    ["commanding",     0.5]
+];
+
+// Spawn and skill units per building
+private _numUnits = 3;
 {
-    private _faction = _x;
-    diag_log format ["--- Testing: %1 ---", _faction];
-    private _assets = [_faction] call DSC_core_fnc_extractAssets;
-    
-    private _statics = _assets get "staticWeapons";
-    diag_log format ["  Static HMG: %1", _statics get "HMG"];
-    diag_log format ["  Static AT: %1", _statics get "AT"];
-    diag_log format ["  Static AA: %1", _statics get "AA"];
-    
-    private _cars = _assets get "cars";
-    diag_log format ["  MRAPs: %1", _cars get "mrap"];
-    
-    diag_log format ["  Trucks: %1", count (_assets get "trucks")];
-    diag_log format ["  APCs: %1", count (_assets get "apcs")];
-    diag_log format ["  Tanks: %1", count (_assets get "tanks")];
-    
-    private _helis = _assets get "helicopters";
-    diag_log format ["  Heli attack: %1", _helis get "attack"];
-    diag_log format ["  Heli transport: %1", _helis get "transport"];
-    
-} forEach _testFactions;
+    private _building = _x;
+    private _buildingPositions = (_building buildingPos -1);
+    diag_log format ["[GARRISON] %1 has %2 positions", _building, count _buildingPositions];
 
-diag_log "========== END TEST ==========";
+    private _shuffled = _buildingPositions call BIS_fnc_arrayShuffle;
+    private _spawnPositions = _shuffled select [0, _numUnits];
+
+    {
+        private _group = createGroup east;
+        private _unit = _group createUnit ["O_G_Soldier_lite_F", _x, [], 0, "NONE"];
+        {
+            _unit setSkill [_x select 0, _x select 1];
+        } forEach _skillProfile;
+        diag_log format ["[SKILL] Applied to: %1", _unit];
+    } forEach _spawnPositions;
+
+} forEach [structure_1, structure_2, structure_3];
+
+// Watch for last unit killed
+[_missionStartTime] spawn {
+    params ["_missionStartTime"];
+    waitUntil {
+        sleep 2;
+        ({ alive _x && side _x == east } count allUnits) == 0
+    };
+    _elapsed = diag_tickTime - _missionStartTime;
+    diag_log format ["[MISSION] Last OPFOR killed. Elapsed: %1s", _elapsed];
+};

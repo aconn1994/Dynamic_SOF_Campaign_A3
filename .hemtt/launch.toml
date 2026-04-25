@@ -2,8 +2,8 @@
 workshop = [
     "450814997", # CBA_A3
 ]
-# mission = "test.VR"
-mission = "DSC_Altis.Altis"
+mission = "test.VR"
+# mission = "DSC_Altis.Altis"
 # mission = "DSC_Livonia.enoch"
 # mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"
@@ -18,6 +18,14 @@ workshop = [
     "632435682", # Remove Stamina
     "642912021", # ZEC
     "3567067667", # ZEIC
+]
+
+[developer_qol]
+extends = "developer"
+workshop = [
+    "333310405", # Enhanced Movement
+    "2034363662", # Enhanced Movement Rework
+    "3407948300", # JSRS Soundmod 2025
 ]
 
 [developer_ace]

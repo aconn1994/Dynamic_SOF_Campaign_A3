@@ -12,14 +12,14 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=53;
+		nextID=76;
 	};
 	class Camera
 	{
-		pos[]={7647.8628,11.282775,5298.2783};
-		dir[]={0.87815833,-0.47775379,-0.024301868};
-		up[]={0.47757155,0.87849319,-0.013216146};
-		aside[]={-0.027663091,-8.7311491e-11,-0.99961698};
+		pos[]={7628.7192,41.924046,5284.4932};
+		dir[]={0.83827537,-0.54388118,0.038570676};
+		up[]={0.54330635,0.83916223,0.024998579};
+		aside[]={0.04596331,0,-0.99894309};
 	};
 };
 binarizationWanted=0;
@@ -27,13 +27,24 @@ sourceName="test";
 addons[]=
 {
 	"A3_Modules_F_Curator_Curator",
-	"A3_Characters_F"
+	"A3_Characters_F",
+	"A3_Weapons_F_Rifles_MX",
+	"A3_Sounds_F",
+	"A3_Sounds_F_Enoch",
+	"A3_Weapons_F_Acc",
+	"A3_Weapons_F_Exp",
+	"A3_Weapons_F",
+	"A3_Weapons_F_Items",
+	"A3_Structures_F_Mil_Fortification",
+	"A3_Structures_F_Households_House_Big01",
+	"A3_Structures_F_Households_House_Shop02",
+	"A3_Structures_F_Households_House_Small01"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=2;
+		items=8;
 		class Item0
 		{
 			className="A3_Modules_F_Curator";
@@ -45,6 +56,48 @@ class AddonsMetaData
 		{
 			className="A3_Characters_F";
 			name="Arma 3 Alpha - Characters and Clothing";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item2
+		{
+			className="A3_Weapons_F";
+			name="Arma 3 Alpha - Weapons and Accessories";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item3
+		{
+			className="A3_Sounds_F";
+			name="Arma 3 - Sound Effects";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item4
+		{
+			className="A3_Sounds_F_Enoch";
+			name="Arma 3 Contact Platform - Sound Effects";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item5
+		{
+			className="A3_Weapons_F_Exp";
+			name="Arma 3 Apex - Weapons and Accessories";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item6
+		{
+			className="A3_Structures_F_Mil";
+			name="Arma 3 - Military Buildings and Structures";
+			author="Bohemia Interactive";
+			url="https://www.arma3.com";
+		};
+		class Item7
+		{
+			className="A3_Structures_F_Households";
+			name="Arma 3 - Houses";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
@@ -69,21 +122,21 @@ class Mission
 		forecastLightnings=0.1;
 		year=2035;
 		day=28;
-		hour=13;
-		minute=37;
+		hour=12;
+		minute=0;
 		startFogDecay=0.014;
 		forecastFogDecay=0.014;
 	};
 	class Entities
 	{
-		items=2;
+		items=7;
 		class Item0
 		{
 			dataType="Logic";
 			class PositionInfo
 			{
-				position[]={7655.3354,5,5306.5488};
-				angles[]={0,1.5764748,0};
+				position[]={7667.6782,5,5283.4907};
+				angles[]={-0,1.5764748,0};
 			};
 			id=8;
 			type="ModuleCurator_F";
@@ -147,7 +200,7 @@ class Mission
 		class Item1
 		{
 			dataType="Group";
-			side="Civilian";
+			side="West";
 			class Entities
 			{
 				items=1;
@@ -156,54 +209,155 @@ class Mission
 					dataType="Object";
 					class PositionInfo
 					{
-						position[]={7656.6021,5.0014391,5298.8579};
-						angles[]={0,1.5352092,0};
+						position[]={7665.0298,5.0014391,5275.5864};
+						angles[]={0,1.5503871,-0};
 					};
-					side="Civilian";
+					side="West";
 					flags=7;
 					class Attributes
 					{
-						name="testUnit";
 						isPlayer=1;
-					};
-					id=22;
-					type="C_man_p_beggar_F";
-					class CustomAttributes
-					{
-						class Attribute0
+						class Inventory
 						{
-							property="speaker";
-							expression="_this setspeaker _value;";
-							class Value
+							class primaryWeapon
 							{
-								class data
+								name="arifle_MXC_F";
+								optics="optic_Holosight";
+								muzzle="muzzle_snds_65_TI_blk_F";
+								flashlight="acc_pointer_IR";
+								class primaryMuzzleMag
 								{
-									singleType="STRING";
-									value="Male03GRE";
+									name="30Rnd_65x39_caseless_mag";
+									ammoLeft=30;
 								};
 							};
-						};
-						class Attribute1
-						{
-							property="pitch";
-							expression="_this setpitch _value;";
-							class Value
+							class uniform
 							{
-								class data
+								typeName="U_B_CombatUniform_mcam_tshirt";
+								isBackpack=0;
+								class ItemCargo
 								{
-									singleType="SCALAR";
-									value=0.97000003;
+									items=1;
+									class Item0
+									{
+										name="FirstAidKit";
+										count=5;
+									};
 								};
 							};
+							class vest
+							{
+								typeName="V_PlateCarrier1_blk";
+								isBackpack=0;
+								class MagazineCargo
+								{
+									items=1;
+									class Item0
+									{
+										name="30Rnd_65x39_caseless_mag";
+										count=6;
+										ammoLeft=30;
+									};
+								};
+							};
+							map="ItemMap";
+							compass="ItemCompass";
+							watch="ItemWatch";
+							radio="ItemRadio";
+							hmd="NVGoggles_OPFOR";
+							headgear="H_HelmetB_light_black";
 						};
-						nAttributes=2;
 					};
+					id=54;
+					type="B_Soldier_A_F";
 				};
 			};
 			class Attributes
 			{
 			};
-			id=21;
+			id=53;
+		};
+		class Item2
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={7668.0259,5.7664084,5274.7622};
+				angles[]={-0,1.5620923,0};
+			};
+			side="Empty";
+			flags=4;
+			class Attributes
+			{
+			};
+			id=57;
+			type="Land_HBarrierWall_corner_F";
+		};
+		class Item3
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={7667.5137,5.7664084,5279.2871};
+			};
+			side="Empty";
+			flags=4;
+			class Attributes
+			{
+			};
+			id=59;
+			type="Land_HBarrierWall_corner_F";
+		};
+		class Item4
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={7690.9614,8.0663748,5271.8662};
+				angles[]={0,3.1522961,-0};
+			};
+			side="Empty";
+			flags=5;
+			class Attributes
+			{
+				name="structure_1";
+			};
+			id=61;
+			type="Land_i_House_Big_01_V1_F";
+		};
+		class Item5
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={7732.8418,8.1795254,5301.4111};
+				angles[]={0,3.1377003,0};
+			};
+			side="Empty";
+			flags=5;
+			class Attributes
+			{
+				name="structure_3";
+			};
+			id=62;
+			type="Land_i_Shop_02_V3_F";
+		};
+		class Item6
+		{
+			dataType="Object";
+			class PositionInfo
+			{
+				position[]={7722.7642,6.3420548,5274.584};
+				angles[]={0,1.5795927,0};
+			};
+			side="Empty";
+			flags=5;
+			class Attributes
+			{
+				name="structure_2";
+			};
+			id=63;
+			type="Land_i_House_Small_01_V1_F";
 		};
 	};
 };
