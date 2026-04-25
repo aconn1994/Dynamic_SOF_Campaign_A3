@@ -1,31 +1,23 @@
 #include "script_component.hpp"
 
 /*
- * Setup garrison units in structures at a location.
- * 
- * Uses Anchor + Satellites model to place infantry in buildings:
- * - Anchors: Main structures (5+ positions or military towers)
- * - Satellites: Nearby smaller structures within 50m of anchor
- * - Groups spawn and fill positions based on density config
- * 
+ * Garrison overhaul — individual units in building positions.
+ *
+ * Each unit gets its own group for independent AI behavior. No formation
+ * logic pulling units out of buildings during CQB. Unit classes extracted
+ * from group templates for authentic faction variety.
+ *
+ * Anchor + Satellites model scaled by structure count at location.
+ *
  * Arguments:
  *   0: Location position <ARRAY> - Center position [x, y, z]
  *   1: Group templates <ARRAY> - Classified group hashmaps from fnc_classifyGroups
  *   2: Side <SIDE> - e.g. east, west, independent
- *   3: (Optional) Config overrides <HASHMAP> - Override default settings
- *      - "radius": Search radius for structures (default: 200)
- *      - "density": "light", "medium", "heavy", or "random" (default: "random")
- *      - "anchorCount": [min, max] anchors (overrides density)
- *      - "groupsPerAnchor": [min, max] groups per anchor (overrides density)
- *      - "satelliteCount": [min, max] satellites per anchor (overrides density)
- *      - "positionFill": 0.0-1.0 percentage of positions to fill (overrides density)
- * 
+ *   3: (Optional) Config overrides <HASHMAP> - Override any config value below
+ *
  * Returns:
- *   Hashmap containing:
- *     - "units": Array of spawned units
- *     - "groups": Array of created groups
- *     - "tags": Array of doctrine tags per group (parallel to groups array)
- * 
+ *   Hashmap: "units", "groups", "tags", "clusters"
+ *
  * Examples:
  *   [_locationPos, _infantryGroups, east] call DSC_core_fnc_setupGarrison
  *   [_locationPos, _infantryGroups, east, createHashMapFromArray [["density", "heavy"]]] call DSC_core_fnc_setupGarrison
@@ -38,7 +30,46 @@ params [
     ["_configOverrides", createHashMap, [createHashMap]]
 ];
 
-// Result tracking
+// ============================================================================
+// GARRISON CONFIG — tune these values for testing
+// ============================================================================
+private _config = createHashMapFromArray [
+    // --- Per-Building Unit Caps ---
+    ["mainStructureCap", 3],            // Max units in a main (large) structure
+    ["sideStructureCap", 2],            // Max units in a side (small) structure
+
+    // --- Cluster Scaling by Structure Count at Location ---
+    // Each row: [maxStructureCount, [minAnchors, maxAnchors], [minSatPerAnchor, maxSatPerAnchor]]
+    ["scalingTable", [
+        [4,    [1, 2], [0, 2]],         // Compound  (1-4 structures)
+        [10,   [1, 2], [0, 2]],         // Village   (5-10)
+        [20,   [1, 3], [0, 3]],         // Town      (11-20)
+        [1000, [1, 3], [0, 3]]          // City      (21+)
+    ]],
+
+    // --- Satellite Selection ---
+    ["satelliteRadius", 50],            // Max distance from anchor to claim a satellite
+
+    // --- Density Modifier ---
+    // Controls where within scaling bands values are picked
+    // "light" = low end of range, "medium" = midpoint, "heavy" = high end
+    ["density", "medium"],
+
+    // --- Skill Profile ---
+    ["skillProfile", "cqb_baseline"],   // Profile name from fnc_getSkillProfile
+    ["skillVariance", 0],            // Per-unit random variance on each skill value
+
+    // --- Combat Activation ---
+    ["combatActivation", false],         // PATH disabled until nearby gunfire triggers FiredNear EH
+    ["reactionDelay", 0.5]              // Seconds after FiredNear before PATH enables
+];
+
+// Merge caller overrides into config
+{ _config set [_x, _y] } forEach _configOverrides;
+
+// ============================================================================
+// VALIDATION
+// ============================================================================
 private _result = createHashMapFromArray [
     ["units", []],
     ["groups", []],
@@ -47,94 +78,51 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupGarrison - No location position provided";
+    diag_log "DSC: setupGarrison - No location position";
     _result
 };
 
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupGarrison - No group templates provided";
+    diag_log "DSC: setupGarrison - No group templates";
     _result
 };
 
-// Config defaults
-private _radius = _configOverrides getOrDefault ["radius", 200];
-private _densityChoice = _configOverrides getOrDefault ["density", "random"];
+// ============================================================================
+// READ CONFIG
+// ============================================================================
+private _mainCap = _config get "mainStructureCap";
+private _sideCap = _config get "sideStructureCap";
+private _scalingTable = _config get "scalingTable";
+private _satRadius = _config get "satelliteRadius";
+private _density = _config get "density";
+private _skillProfile = _config get "skillProfile";
+private _skillVariance = _config get "skillVariance";
+private _useCombatActivation = _config get "combatActivation";
+private _reactionDelay = _config get "reactionDelay";
 
-// ============================================================================
-// DENSITY CONFIGURATION
-// ============================================================================
-private _densityProfile = if (_densityChoice == "random") then {
-    selectRandomWeighted [
-        "light", 0.30,
-        "medium", 0.45,
-        "heavy", 0.25
-    ]
-} else {
-    _densityChoice
+private _densityFactor = switch (_density) do {
+    case "light":  { 0.0 };
+    case "medium": { 0.5 };
+    case "heavy":  { 1.0 };
+    default        { 0.5 };
 };
 
-private _defaultDensityConfig = switch (_densityProfile) do {
-    case "light": {
-        createHashMapFromArray [
-            ["anchorCount", [1, 1]],
-            ["groupsPerAnchor", [1, 1]],
-            ["satelliteCount", [0, 1]],
-            ["positionFill", 0.3]
-        ]
-    };
-    case "medium": {
-        createHashMapFromArray [
-            ["anchorCount", [1, 3]],
-            ["groupsPerAnchor", [1, 2]],
-            ["satelliteCount", [1, 2]],
-            ["positionFill", 0.4]
-        ]
-    };
-    case "heavy": {
-        createHashMapFromArray [
-            ["anchorCount", [2, 3]],
-            ["groupsPerAnchor", [1, 2]],
-            ["satelliteCount", [2, 3]],
-            ["positionFill", 0.6]
-        ]
-    };
-    default {
-        // Default to medium if invalid
-        createHashMapFromArray [
-            ["anchorCount", [1, 3]],
-            ["groupsPerAnchor", [1, 2]],
-            ["satelliteCount", [1, 2]],
-            ["positionFill", 0.4]
-        ]
-    };
-};
-
-// Allow individual overrides
-private _anchorRange = _configOverrides getOrDefault ["anchorCount", _defaultDensityConfig get "anchorCount"];
-private _groupsPerAnchorRange = _configOverrides getOrDefault ["groupsPerAnchor", _defaultDensityConfig get "groupsPerAnchor"];
-private _satelliteRange = _configOverrides getOrDefault ["satelliteCount", _defaultDensityConfig get "satelliteCount"];
-private _positionFill = _configOverrides getOrDefault ["positionFill", _defaultDensityConfig get "positionFill"];
-
-diag_log format ["DSC: fnc_setupGarrison - Density: %1", _densityProfile];
-
 // ============================================================================
-// GET STRUCTURES (pre-classified from location object or scan fresh)
+// GET STRUCTURES (pre-classified from populateAO, or scan as fallback)
 // ============================================================================
-private _mainStructures = _configOverrides getOrDefault ["mainStructures", []];
-private _sideStructures = _configOverrides getOrDefault ["sideStructures", []];
+private _mainStructures = _config getOrDefault ["mainStructures", []];
+private _sideStructures = _config getOrDefault ["sideStructures", []];
 
-// Fallback: scan and classify if not provided
 if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) then {
     private _structureTypes = call DSC_core_fnc_getStructureTypes;
     private _mainTypes = _structureTypes get "main";
     private _sideTypes = _structureTypes get "side";
     private _exclusions = _structureTypes get "exclusions";
 
-    private _locationStructures = [_locationPos, ["House"], _radius] call DSC_core_fnc_getMapStructures;
+    private _locationStructures = [_locationPos, ["House"], _config getOrDefault ["radius", 200]] call DSC_core_fnc_getMapStructures;
 
     {
         private _struct = _x;
-
         if ((_struct buildingPos -1) isEqualTo []) then { continue };
 
         private _isExcluded = false;
@@ -142,225 +130,211 @@ if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) then {
         if (_isExcluded) then { continue };
 
         private _isMain = false;
-        private _isSide = false;
-
         { if (_struct isKindOf _x) exitWith { _isMain = true } } forEach _mainTypes;
-        if (!_isMain) then {
-            { if (_struct isKindOf _x) exitWith { _isSide = true } } forEach _sideTypes;
-        };
 
         if (_isMain) then {
             _mainStructures pushBack _struct;
         } else {
+            private _isSide = false;
+            { if (_struct isKindOf _x) exitWith { _isSide = true } } forEach _sideTypes;
             if (_isSide) then {
                 _sideStructures pushBack _struct;
-            } else {
-                diag_log format ["DSC: fnc_setupGarrison - Unclassified structure: %1 (%2 positions)", typeOf _struct, count (_struct buildingPos -1)];
             };
         };
     } forEach _locationStructures;
 };
 
-diag_log format ["DSC: fnc_setupGarrison - Main: %1, Side: %2 structures", count _mainStructures, count _sideStructures];
+private _totalStructures = (count _mainStructures) + (count _sideStructures);
 
-if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupGarrison - No structures found";
+if (_totalStructures == 0) exitWith {
+    diag_log "DSC: setupGarrison - No structures found";
     _result
 };
 
-// ============================================================================
-// SELECT ANCHOR BUILDINGS
-// ============================================================================
-private _numAnchors = (_anchorRange select 0) + floor random ((_anchorRange select 1) - (_anchorRange select 0) + 1);
-private _maxAnchors = (count _mainStructures) + (count _sideStructures);
-_numAnchors = _numAnchors min _maxAnchors;
+diag_log format ["DSC: setupGarrison - %1 main + %2 side = %3 total structures",
+    count _mainStructures, count _sideStructures, _totalStructures];
 
+// ============================================================================
+// SCALING TABLE LOOKUP
+// ============================================================================
+private _anchorRange = [1, 2];
+private _satelliteRange = [1, 2];
+
+{
+    _x params ["_maxCount", "_aRange", "_sRange"];
+    if (_totalStructures <= _maxCount) exitWith {
+        _anchorRange = _aRange;
+        _satelliteRange = _sRange;
+    };
+} forEach _scalingTable;
+
+private _numAnchors = round ((_anchorRange # 0) + ((_anchorRange # 1) - (_anchorRange # 0)) * _densityFactor);
+_numAnchors = _numAnchors min _totalStructures;
+
+diag_log format ["DSC: setupGarrison - Scaling: %1 structures -> %2 anchors (density: %3, factor: %4)",
+    _totalStructures, _numAnchors, _density, _densityFactor];
+
+// ============================================================================
+// BUILD UNIT CLASS POOL FROM GROUP TEMPLATES
+// ============================================================================
+// Walks CfgGroups configs to extract infantry classnames. Natural weighting:
+// a squad with 4 riflemen and 1 MG means riflemen appear 4x more in the pool.
+private _unitPool = [];
+
+{
+    private _pathParts = (_x get "path") splitString "/";
+    private _groupCfg = configFile >> "CfgGroups";
+    { _groupCfg = _groupCfg >> _x } forEach _pathParts;
+
+    {
+        if (isClass _x) then {
+            private _class = getText (_x >> "vehicle");
+            if (_class != "" && { isClass (configFile >> "CfgVehicles" >> _class) } && { _class isKindOf "Man" }) then {
+                _unitPool pushBack _class;
+            };
+        };
+    } forEach configProperties [_groupCfg, "isClass _x"];
+} forEach _groupTemplates;
+
+if (_unitPool isEqualTo []) exitWith {
+    diag_log "DSC: setupGarrison - No unit classes extracted from templates";
+    _result
+};
+
+private _uniqueClasses = _unitPool arrayIntersect _unitPool;
+diag_log format ["DSC: setupGarrison - Unit pool: %1 total entries, %2 unique classes",
+    count _unitPool, count _uniqueClasses];
+
+// ============================================================================
+// SELECT ANCHORS (main structures first, maximize spread)
+// ============================================================================
 private _availableMain = +_mainStructures;
 private _availableSide = +_sideStructures;
 private _anchors = [];
 
-// Pick main structures as anchors first (priority)
 private _mainAnchors = _numAnchors min (count _availableMain);
 for "_i" from 1 to _mainAnchors do {
     if (_availableMain isEqualTo []) exitWith {};
-    
+
     private _anchor = if (_anchors isEqualTo []) then {
         selectRandom _availableMain
     } else {
         private _sorted = [_availableMain, [], {
             private _struct = _x;
-            private _minDist = 999999;
+            private _minDist = 100;
             { _minDist = _minDist min (_struct distance2D _x) } forEach _anchors;
             -_minDist
         }, "ASCEND"] call BIS_fnc_sortBy;
         _sorted select 0
     };
-    
+
     _anchors pushBack _anchor;
     _availableMain = _availableMain - [_anchor];
 };
 
-// Promote side structures to anchors if we need more coverage
-private _remainingAnchors = _numAnchors - count _anchors;
+private _remainingAnchors = _numAnchors - (count _anchors);
 for "_i" from 1 to _remainingAnchors do {
     if (_availableSide isEqualTo []) exitWith {};
-    
-    // Pick side structures spread from existing anchors
+
     private _anchor = if (_anchors isEqualTo []) then {
         selectRandom _availableSide
     } else {
         private _sorted = [_availableSide, [], {
             private _struct = _x;
-            private _minDist = 999999;
+            private _minDist = 100;
             { _minDist = _minDist min (_struct distance2D _x) } forEach _anchors;
             -_minDist
         }, "ASCEND"] call BIS_fnc_sortBy;
         _sorted select 0
     };
-    
+
     _anchors pushBack _anchor;
     _availableSide = _availableSide - [_anchor];
 };
 
-diag_log format ["DSC: fnc_setupGarrison - Selected %1 anchors (%2 main, %3 promoted side)", 
-    count _anchors, _mainAnchors, count _anchors - _mainAnchors];
+diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted side)",
+    count _anchors, _mainAnchors, (count _anchors) - _mainAnchors];
 
 // ============================================================================
-// SPAWN GROUPS AT ANCHORS WITH SATELLITES
+// SPAWN UNITS — one group per unit, one unit per building position
 // ============================================================================
-private _mainStructureCapacity = 3;
-private _sideStructureCapacity = 2;
-
 {
     private _anchor = _x;
     private _anchorPos = getPos _anchor;
-    
-    // Determine satellites for this anchor (nearby side structures)
-    private _numSatellites = (_satelliteRange select 0) + floor random ((_satelliteRange select 1) - (_satelliteRange select 0) + 1);
-    
-    // Get closest side structures to this anchor
+
+    // Attach satellites within radius
+    private _numSatellites = round ((_satelliteRange # 0) + ((_satelliteRange # 1) - (_satelliteRange # 0)) * _densityFactor);
     private _nearbySide = [_availableSide, [], { _x distance2D _anchorPos }, "ASCEND"] call BIS_fnc_sortBy;
     private _satellites = [];
-    
-    for "_j" from 0 to (_numSatellites - 1) do {
-        if (_j >= count _nearbySide) exitWith {};
-        private _sat = _nearbySide select _j;
-        if (_sat distance2D _anchorPos < 50) then {
-            _satellites pushBack _sat;
-            _availableSide = _availableSide - [_sat];
-        };
-    };
-    
-    diag_log format ["DSC: fnc_setupGarrison - Anchor %1 has %2 satellites", _anchor, count _satellites];
-    
-    // Build per-building position lists with capacity limits
-    private _clusterBuildings = [_anchor] + _satellites;
 
-    // Record cluster for downstream systems (mission markers, intel)
+    {
+        if ((count _satellites) >= _numSatellites) exitWith {};
+        if (_x distance2D _anchorPos <= _satRadius) then {
+            _satellites pushBack _x;
+            _availableSide = _availableSide - [_x];
+        };
+    } forEach _nearbySide;
+
+    private _clusterBuildings = [_anchor] + _satellites;
+    private _clusterUnits = 0;
+
     (_result get "clusters") pushBack createHashMapFromArray [
         ["anchor", _anchor],
         ["satellites", _satellites],
         ["buildings", _clusterBuildings],
         ["center", _anchorPos]
     ];
-    private _buildingSlots = []; // Array of [building, [capped positions]]
-    private _totalCappedPositions = 0;
-    
+
+    // Garrison each building in the cluster
     {
         private _building = _x;
         private _positions = _building buildingPos -1;
+        if (_positions isEqualTo []) then { continue };
+
         private _isMain = _building in _mainStructures;
-        private _cap = [_sideStructureCapacity, _mainStructureCapacity] select (_isMain);
-        private _cappedCount = _cap min (count _positions);
-        
-        // Randomly select positions up to the cap
+        private _cap = [_sideCap, _mainCap] select _isMain;
+        private _numUnits = _cap min (count _positions);
+
         private _shuffled = _positions call BIS_fnc_arrayShuffle;
-        private _selectedPositions = _shuffled select [0, _cappedCount];
-        
-        _buildingSlots pushBack [_building, _selectedPositions];
-        _totalCappedPositions = _totalCappedPositions + _cappedCount;
-    } forEach _clusterBuildings;
-    
-    // Determine how many groups for this anchor
-    private _numGroups = (_groupsPerAnchorRange select 0) + floor random ((_groupsPerAnchorRange select 1) - (_groupsPerAnchorRange select 0) + 1);
-    
-    // Calculate target unit count based on position fill (capped total)
-    private _targetUnits = floor (_totalCappedPositions * _positionFill);
-    private _unitsSpawned = 0;
-    
-    diag_log format ["DSC: fnc_setupGarrison - Cluster: %1 buildings, %2 capped positions, targeting %3 units", count _clusterBuildings, _totalCappedPositions, _targetUnits];
-    
-    // Spawn groups until we hit target or run out of groups
-    for "_g" from 1 to _numGroups do {
-        if (_unitsSpawned >= _targetUnits) exitWith {};
-        if (_groupTemplates isEqualTo []) exitWith {};
-        
-        private _remainingPositions = _targetUnits - _unitsSpawned;
-        
-        // Filter to groups that fit, or if none fit, use smallest available
-        private _fittingGroups = _groupTemplates select { 
-            (_x get "unitAnalysis" get "infantryCount") <= _remainingPositions 
-        };
-        
-        private _selectedGroup = if (_fittingGroups isNotEqualTo []) then {
-            selectRandom _fittingGroups
-        } else {
-            // No groups fit - pick smallest group
-            private _sorted = [_groupTemplates, [], { _x get "unitAnalysis" get "infantryCount" }, "ASCEND"] call BIS_fnc_sortBy;
-            _sorted select 0
-        };
-        
-        private _groupPath = _selectedGroup get "path";
-        private _groupName = _selectedGroup get "groupName";
-        private _doctrineTags = _selectedGroup get "doctrineTags";
-        private _unitAnalysis = _selectedGroup get "unitAnalysis";
-        private _groupSize = _unitAnalysis get "infantryCount";
-        
-        diag_log format ["DSC: fnc_setupGarrison - Spawning %1 (%2 units)", _groupName, _groupSize];
-        
-        // Parse the group path and spawn
-        private _pathParts = _groupPath splitString "/";
-        private _groupConfig = configFile >> "CfgGroups";
-        { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-        
-        private _spawnedGroup = [_anchorPos, _side, _groupConfig] call BIS_fnc_spawnGroup;
-        (_result get "groups") pushBack _spawnedGroup;
-        (_result get "tags") pushBack _doctrineTags;
-        
-        // Distribute units across buildings respecting per-building caps
+        private _spawnPositions = _shuffled select [0, _numUnits];
+
+        diag_log format ["DSC: setupGarrison - Building %1 (%2): %3 positions, spawning %4",
+            typeOf _building, ["side", "main"] select _isMain, count _positions, _numUnits];
+
         {
-            if (_unitsSpawned >= _targetUnits) exitWith {};
-            
-            private _unit = _x;
-            private _placed = false;
-            
-            // Find a building with remaining slots
-            {
-                _x params ["_building", "_positions"];
-                
-                if (_positions isNotEqualTo []) exitWith {
-                    private _pos = _positions deleteAt 0;
-                    _unit allowDamage false;
-                    _unit setPos _pos;
-                    _placed = true;
-                };
-            } forEach _buildingSlots;
-            
-            if (_placed) then {
-                _unitsSpawned = _unitsSpawned + 1;
+            private _pos = _x;
+            private _unitClass = selectRandom _unitPool;
+            private _grp = createGroup [_side, true];
+            private _unit = _grp createUnit [_unitClass, _pos, [], 0, "NONE"];
+
+            _unit allowDamage false;
+            _unit setPos _pos;
+            _unit allowDamage true;
+
+            [_unit, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;
+
+            if (_useCombatActivation) then {
+                [_grp, _reactionDelay] call DSC_core_fnc_addCombatActivation;
             };
-        } forEach units _spawnedGroup;
-        
-        // Add combat activation - garrison stays in place until shots fired nearby
-        [_spawnedGroup] call DSC_core_fnc_addCombatActivation;
-        
-        (_result get "units") append (units _spawnedGroup);
-    };
-    
-    diag_log format ["DSC: fnc_setupGarrison - Spawned %1 units in cluster", _unitsSpawned];
-    
+
+            (_result get "groups") pushBack _grp;
+            (_result get "units") pushBack _unit;
+            (_result get "tags") pushBack ["GARRISON", "FOOT"];
+
+            _clusterUnits = _clusterUnits + 1;
+        } forEach _spawnPositions;
+
+    } forEach _clusterBuildings;
+
+    diag_log format ["DSC: setupGarrison - Cluster at %1: %2 buildings, %3 units",
+        _anchorPos, count _clusterBuildings, _clusterUnits];
+
 } forEach _anchors;
 
-diag_log format ["DSC: fnc_setupGarrison - Total: %1 units, %2 groups", count (_result get "units"), count (_result get "groups")];
+// ============================================================================
+// SUMMARY
+// ============================================================================
+diag_log format ["DSC: setupGarrison - Complete: %1 units, %2 groups, %3 clusters",
+    count (_result get "units"), count (_result get "groups"), count (_result get "clusters")];
 
 _result

@@ -157,6 +157,8 @@ private _locType = _location getOrDefault ["locType", ""];
 private _buildingCount = _location getOrDefault ["buildingCount", 0];
 private _isLargeLocation = _locType in ["NameCityCapital", "NameCity", "NameVillage"] || _buildingCount > 25;
 private _dotRadius = [999, 75] select _isLargeLocation;
+private _nearbyBuildingRadius = 50;
+private _markedBuildings = [];
 
 {
     private _cluster = _x;
@@ -171,8 +173,21 @@ private _dotRadius = [999, 75] select _isLargeLocation;
     _circleMarker setMarkerColor "ColorRed";
     _missionMarkers pushBack _circleName;
 
-    // Dot markers on buildings within marking radius of the anchor
-    private _buildingsToMark = _clusterBuildings select { _x distance2D _clusterCenter < _dotRadius };
+    // Gather nearby buildings within clearance radius, skip already-marked by prior clusters
+    private _buildingsToMark = [];
+    {
+        private _bldg = _x;
+        if (_bldg distance2D _clusterCenter < _dotRadius && { !(_bldg in _markedBuildings) }) then {
+            _buildingsToMark pushBackUnique _bldg;
+        };
+        {
+            if (_x distance2D _bldg <= _nearbyBuildingRadius && { !(_x in _markedBuildings) }) then {
+                _buildingsToMark pushBackUnique _x;
+            };
+        } forEach (nearestObjects [getPos _bldg, ["House"], _nearbyBuildingRadius]);
+    } forEach _clusterBuildings;
+
+    _markedBuildings append _buildingsToMark;
 
     {
         private _bldgPos = getPos _x;
@@ -186,7 +201,7 @@ private _dotRadius = [999, 75] select _isLargeLocation;
         _missionMarkers pushBack _dotName;
     } forEach _buildingsToMark;
 
-    diag_log format ["DSC: Mission markers - Cluster %1: %2/%3 buildings marked (%4)", _letter, count _buildingsToMark, count _clusterBuildings, ["full", "radius"] select _isLargeLocation];
+    diag_log format ["DSC: Mission markers - Cluster %1: %2 buildings marked (%3 garrisoned + nearby clearance)", _letter, count _buildingsToMark, count _clusterBuildings];
 } forEach _garrisonClusters;
 
 // ============================================================================

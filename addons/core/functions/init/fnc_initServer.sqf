@@ -174,7 +174,7 @@ diag_log "DSC: ========== Determining Map Influence ==========";
 systemChat "Initializing influence map...";
 
 // Campaign profiles: "offensive" (opFor dominant), "defensive" (bluFor dominant), "contested" (mixed)
-private _influenceData = [_locations, "contested", _factionData] call DSC_core_fnc_initInfluence;
+private _influenceData = [_locations, "offensive", _factionData] call DSC_core_fnc_initInfluence;
 missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 
 systemChat "Influence map initialized!";

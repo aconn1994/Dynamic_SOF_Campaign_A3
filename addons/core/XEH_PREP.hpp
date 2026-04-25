@@ -10,6 +10,7 @@ PREP_SUB(ai,populateAO);
 PREP_SUB(ai,setupGarrison);
 PREP_SUB(ai,setupGuards);
 PREP_SUB(ai,setupPatrols);
+PREP_SUB(ai,setupStaticDefenses);
 PREP_SUB(ai,setupVehiclePatrol);
 PREP_SUB(ai,setupVehicles);
 PREP_SUB(ai,vehiclePatrolLoop);

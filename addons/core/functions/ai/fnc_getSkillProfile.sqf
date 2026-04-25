@@ -25,6 +25,17 @@ params [
 ];
 
 private _profile = switch (toLower _profileName) do {
+    case "cqb_baseline": {
+        createHashMapFromArray [
+            ["aimingAccuracy", 0.2],
+            ["aimingShake",    0.3],
+            ["aimingSpeed",    0.3],
+            ["spotDistance",   0.5],
+            ["spotTime",       0.5], // Drop at night if not nightvision-capable
+            ["courage",        0.5],
+            ["commanding",     0.5]
+        ]
+    };
 
     case "moderate": {
         createHashMapFromArray [

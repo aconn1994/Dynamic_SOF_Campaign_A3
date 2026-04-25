@@ -3,16 +3,23 @@
  * Function: DSC_core_fnc_scanLocations
  * Description:
  *     Anchor-based location scanner. Scans all enterable structures on the map,
- *     classifies them (main/side, military/civilian), excludes player base zones,
- *     then assigns structures to named-location anchors from the engine.
- *     Orphaned military clusters get their own synthetic anchors.
+ *     classifies them (main/side, military/civilian, functional category),
+ *     assigns to named-location anchors, tags each location, and returns
+ *     rich hashmap objects ready for downstream consumption.
+ *
+ *     Orphaned military clusters get synthetic anchors.
+ *     Non-occupiable structures are scanned per-cluster for functional tagging.
  *
  * Arguments:
  *     0: _config <HASHMAP> - Optional configuration overrides
  *        - "debug": Show debug markers on map (default: false)
  *
  * Return Value:
- *     <ARRAY> - Array of anchor hashmaps
+ *     <ARRAY> - Array of location hashmaps, each containing:
+ *        "id", "position", "name", "locType", "isMilitary", "militaryTier",
+ *        "structures", "mainStructures", "sideStructures",
+ *        "buildingCount", "mainCount", "sideCount", "militaryCount",
+ *        "radius", "tags", "functionalProfile", "source"
  *
  * Example:
  *     private _locations = [createHashMapFromArray [["debug", true]]] call DSC_core_fnc_scanLocations;
@@ -35,6 +42,7 @@ private _sideTypes = _structureTypes get "side";
 private _mainMilTypes = _structureTypes get "mainMilitary";
 private _sideMilTypes = _structureTypes get "sideMilitary";
 private _exclusions = _structureTypes get "exclusions";
+private _functionalLookup = _structureTypes get "functionalLookup";
 
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
 private _allStructures = [_centerPosition, ["House", "Building", "Strategic"], worldSize] call DSC_core_fnc_getMapStructures;
@@ -44,6 +52,7 @@ diag_log format ["DSC: Stage 1 - Found %1 raw structures on map", count _allStru
 private _enterableStructures = [];
 private _structureClasses = [];
 private _structureMilitary = [];
+private _structureFunctional = [];
 
 {
     private _struct = _x;
@@ -68,10 +77,12 @@ private _structureMilitary = [];
     };
 
     private _class = if (_isMain) then { "main" } else { ["unclassified", "side"] select _isSide };
+    private _funcCategory = _functionalLookup getOrDefault [typeOf _struct, ""];
 
     _enterableStructures pushBack _struct;
     _structureClasses pushBack _class;
     _structureMilitary pushBack _isMilitary;
+    _structureFunctional pushBack _funcCategory;
 
 } forEach _allStructures;
 
@@ -80,7 +91,7 @@ diag_log format ["DSC: Stage 1 - %1 enterable structures after filtering", count
 // Filter out structures inside player base markers
 private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 };
 {
-    private _marker = _x;    
+    private _marker = _x;
     private _countBefore = count _enterableStructures;
     private _keepIndices = [];
     {
@@ -91,7 +102,8 @@ private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 }
     _enterableStructures = _keepIndices apply { _enterableStructures select _x };
     _structureClasses = _keepIndices apply { _structureClasses select _x };
     _structureMilitary = _keepIndices apply { _structureMilitary select _x };
-    private _excluded = _countBefore - count _enterableStructures;
+    _structureFunctional = _keepIndices apply { _structureFunctional select _x };
+    private _excluded = _countBefore - (count _enterableStructures);
     if (_excluded > 0) then {
         diag_log format ["DSC: Excluded %1 structures inside %2", _excluded, _marker];
     };
@@ -106,13 +118,8 @@ private _structIndexMap = createHashMap;
 // ============================================================================
 // STAGE 2: Anchor-based assignment
 // ============================================================================
-// Use Arma's named locations as anchors. Each structure gets assigned to its
-// nearest anchor. Military structures cluster separately from civilian ones.
-
-// Get all named locations from the engine
 private _namedLocations = nearestLocations [_centerPosition, ["NameCityCapital", "NameCity", "NameVillage", "NameLocal"], worldSize];
 
-// Filter out named locations inside player bases
 _namedLocations = _namedLocations select {
     private _locPos = locationPosition _x;
     private _insideBase = false;
@@ -122,25 +129,20 @@ _namedLocations = _namedLocations select {
 
 diag_log format ["DSC: Stage 2 - Found %1 named locations from engine (after base exclusion)", count _namedLocations];
 
-// Build anchor list: [position, name, type, isMilitary, assignedStructures]
 private _anchors = [];
 
-// Named civilian/village/city anchors
 {
     private _loc = _x;
     private _locPos = locationPosition _loc;
     private _locName = text _loc;
     private _locType = type _loc;
-    private _locSize = size _loc; // [width, height] from Arma
 
-    // Determine if this named location is military
     private _nameLower = toLower _locName;
     private _isMilAnchor = false;
     {
         if (_x in _nameLower) exitWith { _isMilAnchor = true };
     } forEach ["military", "airfield", "airbase", "base", "camp", "mil."];
 
-    // Skip airbases/airfields — these are manually configured in 3den
     private _isAirbase = false;
     { if (_x in _nameLower) exitWith { _isAirbase = true } } forEach ["airfield", "airbase", "airport", "air base", "air station"];
     if (_isAirbase) then {
@@ -148,10 +150,7 @@ private _anchors = [];
         continue;
     };
 
-    // Skip very small unnamed locations — these create noise
-    // Keep cities/villages/military always
     if (_locType == "NameLocal" && !_isMilAnchor) then {
-        // Check if there are actually structures nearby before creating an anchor
         private _nearbyCount = count (_enterableStructures select { _x distance2D _locPos < 200 });
         if (_nearbyCount < 3) then { continue };
     };
@@ -159,8 +158,7 @@ private _anchors = [];
     _anchors pushBack [_locPos, _locName, _locType, _isMilAnchor, []];
 } forEach _namedLocations;
 
-// Also create anchors for military structure clusters that aren't near any named location
-// (catches bases that Arma doesn't name)
+// Synthetic military anchors for orphaned clusters
 private _milStructures = [];
 {
     if (_structureMilitary select _forEachIndex) then {
@@ -168,19 +166,16 @@ private _milStructures = [];
     };
 } forEach _enterableStructures;
 
-// Simple clustering for orphaned military structures
 private _milProcessed = createHashMap;
 {
     private _struct = _x;
     private _strKey = str _struct;
     if (_strKey in _milProcessed) then { continue };
 
-    // Check if near an existing anchor
     private _nearAnchor = false;
     { if ((getPos _struct) distance2D (_x select 0) < 500) exitWith { _nearAnchor = true } } forEach _anchors;
     if (_nearAnchor) then { continue };
 
-    // Flood-fill nearby military structures
     private _cluster = [_struct];
     private _queue = [_struct];
     _milProcessed set [_strKey, true];
@@ -197,10 +192,10 @@ private _milProcessed = createHashMap;
         } forEach _nearby;
     };
 
-    if (count _cluster >= 3) then {
+    if ((count _cluster) >= 3) then {
         private _sumX = 0; private _sumY = 0;
         { _sumX = _sumX + (getPos _x select 0); _sumY = _sumY + (getPos _x select 1) } forEach _cluster;
-        private _milCenter = [_sumX / count _cluster, _sumY / count _cluster, 0];
+        private _milCenter = [_sumX / (count _cluster), _sumY / (count _cluster), 0];
         _anchors pushBack [_milCenter, format ["Military %1", count _anchors], "Military", true, []];
         diag_log format ["DSC: Stage 2 - Created unnamed military anchor at %1 (%2 structures)", _milCenter, count _cluster];
     };
@@ -211,9 +206,7 @@ diag_log format ["DSC: Stage 2 - Total anchors: %1", count _anchors];
 // ============================================================================
 // STAGE 3: Assign structures to nearest anchor
 // ============================================================================
-// Max assignment distance — structures beyond this become "isolated"
 private _maxAssignDist = 500;
-private _isolatedStructures = [];
 
 {
     private _struct = _x;
@@ -229,7 +222,6 @@ private _isolatedStructures = [];
         private _dist = _structPos distance2D _anchorPos;
 
         if (_dist < _bestDist) then {
-            // Military structures prefer military anchors
             if (_isMil && _anchorIsMil) then {
                 _bestDist = _dist;
                 _bestAnchorIdx = _forEachIndex;
@@ -238,7 +230,6 @@ private _isolatedStructures = [];
                     _bestDist = _dist;
                     _bestAnchorIdx = _forEachIndex;
                 } else {
-                    // Military struct, no military anchor nearby — use civilian as fallback
                     if (_bestAnchorIdx < 0) then {
                         _bestDist = _dist;
                         _bestAnchorIdx = _forEachIndex;
@@ -250,93 +241,273 @@ private _isolatedStructures = [];
 
     if (_bestAnchorIdx >= 0) then {
         ((_anchors select _bestAnchorIdx) select 4) pushBack _struct;
-    } else {
-        _isolatedStructures pushBack _struct;
     };
 } forEach _enterableStructures;
 
-diag_log format ["DSC: Stage 3 - %1 isolated structures not assigned to any anchor", count _isolatedStructures];
+// ============================================================================
+// STAGE 3.5: Orphan recovery — cluster unassigned structures into new anchors
+// ============================================================================
+// Structures beyond maxAssignDist from any named location are orphaned.
+// Flood-fill at 150m to form civilian clusters, same pattern as military orphans.
+
+private _assignedSet = createHashMap;
+{
+    _x params ["", "", "", "", "_anchorStructs"];
+    { _assignedSet set [str _x, true] } forEach _anchorStructs;
+} forEach _anchors;
+
+private _orphans = _enterableStructures select { !(str _x in _assignedSet) };
+diag_log format ["DSC: Stage 3.5 - %1 orphaned structures to cluster", count _orphans];
+
+private _orphanProcessed = createHashMap;
+private _orphanClusterRadius = 150;
+private _orphanAnchorsCreated = 0;
+
+{
+    private _struct = _x;
+    private _strKey = str _struct;
+    if (_strKey in _orphanProcessed) then { continue };
+
+    private _cluster = [_struct];
+    private _queue = [_struct];
+    _orphanProcessed set [_strKey, true];
+
+    while { _queue isNotEqualTo [] } do {
+        private _current = _queue deleteAt 0;
+        private _nearby = _orphans select {
+            !(str _x in _orphanProcessed) && (_x distance2D _current < _orphanClusterRadius)
+        };
+        {
+            _orphanProcessed set [str _x, true];
+            _cluster pushBack _x;
+            _queue pushBack _x;
+        } forEach _nearby;
+    };
+
+    private _sumX = 0; private _sumY = 0;
+    { _sumX = _sumX + (getPos _x select 0); _sumY = _sumY + (getPos _x select 1) } forEach _cluster;
+    private _clusterCenter = [_sumX / (count _cluster), _sumY / (count _cluster), 0];
+
+    // Name from nearest named location if close, otherwise grid reference
+    private _orphanName = mapGridPosition _clusterCenter;
+    {
+        private _locPos = locationPosition _x;
+        private _dist = _clusterCenter distance2D _locPos;
+        if (_dist < 800) exitWith {
+            _orphanName = text _x;
+        };
+    } forEach _namedLocations;
+
+    _anchors pushBack [_clusterCenter, _orphanName, "Orphan", false, _cluster];
+    _orphanAnchorsCreated = _orphanAnchorsCreated + 1;
+} forEach _orphans;
+
+diag_log format ["DSC: Stage 3.5 - Created %1 orphan anchors from %2 structures", _orphanAnchorsCreated, count _orphans];
 
 // ============================================================================
-// STAGE 3.5: Assign military tier based on military structure count
+// STAGE 4: Military tier + build location hashmaps with tags
 // ============================================================================
-// Anchors are [pos, name, type, isMilitary, structs] — expand to 6 elements
-// with militaryTier: "base", "outpost", "camp", or "" for civilian anchors.
-//
-// Tier is based on how many MILITARY structures ended up assigned to this anchor
-// (not total structures — a town with 2 mil buildings is still a town, not a camp).
+private _nonOccLookup = _structureTypes get "nonOccupiableLookup";
+private _locations = [];
+private _locationIndex = 0;
 
 {
     _x params ["_anchorPos", "_anchorName", "_anchorType", "_anchorIsMil", "_anchorStructs"];
 
-    private _militaryTier = "";
+    if ((count _anchorStructs) < 1) then { continue };
 
-    if (_anchorIsMil) then {
-        // Count military structures assigned to this anchor
-        private _milCount = 0;
-        {
-            private _idx = _structIndexMap getOrDefault [str _x, -1];
-            if (_idx >= 0 && { _structureMilitary select _idx }) then {
-                _milCount = _milCount + 1;
+    // Calculate radius
+    private _maxDist = 0;
+    {
+        private _dist = _x distance2D _anchorPos;
+        if (_dist > _maxDist) then { _maxDist = _dist };
+    } forEach _anchorStructs;
+
+    // Separate main/side/military and count functional categories
+    private _mainStructures = [];
+    private _sideStructures = [];
+    private _milCount = 0;
+    private _funcCounts = createHashMap;
+
+    {
+        private _idx = _structIndexMap getOrDefault [str _x, -1];
+        if (_idx >= 0) then {
+            private _class = _structureClasses select _idx;
+            private _isMil = _structureMilitary select _idx;
+            private _func = _structureFunctional select _idx;
+
+            if (_class == "main") then { _mainStructures pushBack _x };
+            if (_class == "side") then { _sideStructures pushBack _x };
+            if (_isMil) then { _milCount = _milCount + 1 };
+            if (_func != "") then {
+                _funcCounts set [_func, (_funcCounts getOrDefault [_func, 0]) + 1];
             };
-        } forEach _anchorStructs;
+        };
+    } forEach _anchorStructs;
 
+    // Military tier
+    private _militaryTier = "";
+    if (_anchorIsMil) then {
         _militaryTier = if (_milCount >= 8) then {
             "base"
         } else {
             ["camp", "outpost"] select (_milCount >= 4)
         };
-
-        diag_log format ["DSC: Stage 3.5 - Military anchor '%1': %2 mil structures -> %3", _anchorName, _milCount, _militaryTier];
     };
 
-    _x pushBack _militaryTier;
+    // Non-occupiable scan for functional tagging
+    private _scanRadius = (_maxDist max 50) + 50;
+    private _nearbyObjects = nearestObjects [_anchorPos, ["House", "Building", "Strategic", "Thing"], _scanRadius];
+    {
+        private _objKey = str _x;
+        if !(_objKey in _structIndexMap) then {
+            private _nonOccFunc = _nonOccLookup getOrDefault [typeOf _x, ""];
+            if (_nonOccFunc != "") then {
+                _funcCounts set [_nonOccFunc, (_funcCounts getOrDefault [_nonOccFunc, 0]) + 1];
+            };
+        };
+    } forEach _nearbyObjects;
+
+    // --- TAGGING ---
+    private _tags = [];
+    private _buildingCount = count _anchorStructs;
+
+    // Density
+    if (_buildingCount >= 30) then {
+        _tags pushBack "high_density";
+    } else {
+        if (_buildingCount >= 10) then {
+            _tags pushBack "medium_density";
+        } else {
+            _tags pushBack "low_density";
+        };
+    };
+
+    // Size
+    if (_buildingCount >= 50) then { _tags pushBack "city" };
+    if (_buildingCount >= 15 && { _buildingCount < 50 }) then { _tags pushBack "town" };
+    if (_buildingCount >= 5 && { _buildingCount < 15 }) then { _tags pushBack "settlement" };
+    if (_buildingCount < 5) then { _tags pushBack "isolated" };
+
+    // Military
+    if (_milCount > 0) then {
+        _tags pushBack "military";
+        if (_militaryTier != "") then { _tags pushBack _militaryTier };
+    };
+
+    // Character
+    if (_milCount == 0) then { _tags pushBack "civilian" };
+    if (_milCount > 0 && { _buildingCount > _milCount * 2 }) then { _tags pushBack "mixed" };
+
+    // Context from named location type
+    if (_anchorType in ["NameCityCapital", "NameCity"]) then { _tags pushBackUnique "urban" };
+    if (_anchorType == "NameVillage") then { _tags pushBackUnique "rural" };
+
+    // Functional tags — add "has_<category>" for each category present
+    {
+        if (_y > 0) then {
+            _tags pushBack format ["has_%1", _x];
+        };
+    } forEach _funcCounts;
+
+    // Build location hashmap
+    private _location = createHashMapFromArray [
+        ["id", format ["loc_%1", _locationIndex]],
+        ["position", _anchorPos],
+        ["name", _anchorName],
+        ["locType", _anchorType],
+        ["isMilitary", _anchorIsMil],
+        ["militaryTier", _militaryTier],
+        ["structures", _anchorStructs],
+        ["mainStructures", _mainStructures],
+        ["sideStructures", _sideStructures],
+        ["buildingCount", _buildingCount],
+        ["mainCount", count _mainStructures],
+        ["sideCount", count _sideStructures],
+        ["militaryCount", _milCount],
+        ["radius", _maxDist max 50],
+        ["tags", _tags],
+        ["functionalProfile", _funcCounts],
+        ["source", "anchor"]
+    ];
+
+    _locations pushBack _location;
+    _locationIndex = _locationIndex + 1;
 } forEach _anchors;
 
+// Second pass: tag isolation (distance to nearest other location)
+{
+    private _loc = _x;
+    private _pos = _loc get "position";
+    private _nearestDist = 999999;
+    {
+        if (_x isNotEqualTo _loc) then {
+            private _dist = _pos distance2D (_x get "position");
+            if (_dist < _nearestDist) then { _nearestDist = _dist };
+        };
+    } forEach _locations;
+
+    if (_nearestDist > 1000) then {
+        (_loc get "tags") pushBackUnique "remote";
+    };
+} forEach _locations;
+
 // ============================================================================
-// DEBUG: Visualize anchors with area markers
+// SUMMARY
+// ============================================================================
+private _tagCounts = createHashMap;
+{
+    { _tagCounts set [_x, (_tagCounts getOrDefault [_x, 0]) + 1] } forEach (_x get "tags");
+} forEach _locations;
+
+diag_log format ["DSC: Location Scan Complete - %1 locations", count _locations];
+diag_log format ["DSC: Tag distribution: %1", _tagCounts];
+
+// ============================================================================
+// DEBUG: Marker Visualization
 // ============================================================================
 if (_debug) then {
-    // Structure dots
     {
-        private _structureMarker = createMarkerLocal [format ["s_%1", _forEachIndex], getPos _x];
-        _structureMarker setMarkerTypeLocal "Contact_dot1";
-        _structureMarker setMarkerColorLocal ([["ColorYellow", "ColorRed"] select (_structureMilitary select _forEachIndex)] select 0);
-    } forEach _enterableStructures;
+        private _loc = _x;
+        private _pos = _loc get "position";
+        private _locName = _loc get "name";
+        private _locTags = _loc get "tags";
+        private _id = _loc get "id";
+        private _bCount = _loc get "buildingCount";
 
-    {
-        _x params ["_anchorPos", "_anchorName", "_anchorType", "_anchorIsMil", "_anchorStructs", "_milTier"];
+        private _color = "ColorGrey";
+        if ("military" in _locTags && "base" in _locTags) then { _color = "ColorRed" };
+        if ("military" in _locTags && "outpost" in _locTags) then { _color = "ColorOrange" };
+        if ("military" in _locTags && "camp" in _locTags) then { _color = "ColorYellow" };
+        if ("urban" in _locTags) then { _color = "ColorBlue" };
+        if ("civilian" in _locTags && "settlement" in _locTags) then { _color = "ColorGreen" };
+        if ("civilian" in _locTags && "isolated" in _locTags) then { _color = "ColorWhite" };
+        if ("remote" in _locTags) then { _color = "ColorBrown" };
 
-        if (count _anchorStructs < 1) then { continue };
+        private _markerType = "mil_dot";
+        if ("city" in _locTags || "town" in _locTags) then { _markerType = "mil_objective" };
+        if ("settlement" in _locTags) then { _markerType = "mil_triangle" };
+        if ("base" in _locTags) then { _markerType = "mil_objective" };
+        if ("outpost" in _locTags) then { _markerType = "mil_triangle" };
 
-        // Calculate radius from assigned structures
-        private _maxDist = 0;
-        {
-            private _dist = _x distance2D _anchorPos;
-            if (_dist > _maxDist) then { _maxDist = _dist };
-        } forEach _anchorStructs;
+        private _markerName = format ["dsc_loc_%1", _id];
+        private _marker = createMarkerLocal [_markerName, _pos];
+        _marker setMarkerTypeLocal _markerType;
+        _marker setMarkerColorLocal _color;
+        _marker setMarkerTextLocal format ["%1 [%2] (%3)", _locName, _bCount, _locTags joinString ","];
+        _marker setMarkerSizeLocal [0.7, 0.7];
 
-        private _color = ["ColorOrange", "ColorRed"] select _anchorIsMil;
-
-        // Area marker
-        private _areaMarker = createMarkerLocal [format ["anchor_area_%1", _forEachIndex], _anchorPos];
+        private _areaName = format ["dsc_loc_%1_area", _id];
+        private _areaMarker = createMarkerLocal [_areaName, _pos];
         _areaMarker setMarkerShapeLocal "ELLIPSE";
-        _areaMarker setMarkerSizeLocal [_maxDist max 50, _maxDist max 50];
+        _areaMarker setMarkerSizeLocal [_loc get "radius", _loc get "radius"];
         _areaMarker setMarkerColorLocal _color;
-        _areaMarker setMarkerAlphaLocal 0.3;
+        _areaMarker setMarkerAlphaLocal 0.15;
+    } forEach _locations;
 
-        // Label marker
-        private _tierLabel = if (_milTier != "") then { format [" (%1)", _milTier] } else { "" };
-        private _labelMarker = createMarkerLocal [format ["anchor_label_%1", _forEachIndex], _anchorPos];
-        _labelMarker setMarkerTypeLocal (["mil_triangle", "mil_objective"] select _anchorIsMil);
-        _labelMarker setMarkerColorLocal _color;
-        _labelMarker setMarkerTextLocal format ["%1 [%2]%3", _anchorName, count _anchorStructs, _tierLabel];
-
-        diag_log format ["DSC: Anchor '%1' (%2): %3 structures, radius %4m%5", _anchorName, _anchorType, count _anchorStructs, round _maxDist, _tierLabel];
-
-    } forEach _anchors;
+    diag_log format ["DSC: Created %1 debug markers", count _locations];
 };
 
-diag_log "DSC: ========== Anchor-Based Scan Complete ==========";
+diag_log "DSC: ========== Location Scan Complete ==========";
 
-_anchors
+_locations

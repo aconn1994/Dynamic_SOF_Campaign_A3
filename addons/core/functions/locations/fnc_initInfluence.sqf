@@ -13,8 +13,8 @@
  *     Mission sites inherit from nearest influence source.
  *
  * Arguments:
- *     0: _locations <ARRAY> - Anchor arrays from fnc_scanLocations
- *        Each: [position, name, type, isMilitary, assignedStructures, militaryTier]
+ *     0: _locations <ARRAY> - Location hashmaps from fnc_scanLocations
+ *        Each: hashmap with id, position, name, locType, isMilitary, militaryTier, etc.
  *     1: _campaignProfile <STRING> - Initial state:
  *        "offensive"  - OpFor controls most, player fights to liberate
  *        "defensive"  - BluFor controls most, OpFor is invading
@@ -48,36 +48,11 @@ if (_locations isEqualTo []) exitWith {
 };
 
 // ============================================================================
-// STAGE 0: Convert anchors to rich location hashmaps
+// STAGE 0: Filter locations (scanner already outputs hashmaps)
 // ============================================================================
-private _enrichedLocations = [];
-{
-    _x params ["_anchorPos", "_anchorName", "_anchorType", "_anchorIsMil", "_anchorStructs", "_milTier"];
+private _enrichedLocations = _locations select { (_x get "buildingCount") >= 1 };
 
-    if (count _anchorStructs < 1) then { continue };
-
-    private _maxDist = 0;
-    {
-        private _dist = _x distance2D _anchorPos;
-        if (_dist > _maxDist) then { _maxDist = _dist };
-    } forEach _anchorStructs;
-
-    private _loc = createHashMapFromArray [
-        ["id", format ["loc_%1", _forEachIndex]],
-        ["position", _anchorPos],
-        ["name", _anchorName],
-        ["locType", _anchorType],
-        ["isMilitary", _anchorIsMil],
-        ["militaryTier", _milTier],
-        ["structures", _anchorStructs],
-        ["buildingCount", count _anchorStructs],
-        ["radius", _maxDist max 50]
-    ];
-
-    _enrichedLocations pushBack _loc;
-} forEach _locations;
-
-diag_log format ["DSC: initInfluence - %1 anchors with structures", count _enrichedLocations];
+diag_log format ["DSC: initInfluence - %1 locations with structures", count _enrichedLocations];
 
 // ============================================================================
 // STAGE 1: Classify locations into strategic tiers

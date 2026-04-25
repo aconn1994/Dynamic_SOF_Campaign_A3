@@ -114,7 +114,7 @@ private _allUnits = _mission getOrDefault ["units", []];
 { _x allowDamage true } forEach _allUnits;
 
 // Apply skill profile (global playtest setting)
-private _skillProfile = missionNamespace getVariable ["DSC_skillProfile", "hard"];
+private _skillProfile = missionNamespace getVariable ["DSC_skillProfile", "cqb_baseline"];
 [_allUnits, _skillProfile] call DSC_core_fnc_applySkillProfile;
 
 // Add to zeus if curator exists
@@ -139,65 +139,65 @@ if (isNull _activeUAV || { !alive _activeUAV }) then {
 // ============================================================================
 // 6. QRF Combat Response
 // ============================================================================
-private _qrfEnabled = _missionConfig getOrDefault ["qrfEnabled", true];
-private _patrolGroups = _mission getOrDefault ["patrolGroups", []];
-private _defenderUnits = _mission getOrDefault ["defenderUnits", []];
-private _hvtUnit = _mission getOrDefault ["entity", objNull];
+// private _qrfEnabled = _missionConfig getOrDefault ["qrfEnabled", true];
+// private _patrolGroups = _mission getOrDefault ["patrolGroups", []];
+// private _defenderUnits = _mission getOrDefault ["defenderUnits", []];
+// private _hvtUnit = _mission getOrDefault ["entity", objNull];
 
-if (_qrfEnabled && { _patrolGroups isNotEqualTo [] } && { _defenderUnits isNotEqualTo [] }) then {
-    private _qrfDelayRange = _missionConfig getOrDefault ["qrfDelay", [120, 180]];
-    private _qrfDelaySeconds = (_qrfDelayRange select 0) + random ((_qrfDelayRange select 1) - (_qrfDelayRange select 0));
+// if (_qrfEnabled && { _patrolGroups isNotEqualTo [] } && { _defenderUnits isNotEqualTo [] }) then {
+//     private _qrfDelayRange = _missionConfig getOrDefault ["qrfDelay", [120, 180]];
+//     private _qrfDelaySeconds = (_qrfDelayRange select 0) + random ((_qrfDelayRange select 1) - (_qrfDelayRange select 0));
 
-    private _triggerUnits = +_defenderUnits;
-    if (!isNull _hvtUnit && { !(_hvtUnit in _triggerUnits) }) then {
-        _triggerUnits pushBack _hvtUnit;
-    };
+//     private _triggerUnits = +_defenderUnits;
+//     if (!isNull _hvtUnit && { !(_hvtUnit in _triggerUnits) }) then {
+//         _triggerUnits pushBack _hvtUnit;
+//     };
 
-    {
-        _x addEventHandler ["FiredNear", {
-            params ["_unit", "_firer", "_distance", "_weapon", "_muzzle", "_mode", "_ammo", "_gunner"];
+//     {
+//         _x addEventHandler ["FiredNear", {
+//             params ["_unit", "_firer", "_distance", "_weapon", "_muzzle", "_mode", "_ammo", "_gunner"];
 
-            private _isPlayerOrSquadmate = isPlayer _gunner || { isPlayer (leader group _gunner) };
-            if (!_isPlayerOrSquadmate) exitWith {};
+//             private _isPlayerOrSquadmate = isPlayer _gunner || { isPlayer (leader group _gunner) };
+//             if (!_isPlayerOrSquadmate) exitWith {};
 
-            private _curMission = missionNamespace getVariable ["DSC_currentMission", createHashMap];
-            if (_curMission isEqualTo createHashMap) exitWith {};
-            if (_curMission getOrDefault ["combatResponseTriggered", false]) exitWith {};
+//             private _curMission = missionNamespace getVariable ["DSC_currentMission", createHashMap];
+//             if (_curMission isEqualTo createHashMap) exitWith {};
+//             if (_curMission getOrDefault ["combatResponseTriggered", false]) exitWith {};
 
-            _curMission set ["combatResponseTriggered", true];
-            missionNamespace setVariable ["DSC_currentMission", _curMission, true];
+//             _curMission set ["combatResponseTriggered", true];
+//             missionNamespace setVariable ["DSC_currentMission", _curMission, true];
 
-            private _mPatrolGroups = _curMission getOrDefault ["patrolGroups", []];
-            private _mLocationPos = _curMission getOrDefault ["location", []];
-            private _mQrfDelay = _curMission getOrDefault ["qrfDelay", 120];
+//             private _mPatrolGroups = _curMission getOrDefault ["patrolGroups", []];
+//             private _mLocationPos = _curMission getOrDefault ["location", []];
+//             private _mQrfDelay = _curMission getOrDefault ["qrfDelay", 120];
 
-            if (_mPatrolGroups isEqualTo [] || _mLocationPos isEqualTo []) exitWith {};
+//             if (_mPatrolGroups isEqualTo [] || _mLocationPos isEqualTo []) exitWith {};
 
-            diag_log format ["DSC: QRF dispatched in %1 seconds", _mQrfDelay];
+//             diag_log format ["DSC: QRF dispatched in %1 seconds", _mQrfDelay];
 
-            [_mPatrolGroups, _mLocationPos, _mQrfDelay] spawn {
-                params ["_patrols", "_pos", "_delay"];
-                sleep _delay;
+//             [_mPatrolGroups, _mLocationPos, _mQrfDelay] spawn {
+//                 params ["_patrols", "_pos", "_delay"];
+//                 sleep _delay;
 
-                if (!(missionNamespace getVariable ["missionInProgress", false])) exitWith {};
+//                 if (!(missionNamespace getVariable ["missionInProgress", false])) exitWith {};
 
-                [_patrols, _pos] call DSC_core_fnc_convergePatrols;
-                systemChat "Enemy QRF is responding to the engagement!";
-                diag_log "DSC: QRF patrols converging on objective";
-            };
+//                 [_patrols, _pos] call DSC_core_fnc_convergePatrols;
+//                 systemChat "Enemy QRF is responding to the engagement!";
+//                 diag_log "DSC: QRF patrols converging on objective";
+//             };
 
-            private _mTriggerUnits = _curMission getOrDefault ["triggerUnits", []];
-            { _x removeEventHandler ["FiredNear", _thisEventHandler] } forEach _mTriggerUnits;
-        }];
-    } forEach _triggerUnits;
+//             private _mTriggerUnits = _curMission getOrDefault ["triggerUnits", []];
+//             { _x removeEventHandler ["FiredNear", _thisEventHandler] } forEach _mTriggerUnits;
+//         }];
+//     } forEach _triggerUnits;
 
-    _mission set ["qrfDelay", _qrfDelaySeconds];
-    _mission set ["triggerUnits", _triggerUnits];
-    _mission set ["location", _locationPos];
-    _mission set ["patrolGroups", _patrolGroups];
+//     _mission set ["qrfDelay", _qrfDelaySeconds];
+//     _mission set ["triggerUnits", _triggerUnits];
+//     _mission set ["location", _locationPos];
+//     _mission set ["patrolGroups", _patrolGroups];
 
-    diag_log format ["DSC: fnc_generateMission - QRF EH on %1 units (delay: %2s)", count _triggerUnits, _qrfDelaySeconds];
-};
+//     diag_log format ["DSC: fnc_generateMission - QRF EH on %1 units (delay: %2s)", count _triggerUnits, _qrfDelaySeconds];
+// };
 
 // ============================================================================
 // 7. Store and return

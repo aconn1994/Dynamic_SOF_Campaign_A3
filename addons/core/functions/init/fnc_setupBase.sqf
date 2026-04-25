@@ -233,15 +233,52 @@ private _sideStructures = [];
 
 _guardConfig set ["mainStructures", _mainStructures];
 _guardConfig set ["sideStructures", _sideStructures];
-_guardConfig set ["maxPerimeter", 0];
 
 diag_log format ["DSC: fnc_setupBase - Guard scan: %1 main, %2 side structures", count _mainStructures, count _sideStructures];
 
-private _guardResult = [_position, "military", _faction, _side, _guardConfig] call DSC_core_fnc_setupGuards;
+// --- Static Defenses (towers, bunkers, static weapons) ---
+private _staticConfig = createHashMapFromArray [
+    ["assets", _assets],
+    ["structures", _structures],
+    ["maxStatics", _guardConfig getOrDefault ["maxStatics", 3]],
+    ["staticChance", _guardConfig getOrDefault ["staticChance", 0.5]],
+    ["maxGuardsPerStructure", _guardConfig getOrDefault ["maxGuardsPerStructure", 3]]
+];
+if (_guardFaction != "") then { _staticConfig set ["guardFaction", _guardFaction] };
 
-(_result get "units") append (_guardResult get "units");
-(_result get "vehicles") append (_guardResult get "vehicles");
-(_result get "groups") append (_guardResult get "groups");
+private _staticResult = [_position, _faction, _side, _staticConfig] call DSC_core_fnc_setupStaticDefenses;
+
+(_result get "units") append (_staticResult get "units");
+(_result get "vehicles") append (_staticResult get "vehicles");
+(_result get "groups") append (_staticResult get "groups");
+
+// --- Entry Guards (ground-floor positions at buildings) ---
+private _factionData = _baseConfig getOrDefault ["factionData", createHashMap];
+private _roleData = _factionData getOrDefault ["opFor", _factionData getOrDefault ["bluFor", createHashMap]];
+private _roleGroups = _roleData getOrDefault ["groups", createHashMap];
+private _footGroups = [];
+{
+    _footGroups append _y;
+} forEach _roleGroups;
+_footGroups = _footGroups select {
+    private _tags = _x getOrDefault ["doctrineTags", []];
+    ("FOOT" in _tags || "PATROL" in _tags) && { !("ARMOR" in _tags) } && { !("NAVAL" in _tags) }
+};
+
+if (_footGroups isNotEqualTo []) then {
+    private _entryGuardConfig = createHashMapFromArray [
+        ["mainStructures", _mainStructures],
+        ["sideStructures", _sideStructures],
+        ["buildingCoverage", 0.3]
+    ];
+
+    private _guardResult = [_position, _footGroups, _side, _entryGuardConfig] call DSC_core_fnc_setupGuards;
+
+    (_result get "units") append (_guardResult get "units");
+    (_result get "groups") append (_guardResult get "groups");
+} else {
+    diag_log "DSC: fnc_setupBase - No foot groups available for entry guards";
+};
 
 // ============================================================================
 // Zone Vehicle Placement (Player Base)

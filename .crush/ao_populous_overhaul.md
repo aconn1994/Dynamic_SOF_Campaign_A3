@@ -13,7 +13,7 @@ The overhaul is being built in stages:
 
 ---
 
-## Stage 1: Garrison Units — COMPLETED
+## Stage 1: Garrison Units
 
 ### Design Principles
 

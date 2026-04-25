@@ -20,14 +20,14 @@ class EditorData
 	};
 	class LayerIndexProvider
 	{
-		nextID=340;
+		nextID=359;
 	};
 	class Camera
 	{
 		pos[]={23496.658,266.12326,18087.742};
-		dir[]={0.09611655,-0.5896821,0.80189562};
-		up[]={0.070177965,0.80763549,0.58549124};
-		aside[]={0.99289304,-3.7252903e-09,-0.11900982};
+		dir[]={0.14407089,-0.55763644,0.81748712};
+		up[]={0.096784241,0.83008528,0.54917324};
+		aside[]={0.98482305,7.4505806e-09,-0.17356154};
 	};
 };
 binarizationWanted=0;
@@ -74,6 +74,7 @@ addons[]=
 	"A3_Supplies_F_Heli_Bladders",
 	"A3_Props_F_Enoch_Military_Decontamination",
 	"A3_Structures_F_Ind_Cargo",
+	"emr_main",
 	"A3_Structures_F_Mark_Training",
 	"A3_Missions_F_Oldman",
 	"A3_Structures_F_Heli_Items_Airport",
@@ -83,7 +84,7 @@ class AddonsMetaData
 {
 	class List
 	{
-		items=17;
+		items=18;
 		class Item0
 		{
 			className="A3_Structures_F_Mil";
@@ -191,12 +192,19 @@ class AddonsMetaData
 		};
 		class Item15
 		{
+			className="emr_main";
+			name="Enhanced Movement Rework";
+			author="Simplex Team";
+			url="https://github.com/SceptreOfficial/Enhanced-Movement-Rework";
+		};
+		class Item16
+		{
 			className="A3_Structures_F_Mark";
 			name="Arma 3 Marksmen - Buildings and Structures";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item16
+		class Item17
 		{
 			className="A3_Missions_F_Oldman";
 			name="Arma 3 Old Man - Playable Content";

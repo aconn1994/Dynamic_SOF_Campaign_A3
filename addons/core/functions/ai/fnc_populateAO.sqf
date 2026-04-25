@@ -176,25 +176,6 @@ if (_hasAreaFaction) then {
 diag_log format ["DSC: populateAO - Target foot: %1, Area foot: %2", count _targetFootGroups, count _areaFootGroups];
 
 // ============================================================================
-// GUARDS — target faction at objective (dedicated structures + perimeter)
-// ============================================================================
-private _guardLocType = ["civilian", "military"] select _isMilitary;
-private _guardConfig = createHashMapFromArray [
-    ["assets", _targetAssets],
-    ["structures", _mainStructures + _sideStructures],
-    ["mainStructures", _mainStructures],
-    ["sideStructures", _sideStructures]
-];
-private _guardResult = [_locationPos, _guardLocType, _targetFaction, _targetSide, _guardConfig] call DSC_core_fnc_setupGuards;
-
-(_aoResult get "groups") append (_guardResult get "groups");
-(_aoResult get "units") append (_guardResult get "units");
-(_aoResult get "vehicles") append (_guardResult get "vehicles");
-(_aoResult get "defenderUnits") append (_guardResult get "units");
-
-diag_log format ["DSC: populateAO - Guards (target): %1 units, %2 vehicles", count (_guardResult get "units"), count (_guardResult get "vehicles")];
-
-// ============================================================================
 // GARRISON — target faction fills objective structures
 // ============================================================================
 if (_targetFootGroups isNotEqualTo [] && { _mainStructures isNotEqualTo [] || _sideStructures isNotEqualTo [] }) then {
@@ -217,22 +198,62 @@ if (_targetFootGroups isNotEqualTo [] && { _mainStructures isNotEqualTo [] || _s
 };
 
 // ============================================================================
+// GUARDS — target faction at entry points of garrisoned buildings
+// ============================================================================
+// Placed AFTER garrison so we can pass garrisonClusters for building selection.
+// Guards anchor to ground-floor positions facing outward — visible deterrent.
+if (_targetFootGroups isNotEqualTo [] && { (_aoResult get "garrisonClusters") isNotEqualTo [] }) then {
+    private _guardConfig = createHashMapFromArray [
+        ["garrisonClusters", _aoResult get "garrisonClusters"],
+        ["mainStructures", _mainStructures],
+        ["sideStructures", _sideStructures]
+    ];
+
+    private _guardResult = [_locationPos, _targetFootGroups, _targetSide, _guardConfig] call DSC_core_fnc_setupGuards;
+
+    (_aoResult get "groups") append (_guardResult get "groups");
+    (_aoResult get "units") append (_guardResult get "units");
+    (_aoResult get "defenderUnits") append (_guardResult get "units");
+
+    diag_log format ["DSC: populateAO - Guards (target): %1 units", count (_guardResult get "units")];
+};
+
+// ============================================================================
+// STATIC DEFENSES — military locations only (towers, bunkers, static weapons)
+// ============================================================================
+// if (_isMilitary && _targetFootGroups isNotEqualTo []) then {
+//     private _staticConfig = createHashMapFromArray [
+//         ["assets", _targetAssets],
+//         ["structures", _mainStructures + _sideStructures]
+//     ];
+//
+//     private _staticResult = [_locationPos, _targetFaction, _targetSide, _staticConfig] call DSC_core_fnc_setupStaticDefenses;
+//
+//     (_aoResult get "groups") append (_staticResult get "groups");
+//     (_aoResult get "units") append (_staticResult get "units");
+//     (_aoResult get "vehicles") append (_staticResult get "vehicles");
+//     (_aoResult get "defenderUnits") append (_staticResult get "units");
+//
+//     diag_log format ["DSC: populateAO - Static defenses: %1 units, %2 vehicles", count (_staticResult get "units"), count (_staticResult get "vehicles")];
+// };
+
+// ============================================================================
 // PARKED VEHICLES — target faction vehicles near garrison clusters
 // ============================================================================
-private _vehConfig = createHashMapFromArray [
-    ["assets", _targetAssets],
-    ["structures", _mainStructures + _sideStructures],
-    ["density", _density],
-    ["armedChance", [0.2, 0.3, 0.4] select ((["light", "medium", "heavy"] find _density) max 0)]
-];
+// private _vehConfig = createHashMapFromArray [
+//     ["assets", _targetAssets],
+//     ["structures", _mainStructures + _sideStructures],
+//     ["density", _density],
+//     ["armedChance", [0.2, 0.3, 0.4] select ((["light", "medium", "heavy"] find _density) max 0)]
+// ];
 
-private _vehResult = [_locationPos, _targetFaction, _targetSide, _vehConfig] call DSC_core_fnc_setupVehicles;
+// private _vehResult = [_locationPos, _targetFaction, _targetSide, _vehConfig] call DSC_core_fnc_setupVehicles;
 
-(_aoResult get "groups") append (_vehResult get "groups");
-(_aoResult get "units") append (_vehResult get "units");
-(_aoResult get "vehicles") append (_vehResult get "vehicles");
+// (_aoResult get "groups") append (_vehResult get "groups");
+// (_aoResult get "units") append (_vehResult get "units");
+// (_aoResult get "vehicles") append (_vehResult get "vehicles");
 
-diag_log format ["DSC: populateAO - Vehicles: %1 parked, %2 with crew", count (_vehResult get "vehicles"), count (_vehResult get "units")];
+// diag_log format ["DSC: populateAO - Vehicles: %1 parked, %2 with crew", count (_vehResult get "vehicles"), count (_vehResult get "units")];
 
 // ============================================================================
 // PATROLS — area faction if present, otherwise target faction
@@ -241,73 +262,73 @@ diag_log format ["DSC: populateAO - Vehicles: %1 parked, %2 with crew", count (_
 // determines if the patrol uses area faction or is skipped.
 // Target faction always gets at least 1 patrol regardless.
 
-private _patrolCount = switch (_density) do {
-    case "light":  { [1, 2] };
-    case "medium": { [2, 3] };
-    case "heavy":  { [3, 4] };
-    default        { [1, 2] };
-};
+// private _patrolCount = switch (_density) do {
+//     case "light":  { [1, 2] };
+//     case "medium": { [2, 3] };
+//     case "heavy":  { [3, 4] };
+//     default        { [1, 2] };
+// };
 
-private _patrolSpawnMin = (_locationRadius max 100) min 300;
-private _patrolSpawnMax = (_patrolSpawnMin + 200) min 400;
-private _patrolWaypointMin = _patrolSpawnMin + 50;
-private _patrolWaypointMax = _patrolSpawnMax + 100;
+// private _patrolSpawnMin = (_locationRadius max 100) min 300;
+// private _patrolSpawnMax = (_patrolSpawnMin + 200) min 400;
+// private _patrolWaypointMin = _patrolSpawnMin + 50;
+// private _patrolWaypointMax = _patrolSpawnMax + 100;
 
-// Target faction patrols (always at least 1)
-if (_targetFootGroups isNotEqualTo []) then {
-    private _targetPatrolConfig = createHashMapFromArray [
-        ["patrolCount", [1, 1]],
-        ["spawnRadius", [_patrolSpawnMin, _patrolSpawnMax]],
-        ["patrolRadius", [_patrolWaypointMin, _patrolWaypointMax]],
-        ["specialGroups", _targetSpecialGroups],
-        ["specialChance", 0.15]
-    ];
+// // Target faction patrols (always at least 1)
+// if (_targetFootGroups isNotEqualTo []) then {
+//     private _targetPatrolConfig = createHashMapFromArray [
+//         ["patrolCount", [1, 1]],
+//         ["spawnRadius", [_patrolSpawnMin, _patrolSpawnMax]],
+//         ["patrolRadius", [_patrolWaypointMin, _patrolWaypointMax]],
+//         ["specialGroups", _targetSpecialGroups],
+//         ["specialChance", 0.15]
+//     ];
 
-    private _targetPatrolResult = [_locationPos, _targetFootGroups, _targetSide, _targetPatrolConfig] call DSC_core_fnc_setupPatrols;
+//     private _targetPatrolResult = [_locationPos, _targetFootGroups, _targetSide, _targetPatrolConfig] call DSC_core_fnc_setupPatrols;
 
-    (_aoResult get "groups") append (_targetPatrolResult get "groups");
-    (_aoResult get "units") append (_targetPatrolResult get "units");
-    (_aoResult get "patrolGroups") append (_targetPatrolResult get "groups");
-    (_aoResult get "tags") append (_targetPatrolResult get "tags");
+//     (_aoResult get "groups") append (_targetPatrolResult get "groups");
+//     (_aoResult get "units") append (_targetPatrolResult get "units");
+//     (_aoResult get "patrolGroups") append (_targetPatrolResult get "groups");
+//     (_aoResult get "tags") append (_targetPatrolResult get "tags");
 
-    diag_log format ["DSC: populateAO - Patrols (target): %1 units", count (_targetPatrolResult get "units")];
-};
+//     diag_log format ["DSC: populateAO - Patrols (target): %1 units", count (_targetPatrolResult get "units")];
+// };
 
-// Area faction patrols (probabilistic based on influence)
-private _numAreaPatrols = (_patrolCount select 0) + floor random ((_patrolCount select 1) - (_patrolCount select 0) + 1);
-private _effectiveChance = _areaPresenceChance * _areaInfluence;
+// // Area faction patrols (probabilistic based on influence)
+// private _numAreaPatrols = (_patrolCount select 0) + floor random ((_patrolCount select 1) - (_patrolCount select 0) + 1);
+// private _effectiveChance = _areaPresenceChance * _areaInfluence;
 
-private _patrolTemplates = [_targetFootGroups, _areaFootGroups] select _hasAreaFaction;
-private _patrolSide = [_targetSide, _areaSide] select _hasAreaFaction;
-private _patrolSpecial = [_targetSpecialGroups, _areaSpecialGroups] select _hasAreaFaction;
-private _areaPatrolsSpawned = 0;
+// private _patrolTemplates = [_targetFootGroups, _areaFootGroups] select _hasAreaFaction;
+// private _patrolSide = [_targetSide, _areaSide] select _hasAreaFaction;
+// private _patrolSpecial = [_targetSpecialGroups, _areaSpecialGroups] select _hasAreaFaction;
+// private _areaPatrolsSpawned = 0;
 
-if (_patrolTemplates isNotEqualTo []) then {
-    for "_i" from 1 to _numAreaPatrols do {
-        if (random 1 > _effectiveChance) then {
-            diag_log format ["DSC: populateAO - Area patrol slot %1 skipped (roll > %2)", _i, _effectiveChance toFixed 2];
-            continue;
-        };
+// if (_patrolTemplates isNotEqualTo []) then {
+//     for "_i" from 1 to _numAreaPatrols do {
+//         if (random 1 > _effectiveChance) then {
+//             diag_log format ["DSC: populateAO - Area patrol slot %1 skipped (roll > %2)", _i, _effectiveChance toFixed 2];
+//             continue;
+//         };
 
-        private _slotConfig = createHashMapFromArray [
-            ["patrolCount", [1, 1]],
-            ["spawnRadius", [_patrolSpawnMin + 100, _patrolSpawnMax + 200]],
-            ["patrolRadius", [_patrolWaypointMin + 100, _patrolWaypointMax + 200]],
-            ["specialGroups", _patrolSpecial],
-            ["specialChance", 0.15]
-        ];
+//         private _slotConfig = createHashMapFromArray [
+//             ["patrolCount", [1, 1]],
+//             ["spawnRadius", [_patrolSpawnMin + 100, _patrolSpawnMax + 200]],
+//             ["patrolRadius", [_patrolWaypointMin + 100, _patrolWaypointMax + 200]],
+//             ["specialGroups", _patrolSpecial],
+//             ["specialChance", 0.15]
+//         ];
 
-        private _slotResult = [_locationPos, _patrolTemplates, _patrolSide, _slotConfig] call DSC_core_fnc_setupPatrols;
+//         private _slotResult = [_locationPos, _patrolTemplates, _patrolSide, _slotConfig] call DSC_core_fnc_setupPatrols;
 
-        (_aoResult get "groups") append (_slotResult get "groups");
-        (_aoResult get "units") append (_slotResult get "units");
-        (_aoResult get "patrolGroups") append (_slotResult get "groups");
-        (_aoResult get "tags") append (_slotResult get "tags");
-        _areaPatrolsSpawned = _areaPatrolsSpawned + 1;
-    };
+//         (_aoResult get "groups") append (_slotResult get "groups");
+//         (_aoResult get "units") append (_slotResult get "units");
+//         (_aoResult get "patrolGroups") append (_slotResult get "groups");
+//         (_aoResult get "tags") append (_slotResult get "tags");
+//         _areaPatrolsSpawned = _areaPatrolsSpawned + 1;
+//     };
 
-    diag_log format ["DSC: populateAO - Area patrols: %1/%2 slots filled (chance: %3)", _areaPatrolsSpawned, _numAreaPatrols, _effectiveChance toFixed 2];
-};
+//     diag_log format ["DSC: populateAO - Area patrols: %1/%2 slots filled (chance: %3)", _areaPatrolsSpawned, _numAreaPatrols, _effectiveChance toFixed 2];
+// };
 
 // ============================================================================
 // VEHICLE PATROLS — motorized/mechanized groups driving road loops
@@ -315,59 +336,59 @@ if (_patrolTemplates isNotEqualTo []) then {
 // Uses area faction if present, otherwise target faction.
 // 1 vehicle patrol for medium density, 1-2 for heavy. None for light.
 
-private _vehPatrolCount = switch (_density) do {
-    case "light":  { 0 };
-    case "medium": { parseNumber (random 1 < 0.6) };
-    case "heavy":  { 1 + parseNumber (random 1 < 0.4) };
-    default        { 0 };
-};
+// private _vehPatrolCount = switch (_density) do {
+//     case "light":  { 0 };
+//     case "medium": { parseNumber (random 1 < 0.6) };
+//     case "heavy":  { 1 + parseNumber (random 1 < 0.4) };
+//     default        { 0 };
+// };
 
-if (_vehPatrolCount > 0) then {
-    // Select motorized/mechanized group templates
-    private _vehPatrolSourceGroups = [_patrolTemplates, _areaGroups] select _hasAreaFaction;
-    private _vehPatrolSide = [_targetSide, _areaSide] select _hasAreaFaction;
+// if (_vehPatrolCount > 0) then {
+//     // Select motorized/mechanized group templates
+//     private _vehPatrolSourceGroups = [_patrolTemplates, _areaGroups] select _hasAreaFaction;
+//     private _vehPatrolSide = [_targetSide, _areaSide] select _hasAreaFaction;
 
-    // Broad filter: any group with a vehicle that has dismounts
-    private _motorizedGroups = _vehPatrolSourceGroups select {
-        private _tags = _x get "doctrineTags";
-        ("MOTORIZED" in _tags || "MECHANIZED" in _tags) && { !("ARMOR" in _tags) } && { !("NAVAL" in _tags) }
-    };
+//     // Broad filter: any group with a vehicle that has dismounts
+//     private _motorizedGroups = _vehPatrolSourceGroups select {
+//         private _tags = _x get "doctrineTags";
+//         ("MOTORIZED" in _tags || "MECHANIZED" in _tags) && { !("ARMOR" in _tags) } && { !("NAVAL" in _tags) }
+//     };
 
-    // Fallback: any group with vehicles and infantry
-    if (_motorizedGroups isEqualTo []) then {
-        _motorizedGroups = _vehPatrolSourceGroups select {
-            private _ua = _x get "unitAnalysis";
-            (_ua getOrDefault ["vehicleCount", 0]) > 0 && { (_ua getOrDefault ["infantryCount", 0]) >= 3 }
-        };
-    };
+//     // Fallback: any group with vehicles and infantry
+//     if (_motorizedGroups isEqualTo []) then {
+//         _motorizedGroups = _vehPatrolSourceGroups select {
+//             private _ua = _x get "unitAnalysis";
+//             (_ua getOrDefault ["vehicleCount", 0]) > 0 && { (_ua getOrDefault ["infantryCount", 0]) >= 3 }
+//         };
+//     };
 
-    if (_motorizedGroups isNotEqualTo []) then {
-        for "_i" from 1 to _vehPatrolCount do {
-            private _template = selectRandom _motorizedGroups;
+//     if (_motorizedGroups isNotEqualTo []) then {
+//         for "_i" from 1 to _vehPatrolCount do {
+//             private _template = selectRandom _motorizedGroups;
 
-            private _vpConfig = createHashMapFromArray [
-                ["patrolRadius", [800, 1200, 1600]],
-                ["dismountRadius", [200, 300, 400]],
-                ["dismountDuration", [90, 180]],
-                ["speed", "LIMITED"]
-            ];
+//             private _vpConfig = createHashMapFromArray [
+//                 ["patrolRadius", [800, 1200, 1600]],
+//                 ["dismountRadius", [200, 300, 400]],
+//                 ["dismountDuration", [90, 180]],
+//                 ["speed", "LIMITED"]
+//             ];
 
-            private _vpResult = [_locationPos, _template, _vehPatrolSide, _vpConfig] call DSC_core_fnc_setupVehiclePatrol;
+//             private _vpResult = [_locationPos, _template, _vehPatrolSide, _vpConfig] call DSC_core_fnc_setupVehiclePatrol;
 
-            private _vpGroup = _vpResult get "group";
-            if (!isNull _vpGroup) then {
-                (_aoResult get "groups") pushBack _vpGroup;
-                (_aoResult get "units") append (_vpResult get "units");
-                (_aoResult get "vehicles") pushBack (_vpResult get "vehicle");
-                (_aoResult get "patrolGroups") pushBack _vpGroup;
+//             private _vpGroup = _vpResult get "group";
+//             if (!isNull _vpGroup) then {
+//                 (_aoResult get "groups") pushBack _vpGroup;
+//                 (_aoResult get "units") append (_vpResult get "units");
+//                 (_aoResult get "vehicles") pushBack (_vpResult get "vehicle");
+//                 (_aoResult get "patrolGroups") pushBack _vpGroup;
 
-                diag_log format ["DSC: populateAO - Vehicle patrol %1: %2 (%3)", _i, _template get "groupName", typeOf (_vpResult get "vehicle")];
-            };
-        };
-    } else {
-        diag_log "DSC: populateAO - No motorized/mechanized groups available for vehicle patrols";
-    };
-};
+//                 diag_log format ["DSC: populateAO - Vehicle patrol %1: %2 (%3)", _i, _template get "groupName", typeOf (_vpResult get "vehicle")];
+//             };
+//         };
+//     } else {
+//         diag_log "DSC: populateAO - No motorized/mechanized groups available for vehicle patrols";
+//     };
+// };
 
 // ============================================================================
 // Side Alignment — fix groups spawned on wrong side by BIS_fnc_spawnGroup
