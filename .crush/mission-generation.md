@@ -243,13 +243,15 @@ Over multiple missions, the influence map evolves based on player performance.
 
 | Function | Status | Change |
 |---|---|---|
-| `fnc_populateAO` | Refactor | Accept two faction group sets (target + area). Target fills objective cluster, area fills surroundings probabilistically. |
-| `fnc_generateKillCaptureMission` | Refactor | Accept mission config instead of bare location + AO. HVT class from targetFaction. |
-| `fnc_createMissionBriefing` | Refactor | Read config for richer context (area faction, distance, influence level, difficulty). |
-| `fnc_setupPatrols` | Minor | Support optional faction override per patrol slot (area faction patrols). |
-| `fnc_setupGarrison` | Minor | Support scoped garrison (target cluster only vs full location). |
-| `fnc_selectMission` | **NEW** | Build mission config from influence data + faction data. Location filtering, faction selection, parameter derivation. |
-| `fnc_generateMission` | **NEW** | Orchestrator: calls populate → objective → briefing → QRF → skill. Returns mission hashmap. |
+| `fnc_populateAO` | **DONE** | Multi-faction model. Garrison → guards → vehicles → patrols. Auto-extracts assets if not in config. |
+| `fnc_generateKillCaptureMission` | **DONE** | Consumes mission config + AO. HVT with bodyguards. SOF raid markers with nearby clearance radius. |
+| `fnc_createMissionBriefing` | **DONE** | Intel-style briefing from mission config. |
+| `fnc_setupPatrols` | **DONE** | Target faction + area faction patrols (probabilistic per slot). |
+| `fnc_setupGarrison` | **OVERHAULED** | Individual groups per unit, unit class pool from templates, structure-count scaling, cqb_baseline profile. |
+| `fnc_setupGuards` | **OVERHAULED** | Exterior road-anchored placement. Separated from static defenses. |
+| `fnc_setupStaticDefenses` | **NEW** | Extracted from old guards. Military tower/bunker static weapons + lookouts. |
+| `fnc_selectMission` | **DONE** | Builds mission config from influence + faction data. |
+| `fnc_generateMission` | **DONE** | Orchestrator: populate → objective → briefing → QRF → skill → UAV. |
 
 ## Time/Weather Randomization (Deferred)
 

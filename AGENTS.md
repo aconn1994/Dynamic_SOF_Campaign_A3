@@ -62,7 +62,7 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 
 **Server init pipeline** (`fnc_initServer`):
 1. Set globals (faction profile, mission state, `playerMainBase` marker)
-2. `fnc_scanLocations` → anchor-based scan, assigns structures to named locations, tags military tiers
+2. `fnc_scanLocations` → anchor-based scan + orphan recovery, assigns structures to locations, functional tagging (residential/commercial/industrial/etc.), outputs location hashmaps directly
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
 4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
@@ -78,15 +78,16 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 
 | System | Entry Point | Details |
 |--------|------------|---------|
-| Location Scanner | `fnc_scanLocations` | Anchor-based: assigns structures to named locations, military tier (base/outpost/camp) |
+| Location Scanner | `fnc_scanLocations` | Anchor-based + orphan recovery, functional tagging, outputs hashmaps with tags[] and functionalProfile{} |
 | Faction Pipeline | `fnc_initFactionData` → `fnc_extractGroups` → `fnc_classifyGroups` | Mod-agnostic group extraction + doctrine tagging |
 | Asset Extraction | `fnc_extractAssets` | Auto-classifies vehicles, statics, aircraft per faction |
 | Influence | `fnc_initInfluence` / `fnc_updateInfluence` | Tiered military occupation, base→outpost propagation, safe zone |
 | Mission Selection | `fnc_selectMission` | Weighted location pick, target vs area faction, influence-aware |
 | Mission Generation | `fnc_generateMission` | Orchestrator: populate → objective → briefing → QRF → skill → UAV |
-| AO Population | `fnc_populateAO` | Multi-faction: target at objective, area faction ambient, vehicles, patrols |
+| AO Population | `fnc_populateAO` | Multi-faction: garrison → guards → vehicles → patrols. Auto-extracts assets if not in mission config |
 | Kill/Capture | `fnc_generateKillCaptureMission` | HVT placement, SOF raid-style compound markers (Contact_circle4 + alpha-numeric dots) |
 | Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
+| Static Defenses | `fnc_setupStaticDefenses` | Military-only: towers, bunkers, static weapons with lookout fallback |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
 
 ## SQF Conventions
@@ -145,4 +146,5 @@ Groups are tagged by the classifier for downstream filtering:
 - `.crush/mission-generation.md` — Mission config object, multi-faction population, generation flow
 - `.crush/vehicle-systems.md` — Parked vehicles, vehicle patrols, dismount cycle design (deferred)
 - `.crush/grand-vision.md` — High-level project goals and inspiration
+- `.crush/ao_populous_overhaul.md` — Garrison/guard/patrol overhaul design, playtest data, skill profiles
 - `.crush/roadmap.md` — What's done, what's next, design philosophy

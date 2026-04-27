@@ -5,13 +5,14 @@
 ## Phase 1: Mission Area Generation — COMPLETE
 
 ### Done
-- [x] **Location Scanner** (`fnc_scanLocations`) — anchor-based: assigns structures to named locations, excludes player bases + airbases, military tier tagging (base/outpost/camp)
-- [x] **Structure Classification** (`fnc_getStructureTypes`) — curated main/side/military structure lists for vanilla + mod maps
+- [x] **Location Scanner** (`fnc_scanLocations`) — anchor-based with orphan recovery: assigns structures to named locations, clusters orphaned structures at 150m, functional tagging (residential/commercial/industrial/agricultural/medical/religious/infrastructure/port/airport/law_enforcement), non-occupiable structure scanning, outputs location hashmaps directly
+- [x] **Structure Classification** (`fnc_getStructureTypes`) — curated main/side/military structure lists + functional categories with occupiable/non-occupiable sublists + reverse lookup hashmaps for O(1) scanning
 - [x] **Map Structures** (`fnc_getMapStructures`) — engine-level spatial query wrapper
 - [x] **Group Classifier** (`fnc_classifyUnit` → `fnc_classifyGroup` → `fnc_classifyGroups`) — full doctrine tag system with confidence scoring
 - [x] **Faction Extraction** (`fnc_extractGroups`, `fnc_extractAssets`, `fnc_initFactionData`) — mod-agnostic pipeline from CfgGroups/CfgVehicles
-- [x] **Guards** (`fnc_setupGuards`) — military: static weapons in towers + perimeter ring; civilian: compound security tight around garrison clusters
-- [x] **Garrison** (`fnc_setupGarrison`) — anchor/satellite building model with density profiles, exposes cluster data for mission markers
+- [x] **Guards** (`fnc_setupGuards`) — exterior placement at building fronts: road-anchored (urban) / building-facing / cluster-outward (fallback). Individual units from faction pool, cqb_baseline skill profile
+- [x] **Static Defenses** (`fnc_setupStaticDefenses`) — military-only: towers, bunkers get static weapons (HMG/GMG/AT/AA) or lookout soldiers with open-sky checks. Separated from guard logic.
+- [x] **Garrison** (`fnc_setupGarrison`) — individual groups per unit for independent CQB behavior. Unit classes from faction pool (weighted by template composition). Structure-count scaling table, per-building caps (main: 3, side: 2), cqb_baseline skill profile
 - [x] **Foot Patrols** (`fnc_setupPatrols`) — dynamic radius, special group chance (AT/AA teams)
 - [x] **Parked Vehicles** (`fnc_setupVehicles`) — faction vehicles near garrison clusters, armed get gunner with combat activation
 - [x] **Vehicle Patrols** (`fnc_setupVehiclePatrol`) — motorized/mechanized groups drive road loops, hold at waypoints, combat interrupt releases AI (dismount cycle deferred)
@@ -30,11 +31,17 @@
 - [x] **HALO Jump** — map-click group insertion
 - [x] **Helo Transport/Extraction** — request pickup from anywhere
 - [x] **Persistent Medic** — recruitable companion for playtesting
-- [x] **AI Skill Profiles** (`fnc_applySkillProfile`, `fnc_getSkillProfile`) — moderate/hard/realism
+- [x] **AI Skill Profiles** (`fnc_applySkillProfile`, `fnc_getSkillProfile`) — cqb_baseline/moderate/hard/realism. cqb_baseline tuned for garrison/guard CQB (low accuracy, moderate spotting, creates reaction window)
 - [x] **Persistent UAV** — always-available drone support
 - [x] **ACE Integration** — medical system detection, unconscious handling
 - [x] **Player Down/Revive** — works with ACE or vanilla damage model
 - [x] **Multi-Map Support** — Altis, Livonia, Malden, Stratis, Tanoa all have mission folders
+
+### AO Population Overhaul
+- [x] **Garrison overhaul** — individual groups per unit, unit class pool from templates, structure-count scaling, config block for all tunable parameters
+- [x] **Guard overhaul** — exterior road-anchored placement, separated static defenses into own function
+- [x] **Marker overhaul** — nearby building clearance radius (30m) around garrison clusters, no overlap between cluster markers
+- [x] **populateAO asset extraction** — auto-extracts faction assets if mission config doesn't provide them
 
 ### Deferred
 - [ ] **Vehicle patrol dismount cycle** — drive → staggered dismount → foot patrol → staggered remount → repeat. Architecture exists in `fnc_vehiclePatrolLoop` but AI mount/dismount behavior needs refinement. Design doc in `.crush/vehicle-systems.md`
@@ -55,10 +62,10 @@
 - [ ] **Special zones** (logistics, factories, resources, ports) owned by faction
 
 ### Base Initialization (Design: `.crush/base-initialization.md`)
-- [ ] **`fnc_initBases` + `fnc_setupBase`** — orchestrator + per-base worker, base registry pattern
-- [ ] **Player base guards** — `fnc_setupGuards` with heavy config, tower sentries + perimeter (Sprint 1)
-- [ ] **Player base helipads** — scan `player_base_1_heliport` marker, place transport helos on pads (Sprint 2)
-- [ ] **BluFor/OpFor base population** — iterate influence bases, side-appropriate guard configs + vehicles (Sprint 3)
+- [x] **`fnc_initBases` + `fnc_setupBase`** — orchestrator + per-base worker, base registry pattern
+- [x] **Player base guards** — `fnc_setupStaticDefenses` for tower statics + `fnc_setupGuards` for entry guards
+- [x] **Player base helipads** — scan `player_base_1_heliport` marker, place transport helos on pads
+- [x] **BluFor/OpFor base population** — iterate influence bases, side-appropriate guard configs + vehicles
 - [ ] **Transport helo from pad** — modify `fnc_spawnTransportHelo` + `fnc_requestExtraction` to use base registry (Sprint 2)
 - [ ] **Helo return to base** — `fnc_returnHeloToBase`, post-mission fly-back + crew despawn (Sprint 4)
 - [ ] **QRF from opFor bases** — QRF spawns from nearest opFor base in registry (Sprint 4)
@@ -123,4 +130,8 @@
 
 ## Current State Summary
 
-The full mission loop is live: scan map → extract factions → assign influence → mark bases on map → select mission (influence-aware, multi-faction) → populate AO (target + area faction) → place HVT with raid-style markers → briefing → play → debrief → update influence → cleanup → repeat. All 5 initServer steps are active. Vehicle patrols drive road loops; dismount cycle is deferred. Parked vehicles spawn near garrison clusters. Phase 1 is complete. Next focus: Phase 2 faction configuration and Phase 3 intel/campaign systems.
+The full mission loop is live: scan map (with functional tagging + orphan recovery) → extract factions → assign influence → mark bases → select mission (influence-aware, multi-faction) → populate AO (garrison → guards → vehicles → patrols) → place HVT with raid-style markers + clearance radius → briefing → play → debrief → update influence → cleanup → repeat. All 5 initServer steps are active.
+
+AO population overhauled: garrison uses individual groups per unit with cqb_baseline profile for independent CQB behavior. Guards placed at building exteriors anchored to nearest road (urban) or building facing direction. Static defenses separated into own function. Location scanner outputs rich hashmaps with functional tags (has_residential, has_industrial, etc.) and non-occupiable structure detection. Structure types include 10 functional categories for mission-type-to-location matching.
+
+Phase 1 is complete. Next focus: Phase 2 faction configuration, Phase 3 intel/campaign systems, and further AO population stages (patrol overhaul, friendly AI, LAMBS integration per ao_populous_overhaul.md).

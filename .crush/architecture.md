@@ -20,40 +20,50 @@ Functions are registered via CBA's `PREP_SUB` macro in `core/XEH_PREP.hpp` and b
 ┌─────────────────────────────────────────────┐
 │ STEP 0: Set Globals                         │
 │   factionProfileConfig (vanilla or RHS)     │
-│   playerMainBase = "player_base_0"           │
+│   playerMainBase = "player_base_1"          │
 │   missionState = "IDLE"                     │
 │   missionInProgress = false                 │
 │   initGlobalsComplete = true  ←── client    │
 │                                    waits on │
 ├─────────────────────────────────────────────┤
 │ STEP 1: fnc_scanLocations                   │
-│   Anchor-based: named locations as anchors   │
-│   Assigns structures to nearest anchor       │
-│   Military tier: base/outpost/camp           │
-│   Excludes player_base markers + airbases    │
-│   Stores → DSC_locations (missionNamespace)  │
+│   Anchor-based: named locations as anchors  │
+│   Assigns structures to nearest anchor      │
+│   Orphan recovery: unassigned structures    │
+│   cluster at 150m → synthetic anchors       │
+│   Military tier: base/outpost/camp          │
+│   Functional tagging: residential,          │
+│   commercial, industrial, etc.              │
+│   Outputs location HASHMAPS directly        │
+│   Stores → DSC_locations (missionNamespace) │
 ├─────────────────────────────────────────────┤
-│ STEP 2: fnc_initFactionData                  │
-│   Validates factions exist in loaded mods    │
+│ STEP 2: fnc_initFactionData                 │
+│   Validates factions exist in loaded mods   │
 │   Extracts groups via CfgGroups             │
 │   Classifies with doctrine tags             │
 │   Extracts vehicle assets via CfgVehicles   │
 ├─────────────────────────────────────────────┤
-│ STEP 3: fnc_initInfluence                    │
-│   Tiered occupation: base/outpost/camp       │
-│   Bases = occupation zones (campaign profile) │
-│   Outposts = satellites of nearby bases       │
-│   Camps = contention points (mostly neutral)  │
-│   5km safe zone around playerMainBase        │
-│   Debug markers show influence on map         │
+│ STEP 3: fnc_initInfluence                   │
+│   Accepts location hashmaps (no conversion) │
+│   Tiered occupation: base/outpost/camp      │
+│   Bases = occupation zones (campaign profile)│
+│   Outposts = satellites of nearby bases     │
+│   Camps = contention points (mostly neutral)│
+│   5km safe zone around playerMainBase       │
 ├─────────────────────────────────────────────┤
-│ STEP 4: Mission Loop          [NOT YET WIRED]│
-│   Select location → populateAO → generate    │
-│   mission → briefing → monitor → cleanup     │
+│ STEP 4: Mark bases + init base guards/veh   │
+│   fnc_initBases → fnc_setupBase per base    │
+│   fnc_setupStaticDefenses (towers/statics)  │
+│   fnc_setupGuards (entry-point guards)      │
+│   Helipads, motor pool, TOC vehicles        │
+├─────────────────────────────────────────────┤
+│ STEP 5: Mission Loop (LIVE)                 │
+│   Select → populateAO → generate mission    │
+│   → briefing → monitor → cleanup → repeat   │
 └─────────────────────────────────────────────┘
 ```
 
-**Current state**: Steps 0-3 are active. Step 4 (mission loop) is not yet wired.
+**Current state**: All steps are active. Mission loop is live.
 
 ### Client (`fnc_initPlayerLocal`)
 
@@ -76,10 +86,11 @@ waitUntil { initGlobalsComplete }
 ```
 fnc_scanLocations
     │
-    ├──→ Array of anchor arrays (DSC_locations)
-    │        [position, name, locType, isMilitary,
-    │         assignedStructures, militaryTier]
-    │        militaryTier: "base"/"outpost"/"camp"/""
+    ├──→ Array of location HASHMAPS (DSC_locations)
+    │        id, position, name, locType, isMilitary,
+    │        militaryTier, structures, mainStructures,
+    │        sideStructures, buildingCount, radius,
+    │        tags[], functionalProfile{}
     │
     ▼
 fnc_initFactionData
@@ -92,7 +103,7 @@ fnc_initFactionData
     ▼
 fnc_initInfluence
     │
-    ├──→ Enriches anchors into location hashmaps
+    ├──→ Passes through location hashmaps (scanner already builds them)
     │    influenceMap: locationId → { controlledBy, influence, type, faction }
     │    bases[], outposts[], camps[], populatedAreas[], missionSites[]
     │    locations[] (enriched hashmaps for downstream use)
@@ -100,16 +111,20 @@ fnc_initInfluence
     ▼
 fnc_populateAO (per mission)
     │
+    ├──→ Extracts assets from faction if not in mission config
+    │    Garrison → Guards → Vehicles → Patrols (in order)
+    │
     ├──→ AO hashmap:
     │        location, groups[], units[], vehicles[],
-    │        defenderUnits[], patrolGroups[], garrisonUnits[], tags[]
+    │        defenderUnits[], patrolGroups[], garrisonUnits[],
+    │        garrisonClusters[], tags[]
     │
     ▼
 fnc_generateKillCaptureMission
     │
     ├──→ Mission hashmap:
     │        type, location, entity (HVT), groups[], units[],
-    │        marker, startTime, status
+    │        markers[], startTime, status
     │
     ▼
 fnc_createMissionBriefing
@@ -139,12 +154,12 @@ fnc_cleanupMission
 
 ## Faction Profile Configs
 
-Two profiles are hardcoded in `fnc_initServer`:
+Two profiles in `fnc_initServer` with auto-detection:
 
 - **`_factionProfileConfigVanilla`** — NATO, CSAT, AAF, FIA, Syndikat, IDAP
 - **`_factionProfileConfigRhs`** — SOCOM/Army/USMC, VDV/VMF/MSV, CDF/SAF, ChDKZ
 
-Currently defaults to vanilla. The RHS profile exists but must be selected manually by changing the variable assignment.
+Auto-detects RHS by checking all faction classes in CfgFactionClasses. Falls back to vanilla if any are missing.
 
 ## Map Missions
 
