@@ -193,6 +193,16 @@ if (_targetFootGroups isNotEqualTo [] && { _mainStructures isNotEqualTo [] || _s
         ["sideStructures", _sideStructures]
     ];
 
+    // Profile overrides: force specific anchor/satellite counts
+    private _garrisonAnchors = _missionConfig getOrDefault ["garrisonAnchors", []];
+    if (_garrisonAnchors isNotEqualTo []) then {
+        private _garrisonSatellites = _missionConfig getOrDefault ["garrisonSatellites", [0, 3]];
+        _garrisonConfig set ["scalingTable", [
+            [1000, _garrisonAnchors, _garrisonSatellites]
+        ]];
+        diag_log format ["DSC: populateAO - Garrison override: anchors %1, satellites %2", _garrisonAnchors, _garrisonSatellites];
+    };
+
     private _garrisonResult = [_locationPos, _targetFootGroups, _targetSide, _garrisonConfig] call DSC_core_fnc_setupGarrison;
 
     (_aoResult get "groups") append (_garrisonResult get "groups");
@@ -216,6 +226,14 @@ if (_targetFootGroups isNotEqualTo [] && { (_aoResult get "garrisonClusters") is
         ["mainStructures", _mainStructures],
         ["sideStructures", _sideStructures]
     ];
+
+    // Profile overrides: guard coverage and density
+    if ("guardCoverage" in _missionConfig) then {
+        _guardConfig set ["buildingCoverage", _missionConfig get "guardCoverage"];
+    };
+    if ("guardsPerBuilding" in _missionConfig) then {
+        _guardConfig set ["guardsPerBuilding", _missionConfig get "guardsPerBuilding"];
+    };
 
     private _guardResult = [_locationPos, _targetFootGroups, _targetSide, _guardConfig] call DSC_core_fnc_setupGuards;
 
@@ -248,11 +266,16 @@ if (_targetFootGroups isNotEqualTo [] && { (_aoResult get "garrisonClusters") is
 // ============================================================================
 // PARKED VEHICLES — target faction vehicles near garrison clusters
 // ============================================================================
+private _maxVehicles = _missionConfig getOrDefault ["maxVehicles", 4];
+private _vehicleArmedChance = _missionConfig getOrDefault ["vehicleArmedChance",
+    [0.2, 0.3, 0.4] select ((["light", "medium", "heavy"] find _density) max 0)];
+
 private _vehConfig = createHashMapFromArray [
     ["assets", _targetAssets],
     ["structures", _mainStructures + _sideStructures],
     ["density", _density],
-    ["armedChance", [0.2, 0.3, 0.4] select ((["light", "medium", "heavy"] find _density) max 0)]
+    ["maxVehicles", _maxVehicles],
+    ["armedChance", _vehicleArmedChance]
 ];
 
 private _vehResult = [_locationPos, _targetFaction, _targetSide, _vehConfig] call DSC_core_fnc_setupVehicles;
@@ -270,7 +293,7 @@ diag_log format ["DSC: populateAO - Vehicles: %1 parked, %2 with crew", count (_
 // determines if the patrol uses area faction or is skipped.
 // Target faction always gets at least 1 patrol regardless.
 
-private _patrolCount = switch (_density) do {
+private _areaPatrolSlots = switch (_density) do {
     case "light":  { [0, 1] };
     case "medium": { [1, 2] };
     case "heavy":  { [2, 3] };
@@ -282,10 +305,12 @@ private _patrolSpawnMax = (_patrolSpawnMin + 200) min 400;
 private _patrolWaypointMin = _patrolSpawnMin + 50;
 private _patrolWaypointMax = _patrolSpawnMax + 100;
 
-// Target faction patrols (always at least 1)
+// Target faction patrols — count from profile or default [1, 1]
+private _targetPatrolCount = _missionConfig getOrDefault ["patrolCount", [1, 1]];
+
 if (_targetFootGroups isNotEqualTo []) then {
     private _targetPatrolConfig = createHashMapFromArray [
-        ["patrolCount", [1, 1]],
+        ["patrolCount", _targetPatrolCount],
         ["spawnRadius", [_patrolSpawnMin, _patrolSpawnMax]],
         ["patrolRadius", [_patrolWaypointMin, _patrolWaypointMax]],
         ["specialGroups", _targetSpecialGroups],
@@ -303,7 +328,7 @@ if (_targetFootGroups isNotEqualTo []) then {
 };
 
 // Area faction patrols (probabilistic based on influence)
-private _numAreaPatrols = (_patrolCount select 0) + floor random ((_patrolCount select 1) - (_patrolCount select 0) + 1);
+private _numAreaPatrols = (_areaPatrolSlots select 0) + floor random ((_areaPatrolSlots select 1) - (_areaPatrolSlots select 0) + 1);
 private _effectiveChance = _areaPresenceChance * _areaInfluence;
 
 private _patrolTemplates = [_targetFootGroups, _areaFootGroups] select _hasAreaFaction;

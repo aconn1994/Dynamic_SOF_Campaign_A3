@@ -66,7 +66,7 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
 4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
-5. Mission generation loop — select → generate → debrief → update influence → cleanup → repeat
+5. Mission generation loop — select (template → resolver) → generate → debrief → update influence → cleanup → repeat
 
 **Client init** (`fnc_initPlayerLocal`):
 - Waits for server globals
@@ -82,7 +82,9 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Faction Pipeline | `fnc_initFactionData` → `fnc_extractGroups` → `fnc_classifyGroups` | Mod-agnostic group extraction + doctrine tagging |
 | Asset Extraction | `fnc_extractAssets` | Auto-classifies vehicles, statics, aircraft per faction |
 | Influence | `fnc_initInfluence` / `fnc_updateInfluence` | Tiered military occupation, base→outpost propagation, safe zone |
-| Mission Selection | `fnc_selectMission` | Weighted location pick, target vs area faction, influence-aware |
+| Mission Config | `fnc_resolveMissionConfig` | Template → profile → auto-generation. Filters locations by tags/region/distance. |
+| Mission Profiles | `fnc_getMissionProfiles` | AFO (light/isolated) and DA (heavy/fortified) presets |
+| Mission Selection | `fnc_selectMission` | Thin wrapper: accepts optional template, delegates to resolver |
 | Mission Generation | `fnc_generateMission` | Orchestrator: populate → objective → briefing → QRF → skill → UAV |
 | AO Population | `fnc_populateAO` | Multi-faction: garrison → guards → vehicles → patrols. Auto-extracts assets if not in mission config |
 | Kill/Capture | `fnc_generateKillCaptureMission` | HVT placement, SOF raid-style compound markers (Contact_circle4 + alpha-numeric dots) |

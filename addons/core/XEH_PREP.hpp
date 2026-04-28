@@ -21,6 +21,7 @@ PREP_SUB(classification,classifyGroup);
 PREP_SUB(classification,classifyGroups);
 
 // Data
+PREP_SUB(data,getMissionProfiles);
 PREP_SUB(data,getStructureTypes);
 
 // Debug
@@ -49,6 +50,7 @@ PREP_SUB(base,spawnTransportHelo);
 PREP_SUB(missions,createMissionBriefing);
 PREP_SUB(missions,generateKillCaptureMission);
 PREP_SUB(missions,generateMission);
+PREP_SUB(missions,resolveMissionConfig);
 PREP_SUB(missions,selectMission);
 PREP_SUB(missions,cleanupMission);
 

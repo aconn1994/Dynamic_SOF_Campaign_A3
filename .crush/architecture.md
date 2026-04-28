@@ -109,6 +109,20 @@ fnc_initInfluence
     │    locations[] (enriched hashmaps for downstream use)
     │
     ▼
+fnc_selectMission (or direct template)
+    │
+    ├──→ Accepts optional template (partial config with constraints)
+    │    Delegates to fnc_resolveMissionConfig
+    │
+    ▼
+fnc_resolveMissionConfig
+    │
+    ├──→ Template → Profile defaults → Auto-generation
+    │    Filters locations by tags, region, distance
+    │    Resolves faction, density, QRF from influence
+    │    Outputs complete mission config hashmap
+    │
+    ▼
 fnc_populateAO (per mission)
     │
     ├──→ Extracts assets from faction if not in mission config

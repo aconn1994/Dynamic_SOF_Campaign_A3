@@ -91,6 +91,16 @@
 - [x] Mission results shift influence via `fnc_updateInfluence`
 - [ ] Dynamic front lines from cumulative results (visual)
 
+### Mission Config System
+- [x] **`fnc_resolveMissionConfig`** — template-based resolver: accepts partial config, fills from profile → influence → defaults
+- [x] **`fnc_getMissionProfiles`** — AFO (isolated/light/no QRF) and DA (fortified/heavy/fast QRF) presets
+- [x] **`fnc_selectMission` refactor** — thin wrapper, accepts optional template, delegates to resolver
+- [x] **Template fields** — type, missionProfile, targetFaction, targetRoles, requiredTags, excludeTags, regionCenter/Radius, minDistance/maxDistance, density, areaPresenceChance, qrfEnabled, qrfDelay
+- [x] **Priority cascade** — explicit template > profile defaults > auto-generated
+- [x] **Extra field passthrough** — template fields not consumed by resolver carry through to downstream (series state, etc.)
+- [ ] **Dryhole variant** — `hvtPresent: false` + intel object placement + `completionType: "INTEL_GATHER"`
+- [ ] **Mission series framework** — chain templates, carry state between missions
+
 ### Mission Expansion
 - [ ] Additional mission types (beyond Kill/Capture)
   - AFO (Advanced Force Operations) — recon/surveillance
@@ -98,7 +108,8 @@
   - SR (Special Reconnaissance)
   - Hostage rescue
   - Sabotage/destruction objectives
-- [ ] Mission type selection logic (architecture exists in `fnc_selectMission`)
+  - Capture/destroy supplies
+  - Search/cordon area
 - [ ] Location-to-mission-type mapping (design doc in `.crush/mission-generation.md`)
 
 ### Campaign Flow
@@ -134,4 +145,4 @@ The full mission loop is live: scan map (with functional tagging + orphan recove
 
 AO population overhauled: garrison uses individual groups per unit with cqb_baseline profile for independent CQB behavior. Guards placed at building exteriors anchored to nearest road (urban) or building facing direction. Static defenses separated into own function. Location scanner outputs rich hashmaps with functional tags (has_residential, has_industrial, etc.) and non-occupiable structure detection. Structure types include 10 functional categories for mission-type-to-location matching.
 
-Phase 1 is complete. Next focus: Phase 2 faction configuration, Phase 3 intel/campaign systems, and further AO population stages (patrol overhaul, friendly AI, LAMBS integration per ao_populous_overhaul.md).
+Phase 1 is complete. Mission config system is live: templates with profiles (AFO/DA) flow through `fnc_resolveMissionConfig` which resolves location, factions, density, and QRF from constraints. `fnc_selectMission` is backward-compatible (random missions work unchanged) but now accepts templates for controlled generation. Next: dryhole variant, mission series framework, presence manager, expanded mission types.

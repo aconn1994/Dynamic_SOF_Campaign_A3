@@ -6,14 +6,68 @@
 
 The mission generation system selects a location, builds a mission config, populates the area with multi-faction forces, places an objective, briefs the player, and monitors for completion. It replaces the hardcoded single-faction loop from the backup initServer.
 
-## Mission Config Object
+## Mission Config System
 
-The config is the single source of truth for everything downstream. Built by `fnc_selectMission`, consumed by `fnc_generateMission`.
+Mission configs are now produced by a **template → resolver** pipeline:
+
+1. A **template** (partial hashmap) specifies constraints and overrides
+2. A **mission profile** ("AFO", "DA") applies preset defaults where the template is silent
+3. **`fnc_resolveMissionConfig`** fills all remaining fields from influence/faction data
+
+Templates can come from: random generation (`fnc_selectMission`), a mission series, player choice, or intel discoveries.
+
+### Template Fields (all optional)
+
+```sqf
+private _template = createHashMapFromArray [
+    // --- Core ---
+    ["type", "KILL_CAPTURE"],              // Mission type
+    ["missionProfile", "AFO"],             // Profile preset name
+    ["targetFaction", "OPF_G_F"],          // Specific faction override
+    ["targetRoles", ["opForPartner"]],     // Which roles to draw targets from
+
+    // --- Location Constraints ---
+    ["location", _specificLocation],        // Skip selection, use this location
+    ["requiredTags", ["isolated"]],        // At least one must match (OR)
+    ["excludeTags", ["military"]],         // None can match
+    ["regionCenter", _position],           // Search within this area
+    ["regionRadius", 5000],                // Radius for region constraint
+    ["minDistance", 3000],                 // Min distance from player base
+    ["maxDistance", 15000],                // Max distance from player base
+    ["minBuildingCount", 3],               // Minimum structures at location
+
+    // --- Generation Parameters ---
+    ["density", "light"],                  // AO population density
+    ["areaPresenceChance", 0.3],           // Area faction per-slot chance
+    ["qrfEnabled", false],                 // QRF toggle
+    ["qrfDelay", [60, 120]]               // QRF delay range
+];
+```
+
+### Priority Cascade
+
+```
+1. Explicit template values     (highest)
+2. Profile defaults              (AFO, DA presets)
+3. Auto-generated from influence (lowest)
+```
+
+### Mission Profiles (`fnc_getMissionProfiles`)
+
+| Profile | Location Tags | Density | QRF | Area Presence | Target Roles |
+|---------|--------------|---------|-----|---------------|-------------|
+| **AFO** | isolated, low_density, settlement | light | disabled | 0.3 | opForPartner, irregulars |
+| **DA** | medium_density, high_density, town, military | heavy | enabled (60-120s) | 0.9 | opFor |
+
+### Resolved Config Object
+
+The resolver outputs the same format consumed by `fnc_generateMission`:
 
 ```sqf
 private _missionConfig = createHashMapFromArray [
     // === OBJECTIVE ===
     ["type", "KILL_CAPTURE"],
+    ["missionProfile", "AFO"],
     ["targetFaction", "rhsgref_faction_chdkz"],
     ["targetSide", east],
     ["targetGroups", _classifiedGroupsForFaction],
@@ -32,14 +86,14 @@ private _missionConfig = createHashMapFromArray [
     ["areaAssets", _assetsForAreaFaction],
 
     // === GENERATION PARAMETERS ===
-    ["density", "medium"],
-    ["areaPresenceChance", 0.7],
-    ["qrfEnabled", true],
+    ["density", "light"],
+    ["areaPresenceChance", 0.3],
+    ["qrfEnabled", false],
     ["qrfDelay", [120, 180]],
 
     // === METADATA ===
-    ["seed", floor random 99999],
     ["campaignProfile", "offensive"]
+    // + any extra template fields passed through
 ];
 ```
 
@@ -250,7 +304,9 @@ Over multiple missions, the influence map evolves based on player performance.
 | `fnc_setupGarrison` | **OVERHAULED** | Individual groups per unit, unit class pool from templates, structure-count scaling, cqb_baseline profile. |
 | `fnc_setupGuards` | **OVERHAULED** | Exterior road-anchored placement. Separated from static defenses. |
 | `fnc_setupStaticDefenses` | **NEW** | Extracted from old guards. Military tower/bunker static weapons + lookouts. |
-| `fnc_selectMission` | **DONE** | Builds mission config from influence + faction data. |
+| `fnc_selectMission` | **REFACTORED** | Thin wrapper: accepts optional template, delegates to resolver. Backward compatible. |
+| `fnc_resolveMissionConfig` | **NEW** | Template-based resolver: profile application → location filtering → faction resolution → config output. |
+| `fnc_getMissionProfiles` | **NEW** | AFO and DA profile definitions (data function). |
 | `fnc_generateMission` | **DONE** | Orchestrator: populate → objective → briefing → QRF → skill → UAV. |
 
 ## Time/Weather Randomization (Deferred)
@@ -268,12 +324,29 @@ From the old loop — will be re-enabled later:
 // 0 setRain (if (overcast > 0.5) then { random 0.4 } else { 0 });
 ```
 
-## Future Hooks (Not Implemented Yet)
+## Next Steps
 
-These are architectural placeholders — the mission config and generation flow are designed to accommodate them without restructuring:
+### Dryhole Variant (next implementation)
+A kill/capture mission where the HVT isn't there. Same AO population, but:
+- `hvtPresent: false` in template → generator skips HVT placement
+- `intelObject: true` → places laptop/documents/phone as interaction target
+- `completionType: "INTEL_GATHER"` → mission completes on intel pickup
+- Intel object returns data that can feed the next mission template
 
-- **Intel-driven missions**: `fnc_selectMission` checks an intel pool before random selection. Intel items found at previous missions seed the pool.
-- **Player-selected missions**: Present 2-3 configs to the player, they pick one. `fnc_selectMission` generates N candidates instead of 1.
-- **Layered objectives**: Mission config gains an `["secondaryObjectives", [...]]` array. `fnc_generateMission` populates additional sites nearby. Intel from previous missions creates these.
-- **World simulation layer**: Separate from mission generation. Real-time patrol injection, encounter forcing, QRF from nearby bases. Reads influence data but doesn't modify mission state.
-- **Campaign threads**: Track which factions the player has engaged. Weight future missions toward continuing the "story" (following ChDKZ leadership deeper into CSAT territory).
+### Mission Series Framework
+- Series definition: array of templates with branching logic
+- `fnc_initMissionSeries` → stores active series in `DSC_activeSeries`
+- Mission loop checks: active series? Pull next template. Otherwise random.
+- Series carry state hashmap between missions (e.g. "bombmaker identified")
+- Completion of mission N triggers mission N+1 with state-dependent template mods
+
+### Future Hooks
+
+The template→resolver architecture supports these without restructuring:
+
+- **Intel-driven missions**: Intel pool seeds templates for `fnc_resolveMissionConfig`. No changes to resolver needed.
+- **Player-selected missions**: Generate N templates, present to player, resolve the chosen one.
+- **Layered objectives**: Template gains `secondaryObjectives` array. `fnc_generateMission` resolves each.
+- **World simulation layer**: Reads influence data, injects patrols/civilians. Independent of mission config.
+- **Campaign threads**: Track faction engagement history. Weight series/template selection toward continuing narratives.
+- **HVT variants**: Flee (scripted escape trigger), surrender (interrogation action yields intel for next template).
