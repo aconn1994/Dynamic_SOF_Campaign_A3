@@ -134,20 +134,50 @@ fnc_populateAO (per mission)
     │        garrisonClusters[], tags[]
     │
     ▼
-fnc_generateKillCaptureMission
+fnc_generateMission (case dispatch on type)
+    │
+    ├──→ Builds raid config (entities, objects, completion, markerStyle, briefingArchetype)
+    │
+    ▼
+fnc_generateRaidMission
+    │
+    ├──→ Iterates entity specs:
+    │      fnc_resolveEntityClass → fnc_placeInDeepBuilding | fnc_placeOnGround
+    │      Apply behavior (captive), animation, combat activation
+    │
+    ├──→ Iterates object specs:
+    │      fnc_placeObjects → fnc_placeInterior | fnc_placeOutdoorPile
+    │      Wire fnc_addInteractionHandler if interactable
+    │
+    ├──→ fnc_drawCompoundMarkers (markerStyle "compound")
     │
     ├──→ Mission hashmap:
-    │        type, location, entity (HVT), groups[], units[],
-    │        markers[], startTime, status
+    │        type, archetype="RAID", completion, completionState{},
+    │        briefingArchetype, entities[], objects[], objectMeta[],
+    │        groups[], units[], markers[], startTime, status
     │
     ▼
 fnc_createMissionBriefing
     │
-    ├──→ Arma task with intel-style briefing text
+    ├──→ Loads briefing fragment + entity/object archetype descs
+    ├──→ Composes title/objective/targets/intel/threats/ROE
+    ├──→ Arma task with composed text
+    │
+    ▼
+...mission active...
+    │
+    ▼
+fnc_evaluateCompletion (per-tick on completionState)
+    │
+    ▼
+fnc_buildMissionOutcome → DSC_lastMissionOutcome
+    │
+    ▼
+fnc_updateInfluence (success/failure)
     │
     ▼
 fnc_cleanupMission
-         Deletes all units, vehicles, groups, markers
+         Deletes all units, vehicles, objects, groups, markers
 ```
 
 ## Global Variables (missionNamespace)
@@ -163,7 +193,8 @@ fnc_cleanupMission
 | `DSC_locations` | Array | initServer | initInfluence, mission generation |
 | `DSC_factionData` | HashMap | initServer | populateAO, initInfluence |
 | `DSC_influenceData` | HashMap | initServer | mission selection, updateInfluence |
-| `DSC_currentMission` | HashMap | generateKillCapture | cleanupMission, debrief |
+| `DSC_currentMission` | HashMap | generateRaidMission | cleanupMission, debrief, addInteractionHandler |
+| `DSC_lastMissionOutcome` | HashMap | initServer (debrief) | series framework (future), influence consumers |
 | `DSC_hasACEMedical` | Bool | initPlayerLocal | handlePlayerDown |
 
 ## Faction Profile Configs
