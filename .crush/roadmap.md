@@ -1,6 +1,6 @@
 # Roadmap — DSC
 
-*Updated April 21, 2026*
+*Updated April 29, 2026*
 
 ## Phase 1: Mission Area Generation — COMPLETE
 
@@ -96,21 +96,49 @@
 - [x] **`fnc_getMissionProfiles`** — AFO (isolated/light/no QRF) and DA (fortified/heavy/fast QRF) presets
 - [x] **`fnc_selectMission` refactor** — thin wrapper, accepts optional template, delegates to resolver
 - [x] **Template fields** — type, missionProfile, targetFaction, targetRoles, requiredTags, excludeTags, regionCenter/Radius, minDistance/maxDistance, density, areaPresenceChance, qrfEnabled, qrfDelay
+- [x] **Profile population params** — garrisonAnchors, garrisonSatellites, guardCoverage, guardsPerBuilding, patrolCount, maxVehicles, vehicleArmedChance flow through to populateAO
 - [x] **Priority cascade** — explicit template > profile defaults > auto-generated
-- [x] **Extra field passthrough** — template fields not consumed by resolver carry through to downstream (series state, etc.)
-- [ ] **Dryhole variant** — `hvtPresent: false` + intel object placement + `completionType: "INTEL_GATHER"`
-- [ ] **Mission series framework** — chain templates, carry state between missions
+- [x] **Extra field passthrough** — template fields not consumed by resolver carry through to downstream
 
-### Mission Expansion
-- [ ] Additional mission types (beyond Kill/Capture)
-  - AFO (Advanced Force Operations) — recon/surveillance
-  - DA (Direct Action) — assault/sabotage
-  - SR (Special Reconnaissance)
-  - Hostage rescue
-  - Sabotage/destruction objectives
-  - Capture/destroy supplies
-  - Search/cordon area
-- [ ] Location-to-mission-type mapping (design doc in `.crush/mission-generation.md`)
+### Mission Archetype Refactor — COMPLETE
+*Design doc: `.crush/mission-archetypes.md`*
+
+Mission types are configurations, not generators. A "raid" is a population pattern; what makes it kill/capture vs hostage rescue vs supply destroy vs intel gather is just **entities placed**, **objects placed**, and **completion condition**. All three are data.
+
+- [x] **Generic Raid Generator** (`fnc_generateRaidMission`) — consumes entity/object/completion config; iterates with count expansion; dispatches placement by archetype key
+- [x] **Entity Archetype System** (`fnc_getEntityArchetypes` + `fnc_resolveEntityClass`) — OFFICER, BOMBMAKER, HOSTAGE; resolver handles `officer`/`civilian`/`civilian_suit`/`civilian_labcoat`/literal classnames
+- [x] **Object Archetype System** (`fnc_getObjectArchetypes` + `fnc_placeObjects`) — INTEL_LAPTOP, INTEL_DOCUMENTS, SUPPLY_CACHE, BOMB_PARTS, WEAPONS_CRATE
+- [x] **Placement Strategy Library** — `fnc_placeInDeepBuilding`, `fnc_placeOnGround` (sit/kneel/down), `fnc_placeInterior`, `fnc_placeOutdoorPile`
+- [x] **Completion Condition System** (`fnc_getCompletionTypes` + `fnc_evaluateCompletion`) — KILL_CAPTURE, ALL_DESTROYED, ANY_INTERACTED, HOSTAGES_EXTRACTED, AREA_CLEAR; supports compound `completionExpr`
+- [x] **Marker Library** (`fnc_drawCompoundMarkers`) — config-driven Contact_circle4 + alpha-numeric dots
+- [x] **Briefing Fragment System** (`fnc_getBriefingFragments` + refactored `fnc_createMissionBriefing`) — composes title/objective/ROE/targets from fragments + entity/object archetype descriptions
+- [x] **Mission Outcome Schema** (`fnc_buildMissionOutcome` → `DSC_lastMissionOutcome`) — standardized result hashmap for series/influence/next-mission consumers
+- [x] **Interaction Handler** (`fnc_addInteractionHandler`) — addAction wiring for interactable objects; populates `intelTokens` array on the active mission
+- [x] **3 New RAID Variants** — SUPPLY_DESTROY, INTEL_GATHER, HOSTAGE_RESCUE — each ~15 lines of config in `fnc_generateMission`, no new generator code
+- [ ] **Eden Composition Integration** (deferred force-multiplier) — archetype `compositionPath` field for hand-crafted scenes
+
+### Mission Series Framework (NEXT — foundation now in place)
+- [ ] **`fnc_initMissionSeries`** — register a series of templates with branching logic
+- [ ] **`DSC_activeSeries`** — mission loop checks active series before random generation
+- [ ] **Series state hashmap** — `DSC_lastMissionOutcome` already provides standardized inputs; series consumes them
+- [ ] **Conditional branching** — template selection based on prior outcome (HVT escaped → chase mission)
+- [ ] **Series briefing** — overarching narrative beyond individual mission briefings
+- [ ] **Intel as currency** — `intelTokens` already populated by interaction handler; selector reads them to seed next template
+
+### Mission Archetypes (live)
+- [x] **RAID** archetype — single AO, attacker
+  - [x] Kill/capture HVT (KILL_CAPTURE)
+  - [x] Capture/destroy supplies (SUPPLY_DESTROY)
+  - [x] Hostage rescue (HOSTAGE_RESCUE)
+  - [x] Intel gathering / dryhole (INTEL_GATHER)
+  - [ ] Sabotage (briefing fragment exists; needs config + Eden composition support)
+  - [ ] Capture POW (entities=[hvt with surrender flag], completion=ALIVE_AND_EXTRACTED)
+- [ ] **SWEEP** archetype — multi-AO, light pop, observe-or-engage
+  - Recon/surveillance, search & cordon, patrol area
+- [ ] **DEFEND** archetype — single AO, defender role, attack waves
+  - Hold position, protect VIP, repel attack
+- [ ] **MOVEMENT** archetype — point A → B with attached entity/object
+  - Convoy escort, infil-as-mission, package extract
 
 ### Campaign Flow
 - [x] Mission generation loop (live in initServer Step 5)
@@ -141,8 +169,10 @@
 
 ## Current State Summary
 
-The full mission loop is live: scan map (with functional tagging + orphan recovery) → extract factions → assign influence → mark bases → select mission (influence-aware, multi-faction) → populate AO (garrison → guards → vehicles → patrols) → place HVT with raid-style markers + clearance radius → briefing → play → debrief → update influence → cleanup → repeat. All 5 initServer steps are active.
+The full mission loop is live: scan map (with functional tagging + orphan recovery) → extract factions → assign influence → mark bases → select mission (influence-aware, multi-faction) → populate AO (garrison → guards → vehicles → patrols) → build raid config (entities + objects + completion) → place via archetype dispatcher → markers + briefing → play → standardized outcome → update influence → cleanup → repeat. All 5 initServer steps are active.
 
-AO population overhauled: garrison uses individual groups per unit with cqb_baseline profile for independent CQB behavior. Guards placed at building exteriors anchored to nearest road (urban) or building facing direction. Static defenses separated into own function. Location scanner outputs rich hashmaps with functional tags (has_residential, has_industrial, etc.) and non-occupiable structure detection. Structure types include 10 functional categories for mission-type-to-location matching.
+AO population overhauled: garrison uses individual groups per unit with cqb_baseline profile for independent CQB behavior. Guards placed at building exteriors anchored to nearest road (urban) or building facing direction. Static defenses separated into own function. Location scanner outputs rich hashmaps with functional tags (has_residential, has_industrial, etc.) and non-occupiable structure detection.
 
-Phase 1 is complete. Mission config system is live: templates with profiles (AFO/DA) flow through `fnc_resolveMissionConfig` which resolves location, factions, density, and QRF from constraints. `fnc_selectMission` is backward-compatible (random missions work unchanged) but now accepts templates for controlled generation. Next: dryhole variant, mission series framework, presence manager, expanded mission types.
+Phase 1 is complete. Mission config system + mission archetype refactor both shipped. Four RAID variants live (KILL_CAPTURE, SUPPLY_DESTROY, INTEL_GATHER, HOSTAGE_RESCUE), each driven by ~15 lines of config in `fnc_generateMission`. New mission types of the RAID family are now content authoring tasks.
+
+Next up: **Mission Series Framework** — chain raids with branching logic. The standardized outcome schema (`DSC_lastMissionOutcome`) and intel token system (`DSC_currentMission >> intelTokens`) are both already populated by the mission loop, so series construction is mostly framework code on top of existing data.

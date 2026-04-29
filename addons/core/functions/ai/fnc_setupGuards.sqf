@@ -56,7 +56,7 @@ private _config = createHashMapFromArray [
     ["roadSearchRadius", 50],         // Radius to search for nearest road (urban front detection)
 
     // --- Skill Profile ---
-    ["skillProfile", "realism"],
+    ["skillProfile", "cqb_baseline"],
     ["skillVariance", 0],
 
     // --- Combat Activation ---

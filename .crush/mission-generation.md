@@ -1,10 +1,14 @@
 # Mission Generation — Design Document
 
-*Planned implementation for the mission generation loop (initServer Step 5)*
+*Live: mission config system (template + resolver). Next: archetype refactor — see `.crush/mission-archetypes.md` for the raid generator design.*
 
 ## Overview
 
-The mission generation system selects a location, builds a mission config, populates the area with multi-faction forces, places an objective, briefs the player, and monitors for completion. It replaces the hardcoded single-faction loop from the backup initServer.
+The mission generation system selects a location, builds a mission config, populates the area with multi-faction forces, places an objective, briefs the player, and monitors for completion.
+
+**Current state**: Templates with profiles drive selection and population (granular: garrison anchors, guard coverage, patrol count, vehicle count/armed ratio). Only `KILL_CAPTURE` mission type is implemented.
+
+**Next refactor**: Generalize `generateKillCaptureMission` into a reusable **raid generator** driven by entity/object/completion archetypes. After that, new mission types (supply destroy, hostage rescue, dryhole, sabotage) become data-only additions. See `.crush/mission-archetypes.md`.
 
 ## Mission Config System
 

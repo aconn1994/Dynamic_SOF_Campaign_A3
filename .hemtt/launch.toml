@@ -37,7 +37,7 @@ workshop = [
 ]
 
 [developer_factions]
-extends = "developer"
+extends = "developer_ace"
 # dlc = [
 #     "Western Sahara"
 # ]
@@ -65,10 +65,9 @@ workshop = [
     "3407948300", # JSRS Soundmod 2025
     "3283642267", # Speshal Core
     "3283612524", # Animate - Rewrite
-    "2834576684", # ITN
-    # "3540049844", # DZN XPI
+    "3540049844", # DZN XPI
     # "2595680138", # NI Arms
     "3147482833", # TOTT AiO
     "3564392635", # Modern Sniper Systems
-    "2975268929", # TPNVG
+    # "2975268929", # TPNVG
 ]

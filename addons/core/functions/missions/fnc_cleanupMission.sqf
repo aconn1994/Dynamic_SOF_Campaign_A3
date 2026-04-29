@@ -27,6 +27,7 @@ diag_log "DSC: Mission cleanup starting...";
 
 private _units = _mission getOrDefault ["units", []];
 private _vehicles = _mission getOrDefault ["vehicles", []];
+private _objects = _mission getOrDefault ["objects", []];
 private _groups = _mission getOrDefault ["groups", []];
 private _marker = _mission getOrDefault ["marker", ""];
 
@@ -45,6 +46,13 @@ private _marker = _mission getOrDefault ["marker", ""];
     };
     sleep 0.05;
 } forEach _vehicles;
+
+// Delete placed mission objects (intel, supplies, equipment)
+{
+    if (!isNull _x) then {
+        deleteVehicle _x;
+    };
+} forEach _objects;
 
 // Delete groups after units and vehicles
 {
@@ -80,7 +88,7 @@ missionNamespace setVariable ["DSC_currentMission", nil, true];
 east setFriend [independent, 0];
 independent setFriend [east, 0];
 
-diag_log format ["DSC: Cleanup complete - %1 units, %2 vehicles, %3 groups deleted", 
-    count _units, count _vehicles, count _groups];
+diag_log format ["DSC: Cleanup complete - %1 units, %2 vehicles, %3 objects, %4 groups deleted",
+    count _units, count _vehicles, count _objects, count _groups];
 
 true

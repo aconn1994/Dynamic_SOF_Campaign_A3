@@ -77,12 +77,76 @@ private _mission = createHashMap;
 
 switch (_missionType) do {
     case "KILL_CAPTURE": {
-        private _objConfig = createHashMapFromArray [
-            ["faction", _targetFaction],
-            ["side", _missionConfig get "targetSide"]
+        // Build raid config for kill/capture: single OFFICER entity, no
+        // objects, KILL_CAPTURE completion, compound markers. Matches the
+        // pre-archetype-refactor behavior exactly.
+        private _raidConfig = createHashMapFromArray [
+            ["entities", [
+                createHashMapFromArray [["archetype", "OFFICER"]]
+            ]],
+            ["objects", []],
+            ["completion", "KILL_CAPTURE"],
+            ["markerStyle", "compound"],
+            ["briefingArchetype", "raid_kill_capture"],
+            ["targetFaction", _targetFaction],
+            ["targetSide", _missionConfig get "targetSide"]
         ];
-        _mission = [_location, _ao, _objConfig] call DSC_core_fnc_generateKillCaptureMission;
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
     };
+
+    case "SUPPLY_DESTROY": {
+        // No HVT — destroy supply caches + outdoor weapons crates.
+        private _raidConfig = createHashMapFromArray [
+            ["entities", []],
+            ["objects", [
+                createHashMapFromArray [["archetype", "SUPPLY_CACHE"], ["count", [4, 8]]],
+                createHashMapFromArray [["archetype", "WEAPONS_CRATE"], ["count", [1, 3]]]
+            ]],
+            ["completion", "ALL_DESTROYED"],
+            ["markerStyle", "compound"],
+            ["briefingArchetype", "raid_supply_destroy"],
+            ["targetFaction", _targetFaction],
+            ["targetSide", _missionConfig get "targetSide"]
+        ];
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
+    };
+
+    case "INTEL_GATHER": {
+        // Dryhole — no HVT, intel objects placed for player to recover.
+        // Completion fires when ANY interactable is used.
+        private _raidConfig = createHashMapFromArray [
+            ["entities", []],
+            ["objects", [
+                createHashMapFromArray [["archetype", "INTEL_LAPTOP"]],
+                createHashMapFromArray [["archetype", "INTEL_DOCUMENTS"], ["count", [2, 4]]]
+            ]],
+            ["completion", "ANY_INTERACTED"],
+            ["markerStyle", "compound"],
+            ["briefingArchetype", "raid_intel_gather"],
+            ["targetFaction", _targetFaction],
+            ["targetSide", _missionConfig get "targetSide"]
+        ];
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
+    };
+
+    case "HOSTAGE_RESCUE": {
+        // 3 hostages placed on the ground in a building; player must keep
+        // them alive AND get them within 100m of extractPos (player base
+        // flagpole, auto-resolved by the raid generator).
+        private _raidConfig = createHashMapFromArray [
+            ["entities", [
+                createHashMapFromArray [["archetype", "HOSTAGE"], ["count", 3]]
+            ]],
+            ["objects", []],
+            ["completion", "HOSTAGES_EXTRACTED"],
+            ["markerStyle", "compound"],
+            ["briefingArchetype", "raid_hostage_rescue"],
+            ["targetFaction", _targetFaction],
+            ["targetSide", _missionConfig get "targetSide"]
+        ];
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
+    };
+
     // Future mission types:
     // case "RECON": { ... };
     // case "SABOTAGE": { ... };

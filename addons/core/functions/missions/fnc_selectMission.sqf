@@ -62,7 +62,9 @@ if (_influenceData isEqualTo createHashMap || _factionData isEqualTo createHashM
 if (_template isEqualTo createHashMap) then {
     _template = createHashMapFromArray [
         ["type", "KILL_CAPTURE"],
-        ["missionProfile", "AFO_populated_zone"]
+        ["missionProfile", "AFO"]
+        // ["regionCenter", getPos (allPlayers select 0)],
+        // ["regionRadius", 5000]
     ];
 
     diag_log "DSC: selectMission - No template provided, using random KILL_CAPTURE";

@@ -401,20 +401,29 @@ while { true } do {
     // --- Debrief ---
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
-    private _hvtUnit = _mission getOrDefault ["entity", objNull];
-    private _hvtKilled = !isNull _hvtUnit && { !alive _hvtUnit };
-    private _success = _hvtKilled || (missionNamespace getVariable ["missionComplete", false]);
+    // Evaluate completion condition declared by the mission.
+    private _completion = _mission getOrDefault ["completion", "KILL_CAPTURE"];
+    private _completionState = _mission getOrDefault ["completionState", createHashMap];
+    private _completionResult = [_completion, _completionState] call DSC_core_fnc_evaluateCompletion;
+
+    // Build standardized outcome.
+    private _outcome = [_mission, _completionResult, createHashMap] call DSC_core_fnc_buildMissionOutcome;
+    missionNamespace setVariable ["DSC_lastMissionOutcome", _outcome, true];
+
+    private _success = _outcome get "success";
+    private _outcomeMsg = _outcome get "message";
 
     if (_success) then {
         [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
-        hint format ["Mission SUCCESS\nHVT at %1 eliminated", _locationName];
-        systemChat format ["DSC: Mission SUCCESS - HVT at %1 eliminated", _locationName];
-        diag_log format ["DSC: Mission SUCCESS - HVT killed: %1", _hvtKilled];
+        hint format ["Mission SUCCESS\n%1\n%2", _locationName, _outcomeMsg];
+        systemChat format ["DSC: Mission SUCCESS - %1 (%2)", _locationName, _outcomeMsg];
+        diag_log format ["DSC: Mission SUCCESS - %1 - killed: %2, duration: %3s",
+            _outcomeMsg, _outcome get "enemiesKilled", _outcome get "duration"];
     } else {
         [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
-        hint format ["Mission INCOMPLETE\nHVT at %1 status unknown", _locationName];
-        systemChat format ["DSC: Mission INCOMPLETE - %1", _locationName];
-        diag_log "DSC: Mission INCOMPLETE";
+        hint format ["Mission INCOMPLETE\n%1\n%2", _locationName, _outcomeMsg];
+        systemChat format ["DSC: Mission INCOMPLETE - %1 (%2)", _locationName, _outcomeMsg];
+        diag_log format ["DSC: Mission INCOMPLETE - %1", _outcomeMsg];
     };
 
     // --- Update Influence ---

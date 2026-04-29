@@ -26,12 +26,14 @@ addons/
 │   └── functions/
 │       ├── init/            # Server + client initialization
 │       ├── locations/       # World scanning, influence system
-│       ├── faction/         # Faction extraction + group/asset pipelines
+│       ├── faction/         # Faction extraction + group/asset pipelines + entity class resolver
 │       ├── classification/  # Unit + group doctrine tagging
 │       ├── ai/              # Population, guards, garrison, patrols, combat activation
-│       ├── missions/        # Mission generation, briefing, cleanup
+│       ├── missions/        # Raid generator, mission orchestrator, briefing, completion, outcome, cleanup, interaction
+│       ├── placement/       # Strategy library: deep-building, ground, interior, outdoor-pile, object dispatcher
+│       ├── markers/         # Compound marker drawer
 │       ├── base/            # Player actions: HALO, extraction, medic, helo transport
-│       ├── data/            # Static data (structure type lists)
+│       ├── data/            # Static data (structure types, mission profiles, entity/object/completion archetypes, briefing fragments)
 │       ├── validators/      # Group activity checks
 │       └── debug/           # (empty — debug is inline via diag_log)
 └── maps/                    # Per-map mission folders
@@ -66,7 +68,7 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
 4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
-5. Mission generation loop — select (template → resolver) → generate → debrief → update influence → cleanup → repeat
+5. Mission generation loop — select (template → resolver) → generate (raid config → archetype dispatch) → debrief (evaluateCompletion → buildMissionOutcome) → update influence → cleanup → repeat
 
 **Client init** (`fnc_initPlayerLocal`):
 - Waits for server globals
@@ -85,9 +87,17 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Mission Config | `fnc_resolveMissionConfig` | Template → profile → auto-generation. Filters locations by tags/region/distance. |
 | Mission Profiles | `fnc_getMissionProfiles` | AFO (light/isolated) and DA (heavy/fortified) presets |
 | Mission Selection | `fnc_selectMission` | Thin wrapper: accepts optional template, delegates to resolver |
-| Mission Generation | `fnc_generateMission` | Orchestrator: populate → objective → briefing → QRF → skill → UAV |
+| Mission Generation | `fnc_generateMission` | Orchestrator: dispatch on type → build raid config → call raid generator → briefing → QRF → skill → UAV |
+| Raid Generator | `fnc_generateRaidMission` | Generic raid: iterates entity/object specs, dispatches placement strategies, draws markers, builds completion state |
+| Entity Archetypes | `fnc_getEntityArchetypes` + `fnc_resolveEntityClass` | OFFICER, BOMBMAKER, HOSTAGE; resolver maps keys (officer/civilian/civilian_suit/civilian_labcoat) to classnames |
+| Object Archetypes | `fnc_getObjectArchetypes` + `fnc_placeObjects` | INTEL_LAPTOP, INTEL_DOCUMENTS, SUPPLY_CACHE, BOMB_PARTS, WEAPONS_CRATE; dispatcher routes to placement strategy |
+| Placement Strategies | `fnc_placeInDeepBuilding`, `fnc_placeOnGround`, `fnc_placeInterior`, `fnc_placeOutdoorPile` | Reusable spawn logic for entities/objects |
+| Completion Conditions | `fnc_getCompletionTypes` + `fnc_evaluateCompletion` | KILL_CAPTURE, ALL_DESTROYED, ANY_INTERACTED, HOSTAGES_EXTRACTED, AREA_CLEAR; supports compound `completionExpr` |
+| Mission Outcome | `fnc_buildMissionOutcome` → `DSC_lastMissionOutcome` | Standardized result schema for series/influence consumers |
+| Briefing | `fnc_createMissionBriefing` + `fnc_getBriefingFragments` | Composes title/objective/ROE/targets from fragment + entity/object archetypes |
+| Compound Markers | `fnc_drawCompoundMarkers` | Contact_circle4 + alpha-numeric dot markers, scale-aware |
+| Interaction Handler | `fnc_addInteractionHandler` | addAction wiring for interactable objects; populates intelTokens on active mission |
 | AO Population | `fnc_populateAO` | Multi-faction: garrison → guards → vehicles → patrols. Auto-extracts assets if not in mission config |
-| Kill/Capture | `fnc_generateKillCaptureMission` | HVT placement, SOF raid-style compound markers (Contact_circle4 + alpha-numeric dots) |
 | Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
 | Static Defenses | `fnc_setupStaticDefenses` | Military-only: towers, bunkers, static weapons with lookout fallback |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
@@ -145,7 +155,8 @@ Groups are tagged by the classifier for downstream filtering:
 - `.crush/architecture.md` — Init flow, addon structure, data flow between systems
 - `.crush/faction-system.md` — Faction profiles, extraction pipeline, classification, doctrine tags
 - `.crush/mission-system.md` — AO population, mission types, briefing, cleanup, combat activation
-- `.crush/mission-generation.md` — Mission config object, multi-faction population, generation flow
+- `.crush/mission-generation.md` — Mission config system (template + resolver), profile population params
+- `.crush/mission-archetypes.md` — **Raid system reference** (live as of April 2026): generic raid generator, entity/object archetypes, completion conditions, briefing fragments, configuration reference
 - `.crush/vehicle-systems.md` — Parked vehicles, vehicle patrols, dismount cycle design (deferred)
 - `.crush/grand-vision.md` — High-level project goals and inspiration
 - `.crush/ao_populous_overhaul.md` — Garrison/guard/patrol overhaul design, playtest data, skill profiles

@@ -21,7 +21,11 @@ PREP_SUB(classification,classifyGroup);
 PREP_SUB(classification,classifyGroups);
 
 // Data
+PREP_SUB(data,getBriefingFragments);
+PREP_SUB(data,getCompletionTypes);
+PREP_SUB(data,getEntityArchetypes);
 PREP_SUB(data,getMissionProfiles);
+PREP_SUB(data,getObjectArchetypes);
 PREP_SUB(data,getStructureTypes);
 
 // Debug
@@ -31,6 +35,7 @@ PREP_SUB(faction,extractAssets);
 PREP_SUB(faction,extractGroups);
 PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(faction,initFactionData);
+PREP_SUB(faction,resolveEntityClass);
 
 // Init
 PREP_SUB(init,initBases);
@@ -46,10 +51,23 @@ PREP_SUB(base,requestExtraction);
 PREP_SUB(base,simulateFastTravel);
 PREP_SUB(base,spawnTransportHelo);
 
+// Markers
+PREP_SUB(markers,drawCompoundMarkers);
+
+// Placement strategies
+PREP_SUB(placement,placeInDeepBuilding);
+PREP_SUB(placement,placeInterior);
+PREP_SUB(placement,placeObjects);
+PREP_SUB(placement,placeOnGround);
+PREP_SUB(placement,placeOutdoorPile);
+
 // Missions
+PREP_SUB(missions,addInteractionHandler);
+PREP_SUB(missions,buildMissionOutcome);
 PREP_SUB(missions,createMissionBriefing);
-PREP_SUB(missions,generateKillCaptureMission);
+PREP_SUB(missions,evaluateCompletion);
 PREP_SUB(missions,generateMission);
+PREP_SUB(missions,generateRaidMission);
 PREP_SUB(missions,resolveMissionConfig);
 PREP_SUB(missions,selectMission);
 PREP_SUB(missions,cleanupMission);
