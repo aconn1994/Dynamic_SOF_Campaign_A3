@@ -40,7 +40,9 @@ PREP_SUB(faction,resolveEntityClass);
 // Init
 PREP_SUB(init,initBases);
 PREP_SUB(init,initServer);
+PREP_SUB(init,initServerDebug);
 PREP_SUB(init,initPlayerLocal);
+PREP_SUB(init,initPlayerLocalDebug);
 PREP_SUB(init,setupBase);
 
 // Base (player base actions, recruitment, insertions)

@@ -36,6 +36,12 @@ addons/
 │       ├── data/            # Static data (structure types, mission profiles, entity/object/completion archetypes, briefing fragments)
 │       ├── validators/      # Group activity checks
 │       └── debug/           # (empty — debug is inline via diag_log)
+├── ui/                      # Commander's Tablet UI (`DSC_ui_fnc_*`)
+│   ├── config.cpp           # CfgPatches + CfgDialogs (DSC_Tablet)
+│   ├── XEH_PREP.hpp         # Tablet function registry
+│   ├── dialog/              # idc.hpp (SQF-safe IDCs), defines.hpp (config-only base classes), tablet.hpp
+│   ├── functions/tablet/    # openTablet, closeTablet, switchPanel, panelMissionGen_*
+│   └── data/                # tablet_horizontal.paa
 └── maps/                    # Per-map mission folders
     ├── DSC_Altis.Altis/     # Default test map
     ├── DSC_Livonia.enoch/
@@ -68,13 +74,22 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
 4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
-5. Mission generation loop — select (template → resolver) → generate (raid config → archetype dispatch) → debrief (evaluateCompletion → buildMissionOutcome) → update influence → cleanup → repeat
+5. Mission generation loop (spawned) — select (template → resolver) → generate (raid config → archetype dispatch) → debrief (evaluateCompletion → buildMissionOutcome) → update influence → cleanup → repeat. Pulls from `DSC_missionQueue` if non-empty, else random; honors `DSC_missionAbortRequested` for tablet-driven aborts.
+
+**Server debug layer** (`fnc_initServerDebug`, called after initServer):
+- Initializes `DSC_missionQueue` and `DSC_missionAbortRequested`
+- Registers CBA events `DSC_tablet_queueMission` and `DSC_tablet_abortMission`
+- Home for future server-side debug tooling
 
 **Client init** (`fnc_initPlayerLocal`):
 - Waits for server globals
 - Adds actions to `jointOperationCenter` flagpole: Debrief, HALO, Extract, Recruit Medic
 - Sets up player down/revive (ACE or vanilla)
 - Map Draw EH renders faction flag textures on bases/outposts
+
+**Client debug layer** (`fnc_initPlayerLocalDebug`, called after initPlayerLocal):
+- Registers CBA keybind Ctrl+Y → `DSC_ui_fnc_openTablet`
+- Home for future client-side debug tooling
 
 ## Key Systems
 
@@ -101,6 +116,8 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
 | Static Defenses | `fnc_setupStaticDefenses` | Military-only: towers, bunkers, static weapons with lookout fallback |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
+| Commander's Tablet | `DSC_ui_fnc_openTablet` (Ctrl+Y) | Modal admin/debug UI. Mission Gen panel queues templates via `DSC_tablet_queueMission` CBA event; abort via `DSC_tablet_abortMission`. Server-side handlers in `fnc_initServerDebug`. |
+| Mission Queue | `DSC_missionQueue` (array) + `DSC_missionAbortRequested` (bool) | Mission loop pulls queued template before falling back to random; abort flag breaks waitUntil and skips scoring. |
 
 ## SQF Conventions
 
@@ -157,6 +174,7 @@ Groups are tagged by the classifier for downstream filtering:
 - `.crush/mission-system.md` — AO population, mission types, briefing, cleanup, combat activation
 - `.crush/mission-generation.md` — Mission config system (template + resolver), profile population params
 - `.crush/mission-archetypes.md` — **Raid system reference** (live as of April 2026): generic raid generator, entity/object archetypes, completion conditions, briefing fragments, configuration reference
+- `.crush/commander-tablet.md` — Commander's Tablet UI (Ctrl+Y), Standard/Advanced views, debug HUD, server queue/abort, dialog architecture
 - `.crush/vehicle-systems.md` — Parked vehicles, vehicle patrols, dismount cycle design (deferred)
 - `.crush/grand-vision.md` — High-level project goals and inspiration
 - `.crush/ao_populous_overhaul.md` — Garrison/guard/patrol overhaul design, playtest data, skill profiles

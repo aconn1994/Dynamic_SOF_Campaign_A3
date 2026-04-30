@@ -177,8 +177,11 @@ private _taskId = [_mission, _ao, _location] call DSC_core_fnc_createMissionBrie
 private _allUnits = _mission getOrDefault ["units", []];
 { _x allowDamage true } forEach _allUnits;
 
-// Apply skill profile (global playtest setting)
-private _skillProfile = missionNamespace getVariable ["DSC_skillProfile", "cqb_baseline"];
+// Apply skill profile (template override > global setting > default)
+private _skillProfile = _missionConfig getOrDefault ["skillProfile", ""];
+if (_skillProfile == "") then {
+    _skillProfile = missionNamespace getVariable ["DSC_skillProfile", "cqb_baseline"];
+};
 [_allUnits, _skillProfile] call DSC_core_fnc_applySkillProfile;
 
 // Add to zeus if curator exists

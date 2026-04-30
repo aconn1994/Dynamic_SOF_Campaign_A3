@@ -117,6 +117,30 @@ Mission types are configurations, not generators. A "raid" is a population patte
 - [x] **3 New RAID Variants** — SUPPLY_DESTROY, INTEL_GATHER, HOSTAGE_RESCUE — each ~15 lines of config in `fnc_generateMission`, no new generator code
 - [ ] **Eden Composition Integration** (deferred force-multiplier) — archetype `compositionPath` field for hand-crafted scenes
 
+### Commander's Tablet — Phase A COMPLETE
+*Design doc: `.crush/commander-tablet.md`*
+
+A modal admin/debug UI bound to Ctrl+Y for queueing missions and tweaking
+parameters live without restarting Arma. Designed as a debug tool first;
+will grow into the in-mission commander interface (supports/BFT/squad/intel).
+
+- [x] **`addons/ui/` PBO** — separate addon, depends on main + core
+- [x] **`DSC_Tablet` dialog** — top-level config class, modal createDialog target
+- [x] **Standard view** — Type, Profile, Density, Faction, Min/Max distance, Anchor, QRF, Replace
+- [x] **Advanced view toggle** — overlays Location/Population/Mission Feel sections
+- [x] **Population sliders** — Veh Armed %, Area Pres %, Guard Cov % (snap to 10)
+- [x] **Tag filters** — required/exclude tags via comma-separated text inputs
+- [x] **`fnc_initServerDebug`** — DSC_missionQueue + DSC_missionAbortRequested globals, CBA event handlers
+- [x] **`fnc_initPlayerLocalDebug`** — CBA keybinds Ctrl+Y (tablet) and Ctrl+Shift+F (debug HUD)
+- [x] **Mission loop refactor** — spawned, pulls from queue before random, honors abort flag
+- [x] **`skillProfile` template field** — generateMission now respects per-mission AI skill override
+- [x] **Debug HUD overlay** — RscTitles cutRsc with FPS/state/counts/custom slot, CBA per-frame updater
+- [x] **BIS-base inheritance** — `DSC_Rsc*` classes inherit from `RscButton`/`RscCombo`/etc., eliminating "missing required property" runtime errors
+- [ ] **Bezel image** — temporarily removed; re-add when commissioned to fit UI
+- [ ] **Phase B — Supports panel** — move flagpole actions onto tablet, add UAV control
+- [ ] **Phase C — BFT/Squad/Intel panels** — live unit positions, squad commands, intel browser
+- [ ] **Mission preset save/load** — store favorite playtest configs in profileNamespace
+
 ### Mission Series Framework (NEXT — foundation now in place)
 - [ ] **`fnc_initMissionSeries`** — register a series of templates with branching logic
 - [ ] **`DSC_activeSeries`** — mission loop checks active series before random generation

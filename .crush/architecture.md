@@ -2,15 +2,18 @@
 
 ## Addon Structure
 
-DSC is a HEMTT-built Arma 3 mod with two addons:
+DSC is a HEMTT-built Arma 3 mod with four addons:
 
 | Addon | PBO Prefix | Purpose |
 |-------|-----------|---------|
 | `main` | `z\DSC\addons\main` | Mod metadata, version, macros, `DEBUG_MODE_FULL` flag |
 | `core` | `z\DSC\addons\core` | All gameplay functions (depends on `main`) |
+| `ui`   | `z\DSC\addons\ui`   | Commander's Tablet dialog + debug HUD (depends on `main`, `core`). See `.crush/commander-tablet.md` |
 | `maps` | `z\DSC\addons\maps` | Per-map missions (Eden-placed objects + init scripts) |
 
-Functions are registered via CBA's `PREP_SUB` macro in `core/XEH_PREP.hpp` and become available as `DSC_core_fnc_<name>`.
+Functions:
+- `core/XEH_PREP.hpp` — `DSC_core_fnc_<name>` (gameplay)
+- `ui/XEH_PREP.hpp` — `DSC_ui_fnc_<name>` (tablet panels, debug HUD)
 
 ## Init Flow
 
@@ -57,13 +60,20 @@ Functions are registered via CBA's `PREP_SUB` macro in `core/XEH_PREP.hpp` and b
 │   fnc_setupGuards (entry-point guards)      │
 │   Helipads, motor pool, TOC vehicles        │
 ├─────────────────────────────────────────────┤
-│ STEP 5: Mission Loop (LIVE)                 │
+│ STEP 5: Mission Loop (LIVE, spawned)        │
+│   Pulls from DSC_missionQueue (tablet) or   │
+│   generates random. Honors abort flag.      │
 │   Select → populateAO → generate mission    │
 │   → briefing → monitor → cleanup → repeat   │
 └─────────────────────────────────────────────┘
+   │
+   ▼
+fnc_initServerDebug (called after initServer)
+   • DSC_missionQueue / DSC_missionAbortRequested globals
+   • CBA events: DSC_tablet_queueMission, DSC_tablet_abortMission
 ```
 
-**Current state**: All steps are active. Mission loop is live.
+**Current state**: All steps are active. Mission loop is live and spawned.
 
 ### Client (`fnc_initPlayerLocal`)
 
@@ -79,6 +89,10 @@ waitUntil { initGlobalsComplete }
     └── Setup player down/revive:
           • ACE Medical detected → ace_unconscious CBA event
           • Vanilla → HandleDamage EH
+
+fnc_initPlayerLocalDebug (called after initPlayerLocal)
+    • CBA keybind Ctrl+Y → DSC_ui_fnc_openTablet
+    • CBA keybind Ctrl+Shift+F → DSC_ui_fnc_toggleDebugHud
 ```
 
 ## Data Flow Between Systems
@@ -196,6 +210,11 @@ fnc_cleanupMission
 | `DSC_currentMission` | HashMap | generateRaidMission | cleanupMission, debrief, addInteractionHandler |
 | `DSC_lastMissionOutcome` | HashMap | initServer (debrief) | series framework (future), influence consumers |
 | `DSC_hasACEMedical` | Bool | initPlayerLocal | handlePlayerDown |
+| `DSC_missionQueue` | Array | initServerDebug, tablet submit | mission loop |
+| `DSC_missionAbortRequested` | Bool | initServerDebug, tablet abort | mission loop |
+| `DSC_skillProfile` | String | (manual / future) | generateMission (fallback) |
+| `DSC_debugHudShown` | Bool | toggleDebugHud | toggleDebugHud |
+| `DSC_debugHudCustom` | String | any diagnostic code | debug HUD per-frame handler |
 
 ## Faction Profile Configs
 
@@ -210,8 +229,8 @@ Auto-detects RHS by checking all faction classes in CfgFactionClasses. Falls bac
 
 Each map folder contains:
 - `mission.sqm` — Eden editor file with player spawn, `jointOperationCenter` flagpole, `player_base` marker
-- `initServer.sqf` → calls `DSC_core_fnc_initServer`
-- `initPlayerLocal.sqf` → calls `DSC_core_fnc_initPlayerLocal`
+- `initServer.sqf` → calls `DSC_core_fnc_initServer` then `DSC_core_fnc_initServerDebug`
+- `initPlayerLocal.sqf` → calls `DSC_core_fnc_initPlayerLocal` then `DSC_core_fnc_initPlayerLocalDebug`
 - `description.ext` → includes `master.hpp` for shared config (respawn, CBA settings)
 
 ## CBA Integration

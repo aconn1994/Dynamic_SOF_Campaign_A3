@@ -360,11 +360,41 @@ systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _ge
 // ============================================================================
 // STEP 5: Mission Generation Loop
 // ============================================================================
+//
+// Loop runs in a spawned scope so initServer can return and other server-side
+// boot tasks (initServerDebug, future debug systems) can run after.
+//
+// Two debug-injected globals influence the loop:
+//   DSC_missionQueue          — ARRAY of partial template hashmaps;
+//                              consumed FIFO before random generation
+//   DSC_missionAbortRequested — BOOL; if true while a mission is active,
+//                              breaks the wait, skips scoring, jumps to cleanup
+//
+// Both are initialized by fnc_initServerDebug; we ensure they exist here as
+// defensive defaults in case debug init didn't run.
+if (isNil { missionNamespace getVariable "DSC_missionQueue" }) then {
+    missionNamespace setVariable ["DSC_missionQueue", [], true];
+};
+if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
+    missionNamespace setVariable ["DSC_missionAbortRequested", false, true];
+};
+
+[_factionData, _influenceData] spawn {
+    params ["_factionData", "_influenceData"];
+
 while { true } do {
     diag_log "DSC: ========== Starting Mission Generation ==========";
 
-    // --- Select Mission ---
-    private _missionConfig = [_influenceData, _factionData] call DSC_core_fnc_selectMission;
+    // --- Select Mission (consume queue if non-empty) ---
+    private _queue = missionNamespace getVariable ["DSC_missionQueue", []];
+    private _template = createHashMap;
+    if (count _queue > 0) then {
+        _template = _queue deleteAt 0;
+        missionNamespace setVariable ["DSC_missionQueue", _queue, true];
+        diag_log format ["DSC: Mission loop consumed queued template: %1", _template];
+    };
+
+    private _missionConfig = [_influenceData, _factionData, _template] call DSC_core_fnc_selectMission;
 
     if (_missionConfig isEqualTo createHashMap) then {
         diag_log "DSC: Mission selection failed, retrying in 30s";
@@ -392,44 +422,55 @@ while { true } do {
 
     diag_log format ["DSC: Mission ACTIVE - %1 at %2", _missionConfig get "type", _locationName];
 
-    // Wait for debrief (triggered by player at flagpole)
+    // Wait for debrief (triggered by player at flagpole) OR debug abort
     waitUntil {
         sleep 1;
         !(missionNamespace getVariable ["missionInProgress", true])
+        || (missionNamespace getVariable ["DSC_missionAbortRequested", false])
     };
+
+    private _aborted = missionNamespace getVariable ["DSC_missionAbortRequested", false];
 
     // --- Debrief ---
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
-    // Evaluate completion condition declared by the mission.
-    private _completion = _mission getOrDefault ["completion", "KILL_CAPTURE"];
-    private _completionState = _mission getOrDefault ["completionState", createHashMap];
-    private _completionResult = [_completion, _completionState] call DSC_core_fnc_evaluateCompletion;
-
-    // Build standardized outcome.
-    private _outcome = [_mission, _completionResult, createHashMap] call DSC_core_fnc_buildMissionOutcome;
-    missionNamespace setVariable ["DSC_lastMissionOutcome", _outcome, true];
-
-    private _success = _outcome get "success";
-    private _outcomeMsg = _outcome get "message";
-
-    if (_success) then {
-        [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
-        hint format ["Mission SUCCESS\n%1\n%2", _locationName, _outcomeMsg];
-        systemChat format ["DSC: Mission SUCCESS - %1 (%2)", _locationName, _outcomeMsg];
-        diag_log format ["DSC: Mission SUCCESS - %1 - killed: %2, duration: %3s",
-            _outcomeMsg, _outcome get "enemiesKilled", _outcome get "duration"];
-    } else {
+    if (_aborted) then {
+        systemChat "DSC: Mission aborted by admin (tablet) - skipping scoring";
+        diag_log "DSC: Mission aborted by admin (tablet) - skipping scoring";
         [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
-        hint format ["Mission INCOMPLETE\n%1\n%2", _locationName, _outcomeMsg];
-        systemChat format ["DSC: Mission INCOMPLETE - %1 (%2)", _locationName, _outcomeMsg];
-        diag_log format ["DSC: Mission INCOMPLETE - %1", _outcomeMsg];
     };
 
-    // --- Update Influence ---
-    private _result = ["failure", "success"] select _success;
-    _influenceData = [_influenceData, _locationId, _result, _missionConfig get "type"] call DSC_core_fnc_updateInfluence;
-    missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
+    if (!_aborted) then {
+        // Evaluate completion condition declared by the mission.
+        private _completion = _mission getOrDefault ["completion", "KILL_CAPTURE"];
+        private _completionState = _mission getOrDefault ["completionState", createHashMap];
+        private _completionResult = [_completion, _completionState] call DSC_core_fnc_evaluateCompletion;
+
+        // Build standardized outcome.
+        private _outcome = [_mission, _completionResult, createHashMap] call DSC_core_fnc_buildMissionOutcome;
+        missionNamespace setVariable ["DSC_lastMissionOutcome", _outcome, true];
+
+        private _success = _outcome get "success";
+        private _outcomeMsg = _outcome get "message";
+
+        if (_success) then {
+            [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
+            hint format ["Mission SUCCESS\n%1\n%2", _locationName, _outcomeMsg];
+            systemChat format ["DSC: Mission SUCCESS - %1 (%2)", _locationName, _outcomeMsg];
+            diag_log format ["DSC: Mission SUCCESS - %1 - killed: %2, duration: %3s",
+                _outcomeMsg, _outcome get "enemiesKilled", _outcome get "duration"];
+        } else {
+            [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
+            hint format ["Mission INCOMPLETE\n%1\n%2", _locationName, _outcomeMsg];
+            systemChat format ["DSC: Mission INCOMPLETE - %1 (%2)", _locationName, _outcomeMsg];
+            diag_log format ["DSC: Mission INCOMPLETE - %1", _outcomeMsg];
+        };
+
+        // --- Update Influence ---
+        private _result = ["failure", "success"] select _success;
+        _influenceData = [_influenceData, _locationId, _result, _missionConfig get "type"] call DSC_core_fnc_updateInfluence;
+        missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
+    };
 
     sleep 5;
     [_taskId] call BIS_fnc_deleteTask;
@@ -442,7 +483,10 @@ while { true } do {
     missionNamespace setVariable ["missionInProgress", false, true];
     missionNamespace setVariable ["missionComplete", false, true];
     missionNamespace setVariable ["missionState", "IDLE", true];
+    missionNamespace setVariable ["DSC_missionAbortRequested", false, true];
 
     diag_log "DSC: Waiting before next mission...";
     sleep 5;
 };
+
+}; // spawn
