@@ -1,0 +1,1 @@
+private _locations = [createHashMapFromArray [["debug", true]]] call DSC_core_fnc_scanLocations;

@@ -47,6 +47,24 @@
  */
 
 private _profiles = createHashMapFromArray [
+    // ALL (Widest range of DA and AFO)
+    ["ALL", createHashMapFromArray [
+        ["requiredTags", []],
+        ["excludeTags", []],
+        ["density", "medium"],
+        ["qrfEnabled", true],
+        ["qrfDelay", [60, 120]],
+        ["areaPresenceChance", 0.8],
+        ["targetRoles", ["opFor", "opForPartner", "irregulars"]],
+        ["garrisonAnchors", [2, 3]],
+        ["garrisonSatellites", [1, 3]],
+        ["guardCoverage", 0.8],
+        ["guardsPerBuilding", [1, 2]],
+        ["patrolCount", [2, 3]],
+        ["maxVehicles", 4],
+        ["vehicleArmedChance", 0.5],
+        ["description", "Mission against enemy faction."]
+    ]],
 
     // AFO (Advanced Force Operations)
     // Small team, isolated target, low-profile approach
@@ -55,9 +73,26 @@ private _profiles = createHashMapFromArray [
     // Even in a larger location, AFO creates a small footprint:
     //   1 garrison anchor with 0-1 satellites = a single compound to clear
     //   Minimal guards, rare patrols, unarmed vehicles
-    ["AFO", createHashMapFromArray [
-        ["requiredTags", ["isolated", "low_density", "settlement"]],
-        ["excludeTags", ["military", "urban", "high_density", "base", "outpost"]],
+    ["AFO_rural", createHashMapFromArray [
+        ["requiredTags", ["rural"]],
+        ["excludeTags", ["military", "urban", "base", "outpost"]],
+        ["density", "light"],
+        ["qrfEnabled", false],
+        ["areaPresenceChance", 0.3],
+        ["targetRoles", ["opForPartner", "irregulars"]],
+        ["garrisonAnchors", [1, 1]],
+        ["garrisonSatellites", [0, 1]],
+        ["guardCoverage", 0.4],
+        ["guardsPerBuilding", [1, 1]],
+        ["patrolCount", [0, 1]],
+        ["maxVehicles", 2],
+        ["vehicleArmedChance", 0.1],
+        ["description", "Low-profile operation against a soft target"]
+    ]],
+
+    ["AFO_urban", createHashMapFromArray [
+        ["requiredTags", ["urban"]],
+        ["excludeTags", ["military", "rural", "base", "outpost", "isolated"]],
         ["density", "light"],
         ["qrfEnabled", false],
         ["areaPresenceChance", 0.3],
@@ -79,9 +114,9 @@ private _profiles = createHashMapFromArray [
     // Even in a smaller location, DA creates a heavy presence:
     //   Multiple garrison anchors with satellites = compound + surrounding area
     //   High guard coverage, multiple patrols, armed vehicles
-    ["DA", createHashMapFromArray [
-        ["requiredTags", ["medium_density", "high_density", "town", "military"]],
-        ["excludeTags", ["base"]],
+    ["DA_rural", createHashMapFromArray [
+        ["requiredTags", ["rural"]],
+        ["excludeTags", ["base", "outpost", "military", "urban"]],
         ["density", "heavy"],
         ["qrfEnabled", true],
         ["qrfDelay", [60, 120]],
@@ -97,26 +132,9 @@ private _profiles = createHashMapFromArray [
         ["description", "Direct action against a fortified target"]
     ]],
 
-    ["AFO_populated_zone", createHashMapFromArray [
-        ["requiredTags", ["high_density", "city"]],
-        ["excludeTags", ["base", "military"]],
-        ["density", "heavy"],
-        ["qrfEnabled", false],
-        ["areaPresenceChance", 0.8],
-        ["targetRoles", ["opForPartner", "irregulars"]],
-        ["garrisonAnchors", [1, 1]],
-        ["garrisonSatellites", [0, 2]],
-        ["guardCoverage", 0.4],
-        ["guardsPerBuilding", [0, 2]],
-        ["patrolCount", [0, 1]],
-        ["maxVehicles", 2],
-        ["vehicleArmedChance", 0.1],
-        ["description", "Low-profile operation against a soft target"]
-    ]],
-
-    ["DA_isolated_zone", createHashMapFromArray [
-        ["requiredTags", ["isolated", "low_density", "settlement"]],
-        ["excludeTags", ["military", "urban", "high_density", "base", "outpost"]],
+    ["DA_urban", createHashMapFromArray [
+        ["requiredTags", ["urban"]],
+        ["excludeTags", ["military", "rural", "base", "outpost", "isolated"]],
         ["density", "heavy"],
         ["qrfEnabled", true],
         ["qrfDelay", [60, 120]],

@@ -12,7 +12,7 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=18179;
+		nextID=18181;
 	};
 	class MarkerIDProvider
 	{
@@ -20,7 +20,7 @@ class EditorData
 	};
 	class LayerIndexProvider
 	{
-		nextID=435;
+		nextID=454;
 	};
 	class Camera
 	{
@@ -74,7 +74,6 @@ addons[]=
 	"A3_Supplies_F_Heli_Bladders",
 	"A3_Props_F_Enoch_Military_Decontamination",
 	"A3_Structures_F_Ind_Cargo",
-	"emr_main",
 	"A3_Structures_F_Mark_Training",
 	"A3_Missions_F_Oldman",
 	"A3_Structures_F_Heli_Items_Airport",
@@ -84,7 +83,7 @@ class AddonsMetaData
 {
 	class List
 	{
-		items=18;
+		items=17;
 		class Item0
 		{
 			className="A3_Structures_F_Mil";
@@ -192,19 +191,12 @@ class AddonsMetaData
 		};
 		class Item15
 		{
-			className="emr_main";
-			name="Enhanced Movement Rework";
-			author="Simplex Team";
-			url="https://github.com/SceptreOfficial/Enhanced-Movement-Rework";
-		};
-		class Item16
-		{
 			className="A3_Structures_F_Mark";
 			name="Arma 3 Marksmen - Buildings and Structures";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item17
+		class Item16
 		{
 			className="A3_Missions_F_Oldman";
 			name="Arma 3 Old Man - Playable Content";
@@ -300,7 +292,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=4029;
+		items=4030;
 		class Item0
 		{
 			dataType="Object";
@@ -85932,6 +85924,36 @@ class Mission
 				};
 				nAttributes=1;
 			};
+		};
+		class Item4029
+		{
+			dataType="Group";
+			side="West";
+			class Entities
+			{
+				items=1;
+				class Item0
+				{
+					dataType="Object";
+					class PositionInfo
+					{
+						position[]={22109.84,8.892539,20628.676};
+					};
+					side="West";
+					flags=7;
+					class Attributes
+					{
+					};
+					id=18180;
+					type="B_medic_F";
+					atlOffset=-0.0012702942;
+				};
+			};
+			class Attributes
+			{
+			};
+			id=18179;
+			atlOffset=-0.0012702942;
 		};
 	};
 };
