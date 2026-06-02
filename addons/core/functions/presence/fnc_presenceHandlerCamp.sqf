@@ -39,6 +39,30 @@ if (_controlledBy == "neutral") exitWith {
     (_zone get "units")  append (_irregularResult getOrDefault ["units", []]);
     (_zone get "groups") append (_irregularResult getOrDefault ["groups", []]);
 
+    // Optional indoor civilian garrison — rare, "abandoned compound that
+    // turns out to be inhabited" flavor. ~30% of neutral camps.
+    if (random 1 < 0.30) then {
+        private _mainStructs = _zone getOrDefault ["mainStructures", []];
+        private _sideStructs = _zone getOrDefault ["sideStructures", []];
+        if ((count _mainStructs) + (count _sideStructs) > 0) then {
+            private _zoneTags  = _zone getOrDefault ["tags", []];
+            private _primaryFn = _zone getOrDefault ["primaryFunction", ""];
+            private _civMix    = [_zoneTags, _primaryFn] call DSC_core_fnc_resolveCivilianMix;
+
+            private _garrCivResult = [_pos, createHashMapFromArray [
+                ["mainStructures", _mainStructs],
+                ["sideStructures", _sideStructs],
+                ["classMix",       _civMix],
+                ["sizeTier",       "isolated"],
+                ["anchorCount",    1],
+                ["forceSpawn",     true]
+            ]] call DSC_core_fnc_setupGarrisonCivilians;
+
+            (_zone get "units")  append (_garrCivResult getOrDefault ["units", []]);
+            (_zone get "groups") append (_garrCivResult getOrDefault ["groups", []]);
+        };
+    };
+
     private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 } else { objNull };
     if (!isNull _curator && {(_zone get "units") isNotEqualTo []}) then {
         _curator addCuratorEditableObjects [(_zone get "units"), true];

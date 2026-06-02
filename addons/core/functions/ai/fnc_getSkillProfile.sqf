@@ -37,6 +37,21 @@ private _profile = switch (toLower _profileName) do {
         ]
     };
 
+    case "garrison_light": {
+        // Softer than cqb_baseline. "Guy looks up from a chair when shot at"
+        // rather than "instant headshot." Used by indoor light-military
+        // garrisons in towns/compounds — ambient encounters, not hardpoints.
+        createHashMapFromArray [
+            ["aimingAccuracy", 0.12],   // Wide spray, lots of misses
+            ["aimingShake",    0.25],   // Visible sway
+            ["aimingSpeed",    0.2],    // Slow target tracking
+            ["spotDistance",   0.35],   // Won't notice you from far
+            ["spotTime",       0.25],   // Slow reaction after combat activation
+            ["courage",        0.45],   // Will retreat under sustained pressure
+            ["commanding",     0.4]
+        ]
+    };
+
     case "moderate": {
         createHashMapFromArray [
             // --- Aiming ---

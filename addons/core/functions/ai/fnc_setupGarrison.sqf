@@ -11,9 +11,14 @@
  *
  * Arguments:
  *   0: Location position <ARRAY> - Center position [x, y, z]
- *   1: Group templates <ARRAY> - Classified group hashmaps from fnc_classifyGroups
+ *   1: Group templates <ARRAY> - Classified group hashmaps from fnc_classifyGroups.
+ *                                May be [] when "unitPoolOverride" is supplied
+ *                                via _configOverrides (civilian/light-mil paths).
  *   2: Side <SIDE> - e.g. east, west, independent
- *   3: (Optional) Config overrides <HASHMAP> - Override any config value below
+ *   3: (Optional) Config overrides <HASHMAP> - Override any config value below.
+ *                 Notable optional keys:
+ *                   "unitPoolOverride" <ARRAY> Pre-built classname pool, used
+ *                                              instead of walking CfgGroups.
  *
  * Returns:
  *   Hashmap: "units", "groups", "tags", "clusters"
@@ -82,8 +87,8 @@ if (_locationPos isEqualTo []) exitWith {
     _result
 };
 
-if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: setupGarrison - No group templates";
+if (_groupTemplates isEqualTo [] && { (_configOverrides getOrDefault ["unitPoolOverride", []]) isEqualTo [] }) exitWith {
+    diag_log "DSC: setupGarrison - No group templates and no unitPoolOverride";
     _result
 };
 
@@ -179,22 +184,29 @@ diag_log format ["DSC: setupGarrison - Scaling: %1 structures -> %2 anchors (den
 // ============================================================================
 // Walks CfgGroups configs to extract infantry classnames. Natural weighting:
 // a squad with 4 riflemen and 1 MG means riflemen appear 4x more in the pool.
-private _unitPool = [];
+//
+// Override: callers can pass a pre-built `unitPoolOverride` to skip the
+// CfgGroups walk entirely (used by civilian/light-mil garrison wrappers
+// which build the pool from a classMix or external resolver). When the
+// override is non-empty, _groupTemplates may be empty.
+private _unitPool = _config getOrDefault ["unitPoolOverride", []];
 
-{
-    private _pathParts = (_x get "path") splitString "/";
-    private _groupCfg = configFile >> "CfgGroups";
-    { _groupCfg = _groupCfg >> _x } forEach _pathParts;
-
+if (_unitPool isEqualTo []) then {
     {
-        if (isClass _x) then {
-            private _class = getText (_x >> "vehicle");
-            if (_class != "" && { isClass (configFile >> "CfgVehicles" >> _class) } && { _class isKindOf "Man" }) then {
-                _unitPool pushBack _class;
+        private _pathParts = (_x get "path") splitString "/";
+        private _groupCfg = configFile >> "CfgGroups";
+        { _groupCfg = _groupCfg >> _x } forEach _pathParts;
+
+        {
+            if (isClass _x) then {
+                private _class = getText (_x >> "vehicle");
+                if (_class != "" && { isClass (configFile >> "CfgVehicles" >> _class) } && { _class isKindOf "Man" }) then {
+                    _unitPool pushBack _class;
+                };
             };
-        };
-    } forEach configProperties [_groupCfg, "isClass _x"];
-} forEach _groupTemplates;
+        } forEach configProperties [_groupCfg, "isClass _x"];
+    } forEach _groupTemplates;
+};
 
 if (_unitPool isEqualTo []) exitWith {
     diag_log "DSC: setupGarrison - No unit classes extracted from templates";

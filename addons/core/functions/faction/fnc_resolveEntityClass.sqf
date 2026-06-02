@@ -16,6 +16,9 @@
  *                                suit|business|formal|priest.
  *            "civilian_labcoat"  Civilian, preferring keywords
  *                                scientist|labcoat|doctor|medic.
+ *            "civilian_worker"   Civilian, preferring keywords
+ *                                worker|construction|utility|laborer|hunter|
+ *                                fisher|farmer.
  *       3. Fallback — return _context.fallback (or "" if none).
  *
  *     Civilian resolvers iterate civilian factions registered in
@@ -133,6 +136,20 @@ switch (_resolverKey) do {
             if (_keywords findIf { _x in _name } != -1) exitWith { _hit = _x };
         } forEach _pool;
         if (_hit != "") exitWith { _hit };
+        if (_pool isNotEqualTo []) exitWith { selectRandom _pool };
+        if (isClass (configFile >> "CfgVehicles" >> "C_man_1")) exitWith { "C_man_1" };
+        _fallback
+    };
+
+    case "civilian_worker": {
+        private _pool = [_factionData] call _fnc_civilianPool;
+        private _keywords = ["worker", "construction", "utility", "laborer", "hunter", "fisher", "farmer"];
+        private _matches = [];
+        {
+            private _name = toLower _x;
+            if (_keywords findIf { _x in _name } != -1) then { _matches pushBack _x };
+        } forEach _pool;
+        if (_matches isNotEqualTo []) exitWith { selectRandom _matches };
         if (_pool isNotEqualTo []) exitWith { selectRandom _pool };
         if (isClass (configFile >> "CfgVehicles" >> "C_man_1")) exitWith { "C_man_1" };
         _fallback

@@ -19,7 +19,7 @@
  *        "id", "position", "name", "locType", "isMilitary", "militaryTier",
  *        "structures", "mainStructures", "sideStructures",
  *        "buildingCount", "mainCount", "sideCount", "militaryCount",
- *        "radius", "tags", "functionalProfile", "source"
+ *        "radius", "tags", "primaryFunction", "functionalProfile", "source"
  *
  * Example:
  *     private _locations = [createHashMapFromArray [["debug", true]]] call DSC_core_fnc_scanLocations;
@@ -410,6 +410,59 @@ private _locationIndex = 0;
         };
     } forEach _funcCounts;
 
+    // --- Functional character (Sprint D) ---
+    // Derive a primary functional category + character tags from the mix.
+    // Used downstream by the presence manager to flavor civilian spawns
+    // and by future missions to filter location candidates.
+    private _primaryFunction = "";
+    private _totalFunc = 0;
+    { _totalFunc = _totalFunc + _y } forEach _funcCounts;
+
+    if (_totalFunc > 0) then {
+        private _bestCat = "";
+        private _bestCount = 0;
+        {
+            if (_y > _bestCount) then {
+                _bestCount = _y;
+                _bestCat = _x;
+            };
+        } forEach _funcCounts;
+
+        // Dominant = ≥40% share AND at least 2 structures of that kind
+        if (_bestCount >= 2 && { (_bestCount / _totalFunc) >= 0.4 }) then {
+            _primaryFunction = _bestCat;
+        };
+
+        // Mixed use: 3+ categories each with ≥2 structures
+        private _significantCats = 0;
+        { if (_y >= 2) then { _significantCats = _significantCats + 1 } } forEach _funcCounts;
+        if (_significantCats >= 3) then { _tags pushBackUnique "mixed_use" };
+    };
+
+    // Specialty character tags — thresholds tuned for "feels like X" signal
+    private _cIndustrial  = _funcCounts getOrDefault ["industrial", 0];
+    private _cCommercial  = _funcCounts getOrDefault ["commercial", 0];
+    private _cAgriculture = _funcCounts getOrDefault ["agricultural", 0];
+    private _cMedical     = _funcCounts getOrDefault ["medical", 0];
+    private _cReligious   = _funcCounts getOrDefault ["religious", 0];
+    private _cPort        = _funcCounts getOrDefault ["port", 0];
+    private _cAirport     = _funcCounts getOrDefault ["airport", 0];
+    private _cInfra       = _funcCounts getOrDefault ["infrastructure", 0];
+    private _cLaw         = _funcCounts getOrDefault ["law_enforcement", 0];
+    private _cResidential = _funcCounts getOrDefault ["residential", 0];
+
+    if (_cIndustrial  >= 2) then { _tags pushBackUnique "industrial_zone" };
+    if (_cIndustrial  >= 5) then { _tags pushBackUnique "industrial_hub" };
+    if (_cCommercial  >= 3) then { _tags pushBackUnique "commercial_hub" };
+    if (_cAgriculture >= 2) then { _tags pushBackUnique "agricultural_zone" };
+    if (_cMedical     >= 1) then { _tags pushBackUnique "medical_zone" };
+    if (_cReligious   >= 1) then { _tags pushBackUnique "religious_site" };
+    if (_cPort        >= 1) then { _tags pushBackUnique "port_zone" };
+    if (_cAirport     >= 1) then { _tags pushBackUnique "airport_civilian" };
+    if (_cLaw         >= 1) then { _tags pushBackUnique "law_enforcement_present" };
+    if (_cInfra >= 1 && { _buildingCount < 10 }) then { _tags pushBackUnique "infrastructure_node" };
+    if (_cResidential >= 8 && { _primaryFunction == "residential" }) then { _tags pushBackUnique "residential_zone" };
+
     // Build location hashmap
     private _location = createHashMapFromArray [
         ["id", format ["loc_%1", _locationIndex]],
@@ -427,6 +480,7 @@ private _locationIndex = 0;
         ["militaryCount", _milCount],
         ["radius", _maxDist max 50],
         ["tags", _tags],
+        ["primaryFunction", _primaryFunction],
         ["functionalProfile", _funcCounts],
         ["source", "anchor"]
     ];

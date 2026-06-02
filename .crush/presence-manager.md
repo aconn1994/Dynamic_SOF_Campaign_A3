@@ -1,6 +1,6 @@
 # Presence Manager — DSC World Simulation
 
-*Last updated: June 2026 — Sprints 1-8 + A/B/C shipped, irregular-overlay tangent shipped, Sprint D/E next*
+*Last updated: June 2026 — Sprints 1-8 + A/B/C/D shipped, irregular-overlay tangent shipped, Sprint E next*
 
 ## Overview
 
@@ -381,17 +381,151 @@ auto-flip base to pause (manual after testing).
 
 ### After A/B/C → New Content (separate features)
 
-**Sprint D — Structure-archetype data feature** (deferred, owned by user)
+**Sprint D — Functional location tagging + civilian flavor (SHIPPED June 2026)**
 
-User has an idea for using structure archetype data stored as a function
-to tag locations throughout the map. This will feed new zone types:
-- Rural compounds
-- Factories/warehouses
-- Police/military checkpoints
-- Cultural/religious sites
+Two-parter laying the data foundation for future variety:
 
-Once the data layer is in place, each becomes one handler registration
-under the refactored architecture. No edits to the manager loop required.
+**Part 1 — Scanner enrichment** (`fnc_scanLocations.sqf`).
+The functional categories already produced by `fnc_getStructureTypes`
+(residential / commercial / industrial / agricultural / medical / religious /
+infrastructure / port / airport / law_enforcement) are now distilled into
+character tags on each location:
+
+| Tag | Trigger |
+|---|---|
+| `industrial_zone` | industrial count ≥ 2 |
+| `industrial_hub`  | industrial count ≥ 5 |
+| `commercial_hub`  | commercial count ≥ 3 |
+| `agricultural_zone` | agricultural count ≥ 2 |
+| `medical_zone`    | any medical structure |
+| `religious_site`  | any religious structure |
+| `port_zone`       | any port structure |
+| `airport_civilian`| any civilian airport structure |
+| `law_enforcement_present` | any law_enforcement structure |
+| `infrastructure_node` | infrastructure ≥ 1 AND buildingCount < 10 |
+| `residential_zone` | residential ≥ 8 AND primary = residential |
+| `mixed_use`       | 3+ categories each with ≥ 2 structures |
+
+Plus a new `primaryFunction` field on the location hashmap: the dominant
+category iff it represents ≥ 40% of the categorized structures AND has at
+least 2 entries. Empty string when no clear dominant.
+
+**Part 2 — Civilian flavor by location character.** The presence manager
+now propagates `tags`, `primaryFunction`, and `functionalProfile` from the
+location into every zone hashmap (all four zone types — keeps the data
+available for future handlers). The `populatedArea` handler runs the new
+helper `fnc_resolveCivilianMix` to build a weighted resolver-key mix and
+passes it as `classMix` to `fnc_setupCivilians`.
+
+Populated areas (cities/towns/settlements) intentionally lean heavy on
+casual civilians with specialty types only sprinkled in (~5-15% per tag).
+A town with factories *occasionally* shows a worker — it doesn't read as
+a worker convention. Future dedicated zone types (industrial sites, ports,
+farms) will reuse the same helper but pass denser specialty tag sets,
+naturally producing specialty-heavy mixes:
+
+```sqf
+// Industrial town example (specialty sprinkle on 20-baseline)
+[["civilian", 20], ["civilian_worker", 3]]
+// Commercial hub with church (mild suit lean)
+[["civilian", 20], ["civilian_suit", 3]]
+// Dedicated industrial site (planned Sprint E-ish handler) — denser tags
+[["civilian", 20], ["civilian_worker", 12]]  // ~38% workers
+```
+
+Each civilian rolls a resolver key by weight, then resolves to a concrete
+classname via `fnc_resolveEntityClass`. New resolver key
+`civilian_worker` was added (keywords: worker, construction, utility,
+laborer, hunter, fisher, farmer) alongside existing `civilian`,
+`civilian_suit`, `civilian_labcoat`.
+
+Backwards compatible — when no tags trigger flavor, the mix degrades to
+just `[["civilian", 4]]` and behavior matches pre-D. Resolver itself falls
+back to a random civilian if no keyword matches the faction's manPool, so
+limited-civilian mods still work.
+
+**Files**:
+- `addons/core/functions/locations/fnc_scanLocations.sqf` — character tag + primaryFunction derivation
+- `addons/core/functions/presence/fnc_initPresenceManager.sqf` — zone hashmap carries `tags`/`primaryFunction`/`functionalProfile`
+- `addons/core/functions/ai/fnc_resolveCivilianMix.sqf` — tag → resolver-key weighted mix (new)
+- `addons/core/functions/ai/fnc_setupCivilians.sqf` — accepts `classMix` config
+- `addons/core/functions/faction/fnc_resolveEntityClass.sqf` — `civilian_worker` resolver
+- `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf` — calls resolveCivilianMix, passes classMix
+
+**Future hooks for the same data layer**: missions can filter location
+candidates by character tag (e.g. "supply cache at an industrial site"),
+new handler types can register against `industrial_zone` or `port_zone` for
+specialized population, and the resolver can grow new keys
+(`civilian_dockworker`, `civilian_youth`, etc.) without touching the
+scanner.
+
+**Part 3 — Indoor garrison layer (populated areas + neutral camps).** On
+top of the wandering civilian pass, the populatedArea handler now places
+1-2 *indoor* clusters per zone using `fnc_setupGarrison` driven by two new
+wrappers:
+
+- `fnc_setupGarrisonCivilians` — civilians inside building positions
+  (CARELESS, allowFleeing 0, skill 0.3). Headcount is hard-capped by an
+  inverse-density size tier so cities don't get destroyed by population
+  scaling:
+
+  | sizeTier | bldg count | anchor range | unit caps (main/side) | zone-gate roll |
+  |---|---|---|---|---|
+  | isolated   | <5    | 1     | 2 / 1 | 80% |
+  | settlement | 5-14  | 1-2   | 2 / 1 | 70% |
+  | town       | 15-49 | 1     | 2 / 1 | 45% |
+  | city       | 50+   | 1     | 2 / 1 | 45% (= town for first rollout) |
+
+- `fnc_setupLightMilitaryGarrison` — small armed garrison from the
+  controlling side's foot-infantry pool. Uses combat activation
+  (FiredNear EH) and the new `garrison_light` skill profile (softer than
+  `cqb_baseline` — slow reactions, wide spread). Gate: `controlledBy ∈
+  {opFor, bluFor, contested}` AND `influence ≥ 0.4`.
+
+Both wrappers share an `anchorCount` override so the handler can
+orchestrate per-cluster civ-vs-military splits. The roll matrix:
+
+| Zone control | Civilian | Light Mil | Notes |
+|---|---|---|---|
+| neutral   | 100% | 0% | No military gate passes |
+| bluFor    | 70% | 30% | Friendly partner occupies a house |
+| opFor     | 60% | 40% | Hostile-occupied house |
+| contested | 50% | 50% | Side re-rolled per cluster (opFor *or* bluFor) |
+
+Per-cluster roll creates emergent "is that building occupied? civilians
+or hostiles?" tension. A 2-anchor town can land both civ, both mil, or
+one of each — and the player has no way to tell from outside.
+
+**Camp handler** also gets a rare (~30%) indoor civilian garrison on
+neutral camps to add "abandoned compound that turns out to be inhabited"
+moments. Other camp control types skip the garrison pass — military
+pipeline already handles them.
+
+**Excluded by design**: `base` and `outpost` zones never spawn indoor
+garrisons. Bases are deterrent territory players are meant to *avoid*,
+not clear room by room.
+
+**Files added/changed**:
+- `addons/core/functions/ai/fnc_setupGarrison.sqf` — `unitPoolOverride`
+  config branch (skips CfgGroups walk when supplied)
+- `addons/core/functions/ai/fnc_setupGarrisonCivilians.sqf` — new
+  wrapper, classMix-driven pool, CARELESS post-processing
+- `addons/core/functions/ai/fnc_setupLightMilitaryGarrison.sqf` — new
+  wrapper, combat-activation, `garrison_light` skill profile
+- `addons/core/functions/ai/fnc_getSkillProfile.sqf` — added
+  `garrison_light` profile
+- `addons/core/functions/presence/fnc_initPresenceManager.sqf` — zone
+  hashmap now carries `mainStructures` / `sideStructures` (anchor
+  selection needs them)
+- `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf`
+  — orchestrates per-cluster civ/mil split
+- `addons/core/functions/presence/fnc_presenceHandlerCamp.sqf` — rare
+  neutral-camp civilian garrison
+
+**Budget impact**: ~2-4 added units per typical zone, gated by the
+spawn-chance roll (≈55% of populated zones add nothing). Cities held
+flat to town levels intentionally for first observation pass; will be
+dialed down separately if perf degrades.
 
 **Sprint E — Roving Entities Subsystem** (separate from zones)
 
@@ -500,8 +634,8 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 10. **Sprint B** — Per-handler tuning: 8s tick, asymmetric hysteresis bands, 150u/40v budget, active-duration log
 11. **Sprint C** — PAUSED state + freeze/resume lifecycle (populatedArea, camp, outpost); base stays delete
 12. **Tangent (post-C)** — Irregular overlay fills neutral-influence populated areas and camps with a small armed-civilian patrol, force-east-side for player hostility
+13. **Sprint D** — Functional location tags (`industrial_zone`, `commercial_hub`, `port_zone`, etc.) + `primaryFunction` from scanner; populatedArea civilians now flavored by zone character via weighted `classMix` (new `civilian_worker` resolver); indoor garrison layer adds per-cluster civilian-vs-light-military roll on populated areas + rare civilian garrison on neutral camps (`fnc_setupGarrisonCivilians`, `fnc_setupLightMilitaryGarrison`, `garrison_light` skill profile)
 
 ## Sprints Up Next
 
-- **Sprint D** *(separate feature)* — Structure archetype data → new zone types
 - **Sprint E** *(separate subsystem)* — Roving entities (civilian vehicles, mil patrols, boats)
