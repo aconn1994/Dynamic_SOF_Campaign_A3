@@ -65,7 +65,13 @@ PREP_SUB(markers,drawCompoundMarkers);
 PREP_SUB(presence,activatePresenceZone);
 PREP_SUB(presence,despawnPresenceZone);
 PREP_SUB(presence,initPresenceManager);
+PREP_SUB(presence,presenceActivateMilitary);
+PREP_SUB(presence,presenceHandlerBase);
+PREP_SUB(presence,presenceHandlerCamp);
+PREP_SUB(presence,presenceHandlerOutpost);
+PREP_SUB(presence,presenceHandlerPopulatedArea);
 PREP_SUB(presence,presenceLogTimings);
+PREP_SUB(presence,registerPresenceHandler);
 
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);

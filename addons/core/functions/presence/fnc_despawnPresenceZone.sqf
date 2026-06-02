@@ -1,31 +1,41 @@
 /*
  * Function: DSC_core_fnc_despawnPresenceZone
  * Description:
- *     Tears down all entities tracked on a presence zone. Called by the
- *     state machine when a zone transitions DESPAWNING -> DORMANT after the
- *     grace window has expired and the player is still outside.
- *
- *     Deletes vehicles first (releases crew), then units, then groups. Clears
- *     the zone's tracking arrays so a subsequent activation starts clean.
+ *     Dispatcher + default teardown. If the zone's registered handler
+ *     supplies a "despawn" code block (non-empty), that runs instead.
+ *     Otherwise the default behavior runs: delete vehicles first (releases
+ *     crew), then units, then groups. Clears the zone's tracking arrays so
+ *     a subsequent activation starts clean.
  *
  * Arguments:
  *     0: _zone <HASHMAP> - Zone hashmap from DSC_presenceZones
  *
  * Return Value:
- *     <NUMBER> - Total entities removed
+ *     <NUMBER> - Total entities removed (0 if a custom handler took over)
  */
 
 params [["_zone", createHashMap, [createHashMap]]];
 
-private _id = _zone get "id";
+private _id   = _zone get "id";
+private _type = _zone get "type";
 
+// Custom handler.despawn override?
+private _registry = missionNamespace getVariable ["DSC_presenceHandlers", createHashMap];
+private _handler  = _registry getOrDefault [_type, createHashMap];
+private _customDespawn = _handler getOrDefault ["despawn", {}];
+if (_customDespawn isNotEqualTo {}) exitWith {
+    private _result = [_zone] call _customDespawn;
+    diag_log format ["DSC: despawnPresenceZone [%1] - custom handler (type=%2)", _id, _type];
+    _result
+};
+
+// ----- Default teardown -----
 private _units    = _zone getOrDefault ["units", []];
 private _vehicles = _zone getOrDefault ["vehicles", []];
 private _groups   = _zone getOrDefault ["groups", []];
 
 private _removed = 0;
 
-// Vehicles first — also evicts/cleans crew that might be tracked separately
 {
     if (!isNull _x) then {
         { _x action ["Eject", vehicle _x] } forEach (crew _x);
@@ -34,7 +44,6 @@ private _removed = 0;
     };
 } forEach _vehicles;
 
-// Units (any not already deleted by vehicle cleanup)
 {
     if (!isNull _x && { alive _x || !alive _x }) then {
         deleteVehicle _x;
@@ -42,16 +51,13 @@ private _removed = 0;
     };
 } forEach _units;
 
-// Groups — delete after their units are gone
 {
     if (!isNull _x) then {
-        // Force-delete any leftover units in the group
         { deleteVehicle _x } forEach (units _x);
         deleteGroup _x;
     };
 } forEach _groups;
 
-// Clear tracking
 _zone set ["units", []];
 _zone set ["vehicles", []];
 _zone set ["groups", []];

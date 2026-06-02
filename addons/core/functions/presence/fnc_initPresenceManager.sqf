@@ -107,6 +107,73 @@ diag_log format ["DSC: presenceManager - Registered %1 zones (bases:%2 outposts:
 missionNamespace setVariable ["DSC_presenceZones", _zones, true];
 
 // ============================================================================
+// Handler registry — one entry per zone type. Radii / grace / budget /
+// populate fn live on each handler so the main loop is type-agnostic.
+// Sprint A seeds today's behavior; Sprint B will tune per type.
+// ============================================================================
+missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
+
+// Sprint B: per-type hysteresis + grace. Despawn radii are deliberately
+// larger than activate radii so high-speed crossings (helicopter) stay
+// inside the band long enough to be playable instead of getting abandoned
+// on the next tick.
+[createHashMapFromArray [
+    ["type",           "base"],
+    ["activateRadius", 1500],
+    ["despawnRadius",  4000],
+    ["despawnGrace",   90],
+    ["budgetUnits",    20],
+    ["budgetVehicles", 3],
+    ["populate",       DSC_core_fnc_presenceHandlerBase],
+    ["despawn",        {}],
+    ["lifecycle",      "delete"],
+    ["pauseGrace",     180],
+    ["paused",         false]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "outpost"],
+    ["activateRadius", 1200],
+    ["despawnRadius",  3000],
+    ["despawnGrace",   75],
+    ["budgetUnits",    8],
+    ["budgetVehicles", 1],
+    ["populate",       DSC_core_fnc_presenceHandlerOutpost],
+    ["despawn",        {}],
+    ["lifecycle",      "pause"],
+    ["pauseGrace",     150],
+    ["paused",         false]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "camp"],
+    ["activateRadius", 900],
+    ["despawnRadius",  1800],
+    ["despawnGrace",   60],
+    ["budgetUnits",    4],
+    ["budgetVehicles", 1],
+    ["populate",       DSC_core_fnc_presenceHandlerCamp],
+    ["despawn",        {}],
+    ["lifecycle",      "pause"],
+    ["pauseGrace",     120],
+    ["paused",         false]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "populatedArea"],
+    ["activateRadius", 1500],
+    ["despawnRadius",  2400],
+    ["despawnGrace",   60],
+    ["budgetUnits",    8],
+    ["budgetVehicles", 0],
+    ["populate",       DSC_core_fnc_presenceHandlerPopulatedArea],
+    ["despawn",        {}],
+    ["lifecycle",      "pause"],
+    ["pauseGrace",     120],
+    ["paused",         false]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+// ============================================================================
 // Side diplomacy — opFor-aligned factions cooperate regardless of side
 // ============================================================================
 // Faction profile maps opFor/opForPartner/irregulars to potentially different
@@ -134,6 +201,7 @@ private _stateColor = createHashMapFromArray [
     ["ACTIVATING", "ColorYellow"],
     ["ACTIVE",     "ColorGreen"],
     ["DESPAWNING", "ColorOrange"],
+    ["PAUSED",     "ColorBlue"],
     ["COMBAT",     "ColorRed"]
 ];
 
@@ -173,20 +241,54 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
 [_zones, _stateColor] spawn {
     params ["_zones", "_stateColor"];
 
-    // Activation/despawn radii per zone type (Sprint 1 — log only)
-    private _activateRadius = createHashMapFromArray [
-        ["base",          800],
-        ["outpost",       1000],
-        ["camp",          1200],
-        ["populatedArea", 2000]
-    ];
-    private _despawnRadius = createHashMapFromArray [
-        ["base",          800],
-        ["outpost",       1000],
-        ["camp",          1200],
-        ["populatedArea", 2000]
-    ];
-    private _despawnGrace = 45; // seconds in DESPAWNING before going DORMANT
+    // Handler registry — radii / grace / budget per zone type.
+    // Reads are read-only; registration happens at init above.
+    private _handlers = missionNamespace getVariable ["DSC_presenceHandlers", createHashMap];
+
+    private _fnc_handlerNum = {
+        params ["_zType", "_key", "_default"];
+        private _h = _handlers getOrDefault [_zType, createHashMap];
+        _h getOrDefault [_key, _default]
+    };
+
+    // String/value variant — handler config that's not a number (e.g. lifecycle).
+    private _fnc_handlerVal = {
+        params ["_zType", "_key", "_default"];
+        private _h = _handlers getOrDefault [_zType, createHashMap];
+        _h getOrDefault [_key, _default]
+    };
+
+    // Freeze/unfreeze helpers for the "pause" lifecycle. We disable
+    // simulation and AI on everything tracked on the zone; re-entry
+    // re-enables instantly with no createUnit cost.
+    private _fnc_pauseZone = {
+        params ["_zone"];
+        {
+            if (!isNull _x) then {
+                _x disableAI "ALL";
+                _x enableSimulation false;
+            };
+        } forEach (_zone getOrDefault ["units", []]);
+        {
+            if (!isNull _x) then {
+                _x enableSimulation false;
+            };
+        } forEach (_zone getOrDefault ["vehicles", []]);
+    };
+    private _fnc_resumeZone = {
+        params ["_zone"];
+        {
+            if (!isNull _x) then {
+                _x enableSimulation true;
+                _x enableAI "ALL";
+            };
+        } forEach (_zone getOrDefault ["units", []]);
+        {
+            if (!isNull _x) then {
+                _x enableSimulation true;
+            };
+        } forEach (_zone getOrDefault ["vehicles", []]);
+    };
 
     // Activation throttle: zones that reach ACTIVATING are queued and processed
     // by a worker loop, max one zone per worker cycle, with a yield between.
@@ -244,7 +346,10 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         };
     };
 
-    diag_log "DSC: presenceManager - Tick loop started (20s interval, log-only)";
+    // Sprint B: tick dropped 20s -> 8s. Worker handles ~5 activations per
+    // 8s easily; latency now bounded by one tick, not three.
+    private _tickInterval = 8;
+    diag_log format ["DSC: presenceManager - Tick loop started (%1s interval)", _tickInterval];
 
     // Mission AO arbitration + global entity budget
     // - When a mission is active, military zones (base/outpost/camp) whose
@@ -253,8 +358,10 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
     // - Global cap on simultaneous active units/vehicles. Closest zones win.
     private _missionAoBuffer = 300;     // meters past mission radius to keep clear
     private _missionDefaultRadius = 600; // when mission doesn't expose a radius
-    private _budgetUnits    = 100;
-    private _budgetVehicles = 30;
+    // Sprint B: raised from 100/30 to leave headroom for the wider despawn
+    // radii (more zones simultaneously in DESPAWNING grace).
+    private _budgetUnits    = 150;
+    private _budgetVehicles = 40;
     missionNamespace setVariable ["DSC_presenceBudgetUnits", _budgetUnits, true];
     missionNamespace setVariable ["DSC_presenceBudgetVehicles", _budgetVehicles, true];
 
@@ -275,6 +382,9 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         ["forcedSuspended",      0],   // suspended for mission AO
         ["totalActivated",       0],   // delta zones that fully spawned
         ["totalDespawned",       0],   // delta zones that fully cleaned up
+        ["pausedTotal",          0],   // ACTIVE -> PAUSED transitions
+        ["resumedFromPause",     0],   // PAUSED -> ACTIVE (re-entry, instant)
+        ["pauseExpired",         0],   // PAUSED -> DORMANT (extended grace ran out, entities deleted)
         ["loopStart",            diag_tickTime]
     ], true];
 
@@ -287,7 +397,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         if (_dormantExit <= 0) exitWith {};
         private _now = diag_tickTime;
         private _elapsedMs = (_now - _dormantExit) * 1000;
-        private _ticks = floor ((_now - _dormantExit) / 20) + 1; // approx tick count
+        private _ticks = floor ((_now - _dormantExit) / _tickInterval) + 1; // approx tick count
 
         private _row = [
             _zone get "id",
@@ -314,7 +424,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
     };
 
     while { true } do {
-        sleep 20;
+        sleep _tickInterval;
 
         private _players = call BIS_fnc_listPlayers;
         if (_players isEqualTo []) then { _players = allPlayers - entities "HeadlessClient_F" };
@@ -350,7 +460,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         {
             private _z = _zones get _x;
             private _zs = _z get "state";
-            if (_zs in ["ACTIVE", "ACTIVATING", "DESPAWNING"]) then {
+            if (_zs in ["ACTIVE", "ACTIVATING", "DESPAWNING", "PAUSED"]) then {
                 _curUnits    = _curUnits + count (_z get "units");
                 _curVehicles = _curVehicles + count (_z get "vehicles");
             };
@@ -360,6 +470,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         private _despawned = 0;
         private _dormant   = 0;
         private _activatingCt = 0;
+        private _pausedCt  = 0;
         private _suspended = 0;
         private _transitions = [];
 
@@ -382,8 +493,8 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                 if (_d < _minDist) then { _minDist = _d };
             } forEach _players;
 
-            private _actR = _activateRadius getOrDefault [_zType, 1000];
-            private _depR = _despawnRadius  getOrDefault [_zType, 1800];
+            private _actR = [_zType, "activateRadius", 1000] call _fnc_handlerNum;
+            private _depR = [_zType, "despawnRadius",  1800] call _fnc_handlerNum;
 
             // Mission AO arbitration — military zones overlapping the active
             // mission AO are forced to suspend. Civilian-only populated areas
@@ -460,15 +571,72 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                 };
                 case "ACTIVE": {
                     if (_missionOverlap) then {
-                        // Force despawn with no grace — mission needs this zone clear
+                        // Force despawn with no grace — mission needs this zone clear.
+                        // Bypasses pause lifecycle: mission AO always means delete.
                         _newState = "DESPAWNING";
                         _zone set ["graceUntil", serverTime];
                         _suspended = _suspended + 1;
                         ["forcedSuspended"] call _fnc_bumpStat;
+                        diag_log format ["DSC: presence active-duration [%1/%2] %3s (forced by mission AO)",
+                            _zoneId, _zType, round (serverTime - (_zone getOrDefault ["stateSince", serverTime]))];
                     } else {
                         if (_minDist > _depR) then {
-                            _newState = "DESPAWNING";
-                            _zone set ["graceUntil", serverTime + _despawnGrace];
+                            private _lifecycle = [_zType, "lifecycle", "delete"] call _fnc_handlerVal;
+                            private _activeFor = round (serverTime - (_zone getOrDefault ["stateSince", serverTime]));
+                            if (_lifecycle == "pause") then {
+                                // Freeze instead of delete. Re-entry within pauseGrace
+                                // wakes the zone instantly. Beyond pauseGrace, fall
+                                // through to actual delete via PAUSED -> DORMANT.
+                                [_zone] call _fnc_pauseZone;
+                                _newState = "PAUSED";
+                                _zone set ["graceUntil", serverTime + ([_zType, "pauseGrace", 120] call _fnc_handlerNum)];
+                                ["pausedTotal"] call _fnc_bumpStat;
+                                diag_log format ["DSC: presence active-duration [%1/%2] %3s (paused, dist=%4m, %5u/%6v frozen)",
+                                    _zoneId, _zType, _activeFor, round _minDist,
+                                    count (_zone get "units"), count (_zone get "vehicles")];
+                            } else {
+                                _newState = "DESPAWNING";
+                                _zone set ["graceUntil", serverTime + ([_zType, "despawnGrace", 45] call _fnc_handlerNum)];
+                                diag_log format ["DSC: presence active-duration [%1/%2] %3s (player left, dist=%4m)",
+                                    _zoneId, _zType, _activeFor, round _minDist];
+                            };
+                        };
+                    };
+                };
+                case "PAUSED": {
+                    // Re-entry is instant: unfreeze and go straight to ACTIVE.
+                    // Mission AO forces actual delete via despawn queue.
+                    // Grace expiry transitions to DORMANT (entities deleted).
+                    if (_missionOverlap) then {
+                        if !(_zone in _despawnQueue) then {
+                            _despawnQueue pushBack _zone;
+                        };
+                        _newState = "DESPAWNING";
+                        _zone set ["graceUntil", serverTime];
+                        _suspended = _suspended + 1;
+                        ["forcedSuspended"] call _fnc_bumpStat;
+                        diag_log format ["DSC: presence pause-forced [%1/%2] (mission AO, deleting)", _zoneId, _zType];
+                    } else {
+                        if (_minDist <= _actR) then {
+                            [_zone] call _fnc_resumeZone;
+                            _newState = "ACTIVE";
+                            private _pausedFor = round (serverTime - (_zone getOrDefault ["stateSince", serverTime]));
+                            ["resumedFromPause"] call _fnc_bumpStat;
+                            diag_log format ["DSC: presence resumed [%1/%2] (paused for %3s, dist=%4m, %5u/%6v unfrozen)",
+                                _zoneId, _zType, _pausedFor, round _minDist,
+                                count (_zone get "units"), count (_zone get "vehicles")];
+                        } else {
+                            if (serverTime >= (_zone get "graceUntil")) then {
+                                // Pause grace expired — actually delete now.
+                                if !(_zone in _despawnQueue) then {
+                                    _despawnQueue pushBack _zone;
+                                };
+                                _newState = "DESPAWNING";
+                                _zone set ["graceUntil", serverTime];
+                                ["pauseExpired"] call _fnc_bumpStat;
+                                diag_log format ["DSC: presence pause-expired [%1/%2] (deleting %3u/%4v)",
+                                    _zoneId, _zType, count (_zone get "units"), count (_zone get "vehicles")];
+                            };
                         };
                     };
                 };
@@ -540,6 +708,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                 case "ACTIVE":     { _activated = _activated + 1 };
                 case "ACTIVATING": { _activatingCt = _activatingCt + 1 };
                 case "DESPAWNING": { _despawned = _despawned + 1 };
+                case "PAUSED":     { _pausedCt = _pausedCt + 1 };
                 case "DORMANT":    { _dormant   = _dormant + 1 };
                 default {};
             };
@@ -554,22 +723,11 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         private _budgetSkipped = 0;
         {
             _x params ["_d", "_zone"];
-            // Estimate cost — we don't know exactly what a zone will spawn until
-            // activate runs, so use type-based heuristics. Conservative bias keeps
-            // us under cap even when activations spike.
+            // Estimate cost from the registered handler — kept conservative
+            // so spikes don't blow past the cap before activations resolve.
             private _zt = _zone get "type";
-            private _estU = switch (_zt) do {
-                case "base":          { 20 };
-                case "outpost":       { 8  };
-                case "camp":          { 4  };
-                case "populatedArea": { 8  };
-                default               { 5  };
-            };
-            private _estV = switch (_zt) do {
-                case "base":    { 3 };
-                case "outpost": { 1 };
-                default         { 0 };
-            };
+            private _estU = [_zt, "budgetUnits",    5] call _fnc_handlerNum;
+            private _estV = [_zt, "budgetVehicles", 0] call _fnc_handlerNum;
 
             if ((_curUnits + _estU > _budgetUnits) || (_curVehicles + _estV > _budgetVehicles)) then {
                 _budgetSkipped = _budgetSkipped + 1;
@@ -616,8 +774,8 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
             format [" | mission r=%1", _missionAoRadius]
         } else { "" };
 
-        diag_log format ["DSC: presence tick — active:%1 activating:%2 despawning:%3 dormant:%4 sus:%5 (of %6) | qA=%7 qD=%8 | used %9u/%10v of %11u/%12v | speed avg=%13 max=%14%15",
-            _activated, _activatingCt, _despawned, _dormant, _suspended, count _zones,
+        diag_log format ["DSC: presence tick — active:%1 activating:%2 paused:%3 despawning:%4 dormant:%5 sus:%6 (of %7) | qA=%8 qD=%9 | used %10u/%11v of %12u/%13v | speed avg=%14 max=%15%16",
+            _activated, _activatingCt, _pausedCt, _despawned, _dormant, _suspended, count _zones,
             count _activateQueue, count _despawnQueue,
             _curUnits, _curVehicles, _budgetUnits, _budgetVehicles,
             round _avgPlayerSpeed, round _maxPlayerSpeed,
@@ -662,6 +820,12 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                 _budgetApprovedT, _budgetSkippedT, round _budgetSkipRate];
             diag_log format ["DSC: stats — latency avg=%1ms max=%2ms (samples=%3)",
                 round _avgMs, round _maxMs, count _latLog];
+            private _paused    = _stats getOrDefault ["pausedTotal", 0];
+            private _resumed   = _stats getOrDefault ["resumedFromPause", 0];
+            private _pauseExp  = _stats getOrDefault ["pauseExpired", 0];
+            private _resumeRate = if (_paused > 0) then { 100 * _resumed / _paused } else { 0 };
+            diag_log format ["DSC: stats — paused=%1 resumed=%2 expired=%3 (resumeRate=%4%%, save=%5 spawns avoided)",
+                _paused, _resumed, _pauseExp, round _resumeRate, _resumed];
             (format ["DSC stats: act=%1 done=%2 timed=%3 aband=%4 skip%%=%5 lat=%6ms",
                 _activations, _completions, _timedOut, _abandoned, round _budgetSkipRate, round _avgMs]
             ) remoteExec ["systemChat", 0];

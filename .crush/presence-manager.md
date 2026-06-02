@@ -205,87 +205,143 @@ switch on zone type — will not scale gracefully to this many handlers.
 
 The plan is **A → B → C** in order, before any new content.
 
-### Sprint A: Handler Registry Refactor (mechanical, no new behavior)
+### Sprint A: Handler Registry Refactor (SHIPPED June 2026)
 
 **Goal**: Move each zone type's populate + despawn logic into its own
 handler function, registered with the manager at init. The manager loop
 becomes type-agnostic; it knows only about state transitions and queue
 plumbing.
 
-**Files**:
-- `addons/core/functions/presence/handlers/` (new directory)
-  - `fnc_handlerPopulatedArea.sqf` — current populated-area branch
-  - `fnc_handlerBase.sqf` — current base preset
-  - `fnc_handlerOutpost.sqf` — current outpost preset
-  - `fnc_handlerCamp.sqf` — current camp preset
-- `fnc_registerPresenceHandler.sqf` (new) — adds an entry to
-  `DSC_presenceHandlers` hashmap, keyed by type
-- `fnc_activatePresenceZone.sqf` — becomes a thin dispatcher: look up
-  handler by `_zone get "type"`, call its `populate` slot
-- `fnc_despawnPresenceZone.sqf` — same, dispatches to handler's `despawn`
-  slot (or falls back to default delete loop)
-- `fnc_initPresenceManager.sqf` — registers builtin handlers at startup
+**Files (as shipped)**:
+- `fnc_registerPresenceHandler.sqf` — adds entries to `DSC_presenceHandlers`
+- `fnc_presenceHandlerPopulatedArea.sqf` — civilians + military overlay + skirmish (verbatim from pre-refactor)
+- `fnc_presenceHandlerBase.sqf` — base preset, delegates to military helper
+- `fnc_presenceHandlerOutpost.sqf` — outpost preset, delegates to military helper
+- `fnc_presenceHandlerCamp.sqf` — camp preset, delegates to military helper
+- `fnc_presenceActivateMilitary.sqf` — shared military activation body (role resolve + foot groups + static defenses + patrols + mortars + vehicles)
+- `fnc_activatePresenceZone.sqf` — thin dispatcher: reads `DSC_presenceHandlers[zone.type].populate`, calls it
+- `fnc_despawnPresenceZone.sqf` — dispatcher + default teardown; runs `handler.despawn` if non-empty
+- `fnc_initPresenceManager.sqf` — registers four builtin handlers at startup; tick loop reads radii/grace/budget from registry via `_fnc_handlerNum`
 
-**Handler contract** (every handler is a hashmap):
+**Handler contract** (as registered):
 ```sqf
 createHashMapFromArray [
     ["type",            "populatedArea"],       // matches zone "type"
-    ["activateRadius",  800],                   // override per type
-    ["despawnRadius",   1200],
-    ["despawnGrace",    75],
-    ["budgetUnits",     8],                     // cost estimate
+    ["activateRadius",  2000],                  // seeded to today's value
+    ["despawnRadius",   2000],
+    ["despawnGrace",    45],
+    ["budgetUnits",     8],                     // pre-spawn estimate (budget gate)
     ["budgetVehicles",  0],
-    ["populate",        DSC_core_fnc_handlerPopulatedArea],
-    ["despawn",         {}],                    // optional, defaults to entity-list delete
-    ["paused",          false]                  // for Sprint C
+    ["populate",        DSC_core_fnc_presenceHandlerPopulatedArea],
+    ["despawn",         {}],                    // empty -> default teardown
+    ["paused",          false]                  // reserved for Sprint C
 ]
 ```
 
-**Acceptance**: Same test route (15-minute helicopter loop) produces
-identical `DSC_presenceStats` numbers as today (or trivially close — small
-ordering differences acceptable). No new zone types, no new behavior.
+Seeded values per type (preserve pre-refactor behavior):
 
-### Sprint B: Performance Tuning (now per-type instead of global)
+| Type | actR | depR | grace | budgetU | budgetV |
+|---|---|---|---|---|---|
+| base | 800 | 800 | 45 | 20 | 3 |
+| outpost | 1000 | 1000 | 45 | 8 | 1 |
+| camp | 1200 | 1200 | 45 | 4 | 0 |
+| populatedArea | 2000 | 2000 | 45 | 8 | 0 |
 
-With handlers in place, radii and grace periods are per-type config, not
-global constants. Pick the right knob for each handler:
+(The doc's earlier "Zone Types and Defaults" table did not match the
+shipped code radii — code is authoritative. Sprint B will retune.)
 
-| Handler | Likely setting |
-|---|---|
-| `populatedArea` | Tick 8s + despawn 2400m (Options A + C). Civilians are cheap. |
-| `outpost` | Tick 8s + despawn 3000m. Static defenders only. |
-| `base` | Tick 20s, despawn 4000m. Heaviest spawn, infrequent. |
-| `camp` | Tick 8s, despawn 1800m. Smallest preset. |
+### Sprint B: Performance Tuning (SHIPPED June 2026)
 
-But really, the **tick interval is global** — it's the main loop. So Sprint
-B is two parts:
-1. Drop the manager tick to 8s (probably)
-2. Tune each handler's `despawnRadius` + `activateRadius` independently
-3. Re-run the helicopter route and read the metrics
+Per-handler hysteresis bands + tick drop + budget bump, plus an
+active-duration log on `ACTIVE → DESPAWNING` so we can see how long
+zones stay playable.
 
-Decide A+C mix vs. predictive lookahead based on the new numbers.
+**Changes**:
 
-### Sprint C: Pause-Instead-of-Delete (Antistasi-style)
+1. **Tick interval**: 20s → 8s (single global). Drives the state machine
+   and the per-zone "approx ticks to ACTIVE" latency counter. Worker
+   cycle (1.5s sleep per activate) easily keeps up.
+2. **Per-handler radii + grace** (asymmetric hysteresis is the main lever
+   for the abandoned-zone problem):
 
-Add a strategy variant on the handler:
+   | Type | actR | depR | grace | band | budgetU | budgetV |
+   |---|---|---|---|---|---|---|
+   | base | 1500 | 4000 | 90 | 2500m | 20 | 3 |
+   | outpost | 1200 | 3000 | 75 | 1800m | 8 | 1 |
+   | camp | 900 | 1800 | 60 | 900m | 4 | 1 |
+   | populatedArea | 1500 | 2400 | 60 | 900m | 8 | 0 |
 
+3. **Budget cap**: 100u/30v → **150u/40v** to leave headroom for the
+   wider despawn radii (more zones simultaneously in DESPAWNING).
+4. **New instrumentation**: `DSC: presence active-duration [id/type] Ns
+   (player left, dist=Xm)` on every `ACTIVE → DESPAWNING` transition.
+   Also covers the mission-AO forced-suspend path. Read it to see if a
+   zone was playable for a real engagement window or got steamrolled.
+
+**Acceptance criteria** (15-min helicopter loop at sustained speed):
+- Abandoned rate < 8% (was 22% pre-Sprint A / 16% post-Sprint A)
+- Completion rate ≥ 95%
+- Avg latency ~8-10s (one tick under new interval)
+- Budget skip rate ≤ 20%
+
+**Out of scope** (deferred to later sprints): speed-scaled radii,
+predictive lookahead, pause-instead-of-delete (Sprint C).
+
+### Sprint C: Pause-Instead-of-Delete (SHIPPED June 2026)
+
+Adds `PAUSED` as a first-class state. Pause-lifecycle zones freeze
+simulation + AI on grace start instead of deleting. Re-entry within
+`pauseGrace` wakes the zone instantly with zero `createUnit` cost.
+Beyond `pauseGrace`, the zone falls through to actual deletion.
+
+**Handler config additions**:
 ```sqf
-["lifecycle", "pause"]   // disableSimulation on grace, delete after longer second grace
-["lifecycle", "delete"]  // current behavior — delete on grace
+["lifecycle",  "pause"]   // freeze on grace, delete after pauseGrace
+["lifecycle",  "delete"]  // current behavior — delete on grace (default)
+["pauseGrace", 120]       // seconds in PAUSED before actual delete
 ```
 
-Two-stage despawn for `pause` lifecycle:
-- **Stage 1** (grace start): `{_x enableSimulation false; _x disableAI "ALL"} forEach units`. Zone state: `PAUSED` (new sub-state).
-- **Stage 2** (extended grace, e.g. +120s): full delete. Zone state: `DORMANT`.
-- **Re-entry during pause**: `enableSimulation true; enableAI "ALL"`. No `createUnit` cost, instant.
+**State machine additions**:
+- `ACTIVE → PAUSED` (pause-lifecycle, player exits depR): freeze inline,
+  set `graceUntil = now + pauseGrace`
+- `PAUSED → ACTIVE` (player re-enters actR): unfreeze inline, instant
+- `PAUSED → DESPAWNING` (pauseGrace expired OR mission AO overlap):
+  queue actual delete
+- Budget tracking now counts PAUSED entities at full cost
 
-Roll out:
-1. Populated areas first (lowest risk — civilians are passive, no combat AI)
-2. Camps + outposts (medium risk — patrols can resume mid-stride)
-3. Bases last (highest risk — static defenders + mortars + vehicle gunners)
+**Rollout (as shipped)**:
 
-**Test goal**: Player exits zone at 70 m/s, returns 30 seconds later. Units
-should still be present, no spawn lag, no abandoned counter increment.
+| Type | lifecycle | pauseGrace |
+|---|---|---|
+| populatedArea | pause | 120s |
+| camp | pause | 120s |
+| outpost | pause | 150s |
+| base | delete | 180s (config present, lifecycle still delete — flip later if rollout stays clean) |
+
+`pauseGrace=180` is registered on `base` so flipping to `pause` later is
+a one-field edit, not a redesign.
+
+**New stats counters**: `pausedTotal`, `resumedFromPause`, `pauseExpired`.
+
+**New log lines**:
+- `presence active-duration [...] (paused, dist=Xm, Nu/Mv frozen)` — on `ACTIVE → PAUSED`
+- `presence resumed [...] (paused for Ns, dist=Xm, Nu/Mv unfrozen)` — on `PAUSED → ACTIVE`
+- `presence pause-expired [...] (deleting Nu/Mv)` — on `PAUSED → DESPAWNING` (grace expired)
+- `presence pause-forced [...] (mission AO, deleting)` — on `PAUSED → DESPAWNING` (mission overlap)
+- Periodic STATS report adds: `paused=N resumed=M expired=K (resumeRate=%, save=M spawns avoided)`
+
+**Per-tick summary** now reads:
+`active:N activating:N paused:N despawning:N dormant:N sus:N (of total)`
+
+**Acceptance criteria** (15-min loop, mix of helicopter sprints + lingering):
+- `resumeRate` ≥ 30% (depends on flight pattern — show that re-entry is non-zero)
+- No abandoned-rate regression (still 0% from Sprint B)
+- No completion-rate regression (still 100%)
+- Average latency unchanged (~8-10s for fresh spawns)
+- Paused zones survive `pauseGrace` and visibly resume on re-entry (verify in log)
+
+**Out of scope**: paused-budget discount (counted at full for safety),
+auto-flip base to pause (manual after testing).
 
 ### After A/B/C → New Content (separate features)
 
@@ -384,11 +440,11 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceTimingTotals");
 6. **Sprint 6** — Mission AO arbitration + global budget cap with closest-first
 7. **Sprint 7** — BluFor partner ambient + bluFor bases/outposts open up
 8. **Sprint 8** — Contested-zone dual-faction co-spawn (skirmishes)
+9. **Sprint A** — Handler registry refactor (mechanical, no behavior change)
+10. **Sprint B** — Per-handler tuning: 8s tick, asymmetric hysteresis bands, 150u/40v budget, active-duration log
+11. **Sprint C** — PAUSED state + freeze/resume lifecycle (populatedArea, camp, outpost); base stays delete
 
 ## Sprints Up Next
 
-- **Sprint A** — Handler registry refactor
-- **Sprint B** — Per-handler performance tuning (tick + radii + grace)
-- **Sprint C** — Pause-instead-of-delete lifecycle variant
 - **Sprint D** *(separate feature)* — Structure archetype data → new zone types
 - **Sprint E** *(separate subsystem)* — Roving entities (civilian vehicles, mil patrols, boats)
