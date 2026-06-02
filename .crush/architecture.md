@@ -62,9 +62,13 @@ Functions:
 ├─────────────────────────────────────────────┤
 │ STEP 4c: fnc_initPresenceManager (LIVE)     │
 │   Build zone registry from influence data   │
+│   Register builtin handlers (base/outpost/  │
+│     camp/populatedArea) via handler registry│
 │   Spawn worker scope (drains queues)        │
-│   Spawn 20s tick (state machine + metrics)  │
+│   Spawn 8s tick (state machine + metrics)   │
 │   Zones: base / outpost / camp / town       │
+│   States: DORMANT/ACTIVATING/ACTIVE/        │
+│     PAUSED/DESPAWNING                       │
 │   See .crush/presence-manager.md            │
 ├─────────────────────────────────────────────┤
 │ STEP 5: Mission Loop (LIVE, spawned)        │

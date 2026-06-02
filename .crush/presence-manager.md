@@ -1,14 +1,14 @@
 # Presence Manager — DSC World Simulation
 
-*Last updated: June 2026 — Sprints 1-8 shipped, Sprint A/B/C next*
+*Last updated: June 2026 — Sprints 1-8 + A/B/C shipped, irregular-overlay tangent shipped, Sprint D/E next*
 
 ## Overview
 
 The Presence Manager is DSC's world simulation layer. It populates the area
 around the player with civilians, military patrols, base garrisons, static
-defenses, and faction overlays — and tears them down when the player moves
-away. The goal is "the world feels alive" without paying full simulation cost
-for the entire map.
+defenses, and faction overlays — and tears them down (or freezes them) when
+the player moves away. The goal is "the world feels alive" without paying
+full simulation cost for the entire map.
 
 It is **separate from the mission system**. Missions populate their own AO
 through `fnc_populateAO`; the presence manager populates everything else
@@ -16,7 +16,7 @@ through `fnc_populateAO`; the presence manager populates everything else
 arbitration rule: when a mission's AO overlaps a presence zone, the military
 layer in that zone suspends to avoid double-population.
 
-## Current State (Sprints 1-8 complete)
+## Current State
 
 ### Architecture
 
@@ -26,21 +26,35 @@ fnc_initPresenceManager (server)
 │     • bases / outposts / camps / populatedAreas → presence zones
 │     • Player main base excluded (handled by fnc_initBases at init)
 │
+├── Register builtin handlers (Sprint A)
+│     • DSC_presenceHandlers hashmap keyed by zone type
+│     • Each handler: actR / depR / grace / budgetU/V / populate fn /
+│       lifecycle (delete|pause) / pauseGrace
+│     • Built-ins: base, outpost, camp, populatedArea
+│
 ├── Spawn worker scope
 │     • Drains DSC_presenceActivateQueue + DSC_presenceDespawnQueue
 │     • One zone per cycle, uiSleep between
 │     • Heartbeat to DSC_presenceWorkerHeartbeat
 │
-└── Main tick loop (20s)
+└── Main tick loop (8s)
       ├── Sample player speed (avg + max)
       ├── Mission AO snapshot (DSC_currentMission)
-      ├── Compute current budget usage from all live zones
-      ├── Per-zone state machine evaluation
+      ├── Compute current budget usage (counts PAUSED at full cost)
+      ├── Per-zone state machine evaluation (reads radii/grace from handler)
       ├── Candidate gathering for DORMANT → ACTIVATING
-      ├── Budget gate (closest zones win)
-      ├── Periodic STATS report (every 60s)
+      ├── Budget gate (closest zones win; estimates from handler config)
+      ├── Periodic STATS report (every 60s; includes pause/resume metrics)
       └── Worker health check
 ```
+
+The activate dispatcher (`fnc_activatePresenceZone`) looks up
+`DSC_presenceHandlers[zone.type].populate` and calls it. Type-specific
+spawn logic lives in handler files (`fnc_presenceHandler{Base,Outpost,
+Camp,PopulatedArea}.sqf`), all of which delegate to either
+`fnc_presenceActivateMilitary` (shared role-resolve + static defenses +
+patrols + mortars + vehicles pipeline) or, for populated areas, an inline
+civilians-plus-overlay sequence.
 
 ### State Machine
 
@@ -60,46 +74,67 @@ fnc_initPresenceManager (server)
             (no entities)    │  │  zone.processed
                              │  ▼
                              │  ┌─────────┐
-                             │  │ ACTIVE  │
-                             │  └────┬────┘
-                             │       │ player exits
-                             │       │ despawn radius
-                             │       ▼
-                             │  ┌────────────┐
-                             └─→│DESPAWNING  │
-                                │(grace 60s) │
-                                └─────┬──────┘
-                                      │ grace expires +
-                                      │ entities cleared
-                                      ▼
-                                  DORMANT
+                             │  │ ACTIVE  │←──────────┐
+                             │  └────┬────┘           │
+                             │       │ player exits   │ player re-enters
+                             │       │ despawn radius │ actR (instant
+                             │       │                │  unfreeze)
+                             │       ▼                │
+                             │  lifecycle==pause?     │
+                             │   yes ┴── no          │
+                             │       │   │           │
+                             │       ▼   ▼           │
+                             │  ┌──────┐ ┌──────────┐│
+                             │  │PAUSED├─┤DESPAWNING││
+                             │  │(freeze)│(grace)   ││
+                             │  └──┬───┘ └────┬─────┘│
+                             │     │          │      │
+                             │     │ pauseGrace      │
+                             │     │ expired         │
+                             │     └────► queues actual delete
+                             │                │
+                             └────────────────▼ grace expires +
+                                              │ entities cleared
+                                              ▼
+                                          DORMANT
 ```
 
 Special transitions:
-- **Mission AO overlap**: military zones force-suspend to `DESPAWNING`
-- **Activating + player escapes**: if worker already spawned entities, route to `DESPAWNING` instead of orphaning units (was a real bug)
-- **Distance hysteresis**: `actR` to activate, `depR` to despawn — non-overlapping bands
+- **Mission AO overlap**: military zones (and PAUSED zones) force-suspend
+  to `DESPAWNING` and actually delete, bypassing pause lifecycle
+- **Activating + player escapes**: if worker already spawned entities,
+  route to `DESPAWNING` instead of orphaning units
+- **Distance hysteresis**: `actR` to activate, `depR` to despawn — wide
+  non-overlapping bands tuned per type (see table below)
+- **Pause re-entry**: instant unfreeze inline (no worker spawn cost, no
+  `DORMANT → ACTIVATING` increment)
 
-### Zone Types and Defaults
+### Zone Types and Defaults (post-Sprint B/C)
 
-| Type | Activation | Despawn | Spawn content |
-|---|---|---|---|
-| `populatedArea` | 800m | 1200m | Civilians (3-12, influence-scaled) + optional military overlay (Sprint 5) + contested skirmish opposing patrol (Sprint 8) |
-| `outpost` | 1200m | 2000m | Static defenders (towers, marksmen, statics) + 1-2 small patrols + 0-1 parked vehicle |
-| `base` | 1500m | 2500m | Static defenders + 2-3 patrols + 1-2 mortars + 2 parked vehicles |
-| `camp` | 700m | 1100m | 1 patrol, optional 1-2 guards if structures exist, no vehicles |
+| Type | actR | depR | grace | budgetU/V | lifecycle | pauseGrace | Spawn content |
+|---|---|---|---|---|---|---|---|
+| `base` | 1500 | 4000 | 90s | 20 / 3 | delete | (180s configured, not used) | Static defenders + 2-3 patrols + 1-2 mortars + 2 parked vehicles |
+| `outpost` | 1200 | 3000 | 75s | 8 / 1 | pause | 150s | Static defenders (towers, marksmen, statics) + 1-2 small patrols + 0-1 parked vehicle |
+| `camp` | 900 | 1800 | 60s | 4 / 1 | pause | 120s | 1 patrol if controlled; armed-civilian patrol if `controlledBy=neutral` |
+| `populatedArea` | 1500 | 2400 | 60s | 8 / 0 | pause | 120s | Civilians (3-12, influence-scaled) + optional military overlay + contested skirmish opposing patrol + irregular overlay on neutral zones |
+
+Tick interval: 8s (global). Budget cap: 150 units / 40 vehicles.
 
 ### Subsystems
 
 | Function | Role |
 |---|---|
-| `fnc_initPresenceManager` | Build zone registry, spawn worker + tick |
-| `fnc_activatePresenceZone` | Type-dispatched populate (one big switch — refactor target) |
-| `fnc_despawnPresenceZone` | Tear down all tracked entities |
+| `fnc_initPresenceManager` | Build zone registry, register handlers, spawn worker + tick |
+| `fnc_registerPresenceHandler` | Adds a handler config to `DSC_presenceHandlers` |
+| `fnc_activatePresenceZone` | Dispatcher — looks up `DSC_presenceHandlers[type].populate` |
+| `fnc_despawnPresenceZone` | Dispatcher + default teardown (delete vehicles → units → groups) |
+| `fnc_presenceHandlerBase` / `Outpost` / `Camp` / `PopulatedArea` | Per-type populate logic; military handlers delegate to `fnc_presenceActivateMilitary` |
+| `fnc_presenceActivateMilitary` | Shared role-resolve + static defenses + patrols + mortars + vehicles for base/outpost/camp |
 | `fnc_setupCivilians` | Wandering civilian peds, CARELESS waypoints |
 | `fnc_setupStaticDefenses` | Towers, statics, marksmen lookouts |
 | `fnc_setupMortarEmplacement` | 1-2 mortars with crew, faction crew lookup |
 | `fnc_setupContestedSkirmish` | West-side opposing patrol on contested zones |
+| `fnc_resolveIrregularOverlay` | East-side armed-civilian patrol for neutral zones (populated areas + camps) |
 | `fnc_filterPatrolGroups` | Restrict patrol pool to recce/fireteam (no full squads) |
 | `fnc_spawnGroupYielding` | Drop-in `BIS_fnc_spawnGroup` with `uiSleep` between unit creates |
 | `fnc_presenceLogTimings` | Per-zone activation timing → `DSC_presenceTimings` + cumulative totals |
@@ -108,13 +143,15 @@ Special transitions:
 
 ```sqf
 DSC_presenceZones          // hashmap zoneId -> zone hashmap
+DSC_presenceHandlers       // hashmap type -> handler config (Sprint A)
 DSC_presenceActivateQueue  // FIFO of pending activations
 DSC_presenceDespawnQueue   // FIFO of pending despawns
-DSC_presenceBudgetUnits    // default 100
-DSC_presenceBudgetVehicles // default 30
+DSC_presenceBudgetUnits    // 150 (post-Sprint B)
+DSC_presenceBudgetVehicles // 40  (post-Sprint B)
 DSC_presenceTimings        // rolling 50 activation timings
 DSC_presenceTimingTotals   // ms per step across session
-DSC_presenceStats          // session counters (dormantToActivating, etc.)
+DSC_presenceStats          // session counters — includes pausedTotal,
+                           //   resumedFromPause, pauseExpired (Sprint C)
 DSC_presenceLatencies      // rolling 100 latency rows
 DSC_presenceWorkerHeartbeat // diag_tickTime, watchdog
 ```
@@ -126,59 +163,58 @@ At init: `east setFriend [independent, 1]` and reverse. This makes
 so they don't kill each other on sight. Mission cleanup may reset this
 temporarily — that's a known issue documented in the mission system.
 
+The irregular overlay (`fnc_resolveIrregularOverlay`) spawns its patrols
+on **east side** regardless of the source faction's natural side. This
+gives clean hostility-to-player (west↔east hostile by default) and
+aligns the armed civilians with the rest of the east bloc.
+
 ### Mission AO Arbitration
 
 When `DSC_currentMission` is set, every tick computes a 600m + 300m buffer
 zone around the mission. Military presence zones (base/outpost/camp) whose
-center falls inside force-despawn with no grace. Civilians stay (their
-density already drops in opFor-controlled towns). Lifts automatically when
-the mission ends.
+center falls inside force-despawn with no grace. PAUSED zones inside the
+buffer also force-delete (bypassing pause lifecycle — the mission needs
+the area clear). Civilians stay (their density already drops in
+opFor-controlled towns). Lifts automatically when the mission ends.
 
-## Performance Findings (June 2026 instrumentation pass)
+## Performance — Pre-Tuning Baseline (June 2026, historical)
 
-We ran a 15-minute helicopter loop at sustained 60-73 m/s with full
-metrics. Key numbers:
+Before Sprint B, we ran a 15-minute helicopter loop at sustained 60-73 m/s
+with full metrics. Key numbers:
 
-| Metric | Value | Interpretation |
-|---|---|---|
-| Activations | 41 | Healthy zone churn |
-| Completion rate | 98-100% | Worker can keep up |
-| Budget skip rate | 5% | Cap is **not** the bottleneck |
-| Avg latency | 20.06s | Essentially one tick exactly |
-| Max latency | 22.8s | One tick + change |
-| **Abandoned (spawned but player blew past)** | **9/41 = 22%** | **One in four zones is wasted work** |
+| Metric | Pre-tuning | Post Sprint B | Post Sprint C |
+|---|---|---|---|
+| Activations | 41 | 24 | 9 |
+| Completion rate | 98-100% | 100% | 100% |
+| Budget skip rate | 5% | 0% | 0% |
+| Avg latency | 20.06s | 8.7s | 8.0s |
+| **Abandoned (spawned but player blew past)** | **22%** | **0%** | **0%** |
+| Active duration (avg) | ~25s | ~50-80s | ~60-100s |
+| Pause/resume saves | n/a | n/a | 3 of 7 paused zones resumed (43%) |
 
-The tick interval dominates latency. The worker is fast (1-5s per zone),
-but the player waits up to 20s for the next tick to promote a zone to
-ACTIVE — by which time a helicopter has crossed 1400m. With a despawn
-radius of 1200m on populated areas, the player exits before the zone is
-even ready to be played.
-
-### Root cause
+### Original root cause (now resolved)
 
 ```
-Zone activates at:       800m (populatedArea)
+Zone activates at:       800m (populatedArea, pre-B)
 Despawns at:             1200m
 Useful engagement band:  400m
 Helicopter at 70 m/s:    5.7 seconds inside band
 Tick interval:           20 seconds
 ```
 
-The player exits the band 14 seconds before the next tick can promote the
-zone. So spawn happens, then immediately schedules despawn on the next tick.
+The player exited the band 14 seconds before the next tick could promote
+the zone. Sprint B's asymmetric hysteresis (despawn radii 2-3× larger
+than activate radii) + 8s tick eliminated the abandonment problem.
+Sprint C's pause lifecycle made re-entry instant.
 
-### Performance tuning options (deferred to Sprint B)
+### Tuning options surveyed (Sprint B planning, historical)
 
-| Option | Description | Pros | Cons |
-|---|---|---|---|
-| A. Cut tick interval | 20s → 8s | Single change. No behavior model change. | More state-machine work. |
-| B. Speed-scaled radius | Bubble grows at speed (foot 1×, air 4×) | Foot/ground unchanged. | More simultaneous zones at speed → budget pressure. |
-| C. Asymmetric hysteresis | Expand despawn radius significantly | Spawned zones survive long enough. | More units linger behind player. |
-| D. Pause-instead-of-delete | Antistasi-style: disableSimulation on grace, delete after longer second grace | Re-entry is free, no `createUnit` cost | More dormant entities in memory |
-
-We are not picking one yet. The forthcoming refactor (Sprint A below)
-moves these knobs from global constants to per-handler properties, so we
-can pick mix-and-match values per zone type instead of one-size-fits-all.
+| Option | Description | Status |
+|---|---|---|
+| A. Cut tick interval | 20s → 8s | Shipped |
+| B. Speed-scaled radius | Bubble grows at speed | Not needed |
+| C. Asymmetric hysteresis | Wider despawn than activate | Shipped |
+| D. Pause-instead-of-delete | Freeze on grace, delete after extended grace | Shipped (Sprint C) |
 
 ## Roadmap Forward
 
@@ -197,13 +233,13 @@ The Presence Manager will expand from "populate named locations" into
 - Static military emplacements on roads outside towns
 
 This roughly doubles or triples the zone count (66 → 300-700 estimated)
-and shrinks the average zone (3-5 units instead of 5-15). The current
-architecture — single monolithic `fnc_activatePresenceZone` with a big
-switch on zone type — will not scale gracefully to this many handlers.
+and shrinks the average zone (3-5 units instead of 5-15). The Sprint A
+handler registry refactor is what makes adding these zone types a
+one-handler registration each, rather than a switch-statement bloat.
 
-## Next Sprint Plan — Handler Registry Refactor + Perf
+## Sprint Change Log — Handler Registry + Perf + Pause Lifecycle
 
-The plan is **A → B → C** in order, before any new content.
+A → B → C shipped in order; tangent followed before Sprint D.
 
 ### Sprint A: Handler Registry Refactor (SHIPPED June 2026)
 
@@ -374,10 +410,11 @@ type.
 ### Periodic STATS report (every 60s)
 
 ```
-DSC: ===== PRESENCE STATS (12 min) =====
-DSC: stats — activations=40 completed=38 timedOut=1 abandoned=9 (completion=95%)
-DSC: stats — budget approved=40 skipped=2 (skipRate=5%)
-DSC: stats — latency avg=20063ms max=22778ms (samples=38)
+DSC: ===== PRESENCE STATS (10 min) =====
+DSC: stats — activations=9 completed=9 timedOut=0 abandoned=0 (completion=100%)
+DSC: stats — budget approved=9 skipped=0 (skipRate=0%)
+DSC: stats — latency avg=7996ms max=8031ms (samples=9)
+DSC: stats — paused=7 resumed=3 expired=4 (resumeRate=43%, save=3 spawns avoided)
 ```
 
 ### Per-zone activation timing
@@ -390,8 +427,18 @@ DSC: presence timing [base/loc_94] total=4664ms u=25 v=5 |
 ### Per-zone latency
 
 ```
-DSC: presence latency [loc_56/populatedArea] 20035ms (2 ticks)
+DSC: presence latency [loc_56/populatedArea] 8005ms (2 ticks)
   dist=1048m speed=68m/s
+```
+
+### Active-duration and pause/resume logs
+
+```
+DSC: presence active-duration [loc_56/populatedArea] 48s (player left, dist=2853m)
+DSC: presence active-duration [loc_80/populatedArea] 104s (paused, dist=2817m, 10u/0v frozen)
+DSC: presence resumed [loc_85/populatedArea] (paused for 56s, dist=1193m, 10u/0v unfrozen)
+DSC: presence pause-expired [loc_79/populatedArea] (deleting 10u/0v)
+DSC: presence pause-forced [loc_X/camp] (mission AO, deleting)
 ```
 
 ### Debug map markers
@@ -400,6 +447,7 @@ Each zone has an ellipse marker colored by state:
 - DORMANT: grey (alpha 0.25)
 - ACTIVATING: yellow
 - ACTIVE: green
+- PAUSED: blue
 - DESPAWNING: orange
 - COMBAT: red (reserved, not yet used)
 
@@ -411,20 +459,28 @@ Marker text shows `ZoneName [STATE]`.
 copyToClipboard str (missionNamespace getVariable "DSC_presenceStats");
 copyToClipboard str (missionNamespace getVariable "DSC_presenceLatencies");
 copyToClipboard str (missionNamespace getVariable "DSC_presenceTimingTotals");
+copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 ```
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `addons/core/functions/presence/fnc_initPresenceManager.sqf` | Main loop, state machine, worker, instrumentation |
-| `addons/core/functions/presence/fnc_activatePresenceZone.sqf` | Type-dispatched populate (will become thin dispatcher in Sprint A) |
-| `addons/core/functions/presence/fnc_despawnPresenceZone.sqf` | Default entity teardown |
+| `addons/core/functions/presence/fnc_initPresenceManager.sqf` | Main loop, state machine, worker, handler registration, instrumentation |
+| `addons/core/functions/presence/fnc_registerPresenceHandler.sqf` | Adds a handler config to `DSC_presenceHandlers` (Sprint A) |
+| `addons/core/functions/presence/fnc_activatePresenceZone.sqf` | Dispatcher — looks up `DSC_presenceHandlers[type].populate` (Sprint A) |
+| `addons/core/functions/presence/fnc_despawnPresenceZone.sqf` | Dispatcher + default entity teardown |
+| `addons/core/functions/presence/fnc_presenceActivateMilitary.sqf` | Shared activation body for base/outpost/camp handlers (Sprint A) |
+| `addons/core/functions/presence/fnc_presenceHandlerBase.sqf` | Base preset (delete lifecycle) |
+| `addons/core/functions/presence/fnc_presenceHandlerOutpost.sqf` | Outpost preset (pause lifecycle, 150s) |
+| `addons/core/functions/presence/fnc_presenceHandlerCamp.sqf` | Camp preset (pause lifecycle, 120s); short-circuits to irregular overlay for neutral |
+| `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf` | Civilians + military overlay + skirmish + irregular overlay (pause lifecycle, 120s) |
 | `addons/core/functions/presence/fnc_presenceLogTimings.sqf` | Per-call timing aggregation |
 | `addons/core/functions/ai/fnc_setupCivilians.sqf` | Civilian peds with CARELESS waypoints |
 | `addons/core/functions/ai/fnc_setupStaticDefenses.sqf` | Tower + bunker defenders, marksman-preferred pool |
 | `addons/core/functions/ai/fnc_setupMortarEmplacement.sqf` | Mortar tube + crew |
 | `addons/core/functions/ai/fnc_setupContestedSkirmish.sqf` | West-side opposing patrol for contested zones |
+| `addons/core/functions/ai/fnc_resolveIrregularOverlay.sqf` | Armed-civilian patrol for neutral-influence zones (east-side, hostile to player) |
 | `addons/core/functions/ai/fnc_setupPatrols.sqf` | Group spawn + `taskPatrol`, supports `spawnAngle` |
 | `addons/core/functions/ai/fnc_filterPatrolGroups.sqf` | Recce/fireteam filter |
 | `addons/core/functions/faction/fnc_spawnGroupYielding.sqf` | Drop-in BIS_fnc_spawnGroup with yields |
@@ -443,6 +499,7 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceTimingTotals");
 9. **Sprint A** — Handler registry refactor (mechanical, no behavior change)
 10. **Sprint B** — Per-handler tuning: 8s tick, asymmetric hysteresis bands, 150u/40v budget, active-duration log
 11. **Sprint C** — PAUSED state + freeze/resume lifecycle (populatedArea, camp, outpost); base stays delete
+12. **Tangent (post-C)** — Irregular overlay fills neutral-influence populated areas and camps with a small armed-civilian patrol, force-east-side for player hostility
 
 ## Sprints Up Next
 

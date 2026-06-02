@@ -7,6 +7,7 @@ PREP_SUB(ai,findParkingPosition);
 PREP_SUB(ai,getSkillProfile);
 PREP_SUB(ai,persistentUAV);
 PREP_SUB(ai,populateAO);
+PREP_SUB(ai,resolveIrregularOverlay);
 PREP_SUB(ai,setupCivilians);
 PREP_SUB(ai,setupContestedSkirmish);
 PREP_SUB(ai,setupGarrison);

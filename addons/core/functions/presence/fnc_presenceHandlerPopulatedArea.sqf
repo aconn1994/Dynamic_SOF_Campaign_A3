@@ -129,6 +129,32 @@ if (_controlledBy in ["opFor", "bluFor", "contested"] && {_influence >= 0.3}) th
 };
 ["militaryOverlay"] call _stamp;
 
+// ============================================================================
+// Irregular overlay — neutral-influence zones get armed civilians
+// ============================================================================
+// Towns without a controlling faction still feel inhabited via the civilian
+// pass above. We add a single small "armed civilian" patrol (force-east for
+// player hostility) so neutral territory has random encounters instead of
+// being completely empty of threats. See fnc_resolveIrregularOverlay.
+if (_controlledBy == "neutral") then {
+    private _irregularResult = [
+        _pos,
+        _radius,
+        createHashMapFromArray [
+            ["patrolCount", [1, 1]]
+        ]
+    ] call DSC_core_fnc_resolveIrregularOverlay;
+
+    (_zone get "units")  append (_irregularResult getOrDefault ["units", []]);
+    (_zone get "groups") append (_irregularResult getOrDefault ["groups", []]);
+
+    if ((_irregularResult getOrDefault ["units", []]) isNotEqualTo []) then {
+        diag_log format ["DSC: activatePresenceZone [%1] - irregular overlay: %2 patrol units (neutral town)",
+            _id, count (_irregularResult getOrDefault ["units", []])];
+    };
+};
+["irregularOverlay"] call _stamp;
+
 private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 } else { objNull };
 if (!isNull _curator) then {
     _curator addCuratorEditableObjects [(_zone get "units"), true];
