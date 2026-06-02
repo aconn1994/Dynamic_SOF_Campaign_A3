@@ -79,6 +79,20 @@ private _lookoutClass = "";
 private _guardFaction = _config getOrDefault ["guardFaction", _faction];
 private _filterStr = format ["getNumber (_x >> 'scope') >= 2 && getText (_x >> 'faction') == '%1' && getNumber (_x >> 'isMan') == 1", _guardFaction];
 private _factionMen = _filterStr configClasses (configFile >> "CfgVehicles");
+
+// Marksman/sniper pool for towers (overhead positions favor precision shooters)
+private _marksmanPool = [];
+private _generalPool  = [];
+{
+    private _cn = configName _x;
+    private _ln = toLower _cn;
+    if (_ln find "marksman" >= 0 || {_ln find "sniper" >= 0} || {_ln find "designated" >= 0}) then {
+        _marksmanPool pushBack _cn;
+    } else {
+        _generalPool pushBack _cn;
+    };
+} forEach _factionMen;
+
 if (_factionMen isNotEqualTo []) then {
     _lookoutClass = configName (selectRandom _factionMen);
 } else {
@@ -88,6 +102,15 @@ if (_factionMen isNotEqualTo []) then {
         case independent: { "I_Soldier_F" };
         default { "O_Soldier_F" };
     };
+};
+
+// Helper to pick a tower defender — prefer marksman if available
+private _pickTowerClass = {
+    if (_marksmanPool isNotEqualTo [] && {random 1 < 0.6}) exitWith {
+        selectRandom _marksmanPool
+    };
+    if (_generalPool isNotEqualTo []) exitWith { selectRandom _generalPool };
+    _lookoutClass
 };
 
 // ============================================================================
@@ -170,7 +193,8 @@ private _defenseGroup = createGroup [_side, true];
         _static setPos _topPos;
         _static setDir _dirFromCenter;
 
-        private _gunner = _defenseGroup createUnit [_lookoutClass, _topPos, [], 0, "NONE"];
+        private _gunnerCls = call _pickTowerClass;
+        private _gunner = _defenseGroup createUnit [_gunnerCls, _topPos, [], 0, "NONE"];
         _gunner allowDamage false;
         _gunner moveInGunner _static;
         [_gunner, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;
@@ -180,9 +204,10 @@ private _defenseGroup = createGroup [_side, true];
         (_result get "units") pushBack _gunner;
         _staticsSpawned = _staticsSpawned + 1;
 
-        diag_log format ["DSC: setupStaticDefenses - %1: Static weapon (%2)", typeOf _structure, _weaponClass];
+        diag_log format ["DSC: setupStaticDefenses - %1: Static weapon (%2 / %3)", typeOf _structure, _weaponClass, _gunnerCls];
     } else {
-        private _lookout = _defenseGroup createUnit [_lookoutClass, _topPos, [], 0, "NONE"];
+        private _lookoutCls = call _pickTowerClass;
+        private _lookout = _defenseGroup createUnit [_lookoutCls, _topPos, [], 0, "NONE"];
         _lookout allowDamage false;
         _lookout setPos _topPos;
         _lookout setDir (_locationPos getDir _topPos);
@@ -193,7 +218,7 @@ private _defenseGroup = createGroup [_side, true];
         (_result get "units") pushBack _lookout;
         _lookoutsSpawned = _lookoutsSpawned + 1;
 
-        diag_log format ["DSC: setupStaticDefenses - %1: Lookout%2", typeOf _structure, ["", " (covered)"] select (!_hasOpenSky)];
+        diag_log format ["DSC: setupStaticDefenses - %1: Lookout%2 (%3)", typeOf _structure, ["", " (covered)"] select (!_hasOpenSky), _lookoutCls];
     };
 
     // Additional lookouts on remaining positions
@@ -205,7 +230,8 @@ private _defenseGroup = createGroup [_side, true];
 
     {
         private _extraPos = _x;
-        private _lookout = _defenseGroup createUnit [_lookoutClass, _extraPos, [], 0, "NONE"];
+        private _extraCls = call _pickTowerClass;
+        private _lookout = _defenseGroup createUnit [_extraCls, _extraPos, [], 0, "NONE"];
         _lookout allowDamage false;
         _lookout setPos _extraPos;
         _lookout setDir (_locationPos getDir _extraPos);
@@ -215,7 +241,9 @@ private _defenseGroup = createGroup [_side, true];
 
         (_result get "units") pushBack _lookout;
         _lookoutsSpawned = _lookoutsSpawned + 1;
+        uiSleep 0.1;
     } forEach _extraPositions;
+    uiSleep 0.1;
 } forEach _guardStructures;
 
 // ============================================================================

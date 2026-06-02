@@ -29,6 +29,7 @@ addons/
 │       ├── faction/         # Faction extraction + group/asset pipelines + entity class resolver
 │       ├── classification/  # Unit + group doctrine tagging
 │       ├── ai/              # Population, guards, garrison, patrols, combat activation
+│       ├── presence/        # World simulation manager: zones, state machine, lifecycle (see .crush/presence-manager.md)
 │       ├── missions/        # Raid generator, mission orchestrator, briefing, completion, outcome, cleanup, interaction
 │       ├── placement/       # Strategy library: deep-building, ground, interior, outdoor-pile, object dispatcher
 │       ├── markers/         # Compound marker drawer
@@ -74,6 +75,7 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 3. `fnc_initFactionData` → extract groups + assets per role
 4. `fnc_initInfluence` → tiered military occupation (base/outpost/camp), 5km safe zone around player base
 4b. Mark military installations on map — faction flag textures + 800m danger zones on bases
+4c. `fnc_initPresenceManager` → build zone registry from influence data, spawn worker + 20s tick loop. State machine populates the area around the player with civilians, military presence, contested skirmishes. See `.crush/presence-manager.md`.
 5. Mission generation loop (spawned) — select (template → resolver) → generate (raid config → archetype dispatch) → debrief (evaluateCompletion → buildMissionOutcome) → update influence → cleanup → repeat. Pulls from `DSC_missionQueue` if non-empty, else random; honors `DSC_missionAbortRequested` for tablet-driven aborts.
 
 **Server debug layer** (`fnc_initServerDebug`, called after initServer):
@@ -113,6 +115,10 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Compound Markers | `fnc_drawCompoundMarkers` | Contact_circle4 + alpha-numeric dot markers, scale-aware |
 | Interaction Handler | `fnc_addInteractionHandler` | addAction wiring for interactable objects; populates intelTokens on active mission |
 | AO Population | `fnc_populateAO` | Multi-faction: garrison → guards → vehicles → patrols. Auto-extracts assets if not in mission config |
+| Presence Manager | `fnc_initPresenceManager` / `fnc_activatePresenceZone` / `fnc_despawnPresenceZone` | World simulation around the player: 20s tick state machine (DORMANT→ACTIVATING→ACTIVE→DESPAWNING), civilians, base/outpost/camp/town zones, contested skirmishes, mission AO arbitration, budget cap, instrumentation. See `.crush/presence-manager.md`. Sprint A (handler registry refactor) is next. |
+| Civilians | `fnc_setupCivilians` | Wandering civilian peds with CARELESS waypoints, cached classname pool from `DSC_factionData.civilians.manPool` |
+| Contested Skirmish | `fnc_setupContestedSkirmish` | West-side opposing patrol on contested zones — east + west naturally hostile, engagement on contact |
+| Yielding Spawner | `fnc_spawnGroupYielding` | Drop-in for `BIS_fnc_spawnGroup` with `uiSleep` between unit creates to spread the cost across frames |
 | Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
 | Static Defenses | `fnc_setupStaticDefenses` | Military-only: towers, bunkers, static weapons with lookout fallback |
 | Combat Activation | `fnc_addCombatActivation` | Units start frozen, activate on FiredNear EH |
@@ -166,6 +172,8 @@ Groups are tagged by the classifier for downstream filtering:
 - Use `select` instead of `if/then/else` for constant-value assignments (HEMTT L-S05 warning)
 - `setFriend` manages east/independent diplomacy during missions, reset at cleanup
 - Vehicle patrol dismount cycle is deferred — current implementation drives road loops only
+- **Presence manager state machine** — `_activateQueue` and `_despawnQueue` must be mutated **in place** (`deleteAt`). Reassigning the local (`_q = _q - [_zone]`) creates a new array, breaks the worker's reference, and silently leaks units. Same for ACTIVATING→DORMANT: if entities already exist on the zone, route through DESPAWNING or you orphan them.
+- **Presence manager handler dispatch** (Sprint A) — when adding new zone types, register a handler with `fnc_registerPresenceHandler`. Do not add branches to `fnc_activatePresenceZone`. See `.crush/presence-manager.md`.
 
 ## Detailed System Docs
 
@@ -174,6 +182,7 @@ Groups are tagged by the classifier for downstream filtering:
 - `.crush/mission-system.md` — AO population, mission types, briefing, cleanup, combat activation
 - `.crush/mission-generation.md` — Mission config system (template + resolver), profile population params
 - `.crush/mission-archetypes.md` — **Raid system reference** (live as of April 2026): generic raid generator, entity/object archetypes, completion conditions, briefing fragments, configuration reference
+- `.crush/presence-manager.md` — **Presence Manager reference** (live as of June 2026): world simulation around the player. State machine, zone types, instrumentation, perf findings, Sprint A/B/C plan, future Sprint D (structure-archetype zone types) and Sprint E (roving entities)
 - `.crush/commander-tablet.md` — Commander's Tablet UI (Ctrl+Y), Standard/Advanced views, debug HUD, server queue/abort, dialog architecture
 - `.crush/vehicle-systems.md` — Parked vehicles, vehicle patrols, dismount cycle design (deferred)
 - `.crush/grand-vision.md` — High-level project goals and inspiration

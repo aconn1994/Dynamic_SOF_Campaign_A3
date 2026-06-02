@@ -66,9 +66,15 @@ private _fnc_factionMen = {
 };
 
 // --- Civilian classname pool from registered civilian factions ---
+// Prefers the pre-cached "manPool" populated by fnc_initFactionData
+// (one config scan at boot, not per call). Falls back to a fresh scan if the
+// cache is empty.
 private _fnc_civilianPool = {
     params ["_data"];
     private _civRole = _data getOrDefault ["civilians", createHashMap];
+    private _cached = _civRole getOrDefault ["manPool", []];
+    if (_cached isNotEqualTo []) exitWith { _cached };
+
     private _civFactions = _civRole getOrDefault ["factions", []];
     private _pool = [];
     {

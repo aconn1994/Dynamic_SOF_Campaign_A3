@@ -309,6 +309,10 @@ private _patrolWaypointMax = _patrolSpawnMax + 100;
 private _targetPatrolCount = _missionConfig getOrDefault ["patrolCount", [1, 1]];
 
 if (_targetFootGroups isNotEqualTo []) then {
+    // Reserve large squads for QRF/garrison — patrols are recce-sized
+    private _patrolGroups = [_targetFootGroups] call DSC_core_fnc_filterPatrolGroups;
+    if (_patrolGroups isEqualTo []) then { _patrolGroups = _targetFootGroups };
+
     private _targetPatrolConfig = createHashMapFromArray [
         ["patrolCount", _targetPatrolCount],
         ["spawnRadius", [_patrolSpawnMin, _patrolSpawnMax]],
@@ -317,7 +321,7 @@ if (_targetFootGroups isNotEqualTo []) then {
         ["specialChance", 0.15]
     ];
 
-    private _targetPatrolResult = [_locationPos, _targetFootGroups, _targetSide, _targetPatrolConfig] call DSC_core_fnc_setupPatrols;
+    private _targetPatrolResult = [_locationPos, _patrolGroups, _targetSide, _targetPatrolConfig] call DSC_core_fnc_setupPatrols;
 
     (_aoResult get "groups") append (_targetPatrolResult get "groups");
     (_aoResult get "units") append (_targetPatrolResult get "units");

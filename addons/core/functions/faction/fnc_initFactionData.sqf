@@ -39,61 +39,82 @@ if (_profileConfig isEqualTo createHashMap) exitWith {
 
 // Roles that need group + asset extraction (skip civilians/environmental for now)
 private _combatRoles = ["bluFor", "bluForPartner", "opFor", "opForPartner", "irregulars"];
+// Roles that need a flat "manPool" cached (no group extraction, just classnames)
+private _noncombatRoles = ["civilians", "environmentalActors"];
 
 private _result = createHashMap;
+
+// Helper — scan a faction's CfgVehicles for man classes once
+private _extractManPool = {
+    params ["_factionClass"];
+    private _filterStr = format [
+        "getNumber (_x >> 'scope') >= 2 && getText (_x >> 'faction') == '%1' && getNumber (_x >> 'isMan') == 1",
+        _factionClass
+    ];
+    (_filterStr configClasses (configFile >> "CfgVehicles")) apply { configName _x }
+};
 
 {
     private _role = _x;
     private _roleConfig = _profileConfig getOrDefault [_role, createHashMap];
     if (_roleConfig isEqualTo createHashMap) then { continue };
-    
+
     private _factionList = _roleConfig getOrDefault ["factions", []];
     private _side = _roleConfig getOrDefault ["side", civilian];
-    
+
     private _validFactions = [];
     private _roleGroups = createHashMap;
     private _roleAssets = createHashMap;
-    
+    private _roleManPool = []; // flat pool used by non-combat roles
+
     {
         private _faction = _x;
-        
+
         // Validate faction exists in loaded configs
         private _factionCfg = configFile >> "CfgFactionClasses" >> _faction;
         if (!isClass _factionCfg) then {
             diag_log format ["DSC: fnc_initFactionData - WARNING: Faction '%1' not found (mod not loaded?), skipping", _faction];
             continue;
         };
-        
+
         _validFactions pushBack _faction;
-        
+
         // Extract groups and assets for combat roles
         if (_role in _combatRoles) then {
             // Groups
             private _rawGroups = [_faction] call DSC_core_fnc_extractGroups;
             private _classifiedGroups = [_rawGroups] call DSC_core_fnc_classifyGroups;
             _roleGroups set [_faction, _classifiedGroups];
-            
+
             diag_log format ["DSC: initFactionData - %1/%2: %3 groups classified", _role, _faction, count _classifiedGroups];
-            
+
             // Assets
             private _assets = [_faction] call DSC_core_fnc_extractAssets;
             _roleAssets set [_faction, _assets];
-            
+
             diag_log format ["DSC: initFactionData - %1/%2: assets extracted", _role, _faction];
         };
+
+        // Cache flat man pool for non-combat roles (civilians, environmentalActors)
+        if (_role in _noncombatRoles) then {
+            private _menForFaction = [_faction] call _extractManPool;
+            { _roleManPool pushBackUnique _x } forEach _menForFaction;
+            diag_log format ["DSC: initFactionData - %1/%2: %3 man classes cached", _role, _faction, count _menForFaction];
+        };
     } forEach _factionList;
-    
+
     private _roleData = createHashMapFromArray [
         ["factions", _validFactions],
         ["side", _side],
         ["groups", _roleGroups],
-        ["assets", _roleAssets]
+        ["assets", _roleAssets],
+        ["manPool", _roleManPool]
     ];
-    
+
     _result set [_role, _roleData];
-    
+
     diag_log format ["DSC: initFactionData - Role '%1': %2/%3 factions valid", _role, count _validFactions, count _factionList];
-    
+
 } forEach keys _profileConfig;
 
 // Summary

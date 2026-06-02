@@ -7,8 +7,11 @@ PREP_SUB(ai,findParkingPosition);
 PREP_SUB(ai,getSkillProfile);
 PREP_SUB(ai,persistentUAV);
 PREP_SUB(ai,populateAO);
+PREP_SUB(ai,setupCivilians);
+PREP_SUB(ai,setupContestedSkirmish);
 PREP_SUB(ai,setupGarrison);
 PREP_SUB(ai,setupGuards);
+PREP_SUB(ai,setupMortarEmplacement);
 PREP_SUB(ai,setupPatrols);
 PREP_SUB(ai,setupStaticDefenses);
 PREP_SUB(ai,setupVehiclePatrol);
@@ -33,9 +36,11 @@ PREP_SUB(data,getStructureTypes);
 // Faction
 PREP_SUB(faction,extractAssets);
 PREP_SUB(faction,extractGroups);
+PREP_SUB(faction,filterPatrolGroups);
 PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(faction,initFactionData);
 PREP_SUB(faction,resolveEntityClass);
+PREP_SUB(faction,spawnGroupYielding);
 
 // Init
 PREP_SUB(init,initBases);
@@ -55,6 +60,12 @@ PREP_SUB(base,spawnTransportHelo);
 
 // Markers
 PREP_SUB(markers,drawCompoundMarkers);
+
+// Presence
+PREP_SUB(presence,activatePresenceZone);
+PREP_SUB(presence,despawnPresenceZone);
+PREP_SUB(presence,initPresenceManager);
+PREP_SUB(presence,presenceLogTimings);
 
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);

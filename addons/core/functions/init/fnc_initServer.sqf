@@ -97,26 +97,88 @@ private _factionProfileConfigRhs = createHashMapFromArray [
     ]]
 ];
 
+// Aegis
+private _factionProfileConfigAegis = createHashMapFromArray [
+    ["bluFor", createHashMapFromArray [
+        ["side", west],
+        ["factions", [
+            "BLU_F",             // US
+            "Marine_BLU_USMC_F", // USMC
+            "BLU_W_F"            // US (Woodland)
+        ]]
+    ]],
+    ["bluForPartner", createHashMapFromArray [
+        ["side", west],
+        ["factions", [
+            "Atlas_BLU_G_F",        // Bundeswehr
+            "Revolucion_BLU_BDF_F", // FDB
+            "Atlas_BLU_L_F",        // Legionnaires
+            "BLU_ION_F"            // ION Services
+        ]]
+    ]],
+    ["opFor", createHashMapFromArray [
+        ["side", east],
+        ["factions", [
+            "OPF_F",   // Iran
+            "OPF_R_F", // Russia
+            "OPF_T_F", // China
+            "OPF_V_F"  // Viper
+        ]]
+    ]],
+    ["opForPartner", createHashMapFromArray [
+        ["side", east],
+        ["factions", [
+            "OPF_GEN_F",            // Gendarmerie
+            "Opf_OPF_P_F",          // Paramilitary
+            "OPF_Raven_F",          // Raven
+            "Opf_OPF_S_F",          // Separatists
+            "Revolucion_OPF_PNB_F", // Policia
+            "Opf_OPF_I_F"           // Insurgents
+        ]]
+    ]],
+    ["irregulars", createHashMapFromArray [
+        ["side", independent],
+        ["factions", [
+            "IND_C_F",              // Syndikat
+            "IND_L_F",              // Looters
+            "Police_IND_P_F",       // Police
+            "Revolucion_IND_CDB_F", // Cartels
+            "Opf_IND_I_F"           // Insurgents
+        ]]
+    ]],
+    ["civilians", createHashMapFromArray [
+        ["side", civilian],
+        ["factions", [
+            "CIV_F", // Civilians (Altis)
+            "Aegis_CIV_GEN_F" // Civilians
+        ]]
+    ]],
+    ["environmentalActors", createHashMapFromArray [
+        ["side", civilian],
+        ["factions", ["CIV_IDAP_F"]]
+    ]]
+];
+
 // ============================================================================
-// Auto-detect faction profile: check if all RHS factions exist in CfgFactionClasses
+// Auto-detect faction profile: check if all Aegis factions exist in CfgFactionClasses
 // ============================================================================
-private _rhsFactions = [];
+private _aegisFactions = [];
 {
     private _roleFactions = (_y getOrDefault ["factions", []]);
-    { _rhsFactions pushBackUnique _x } forEach _roleFactions;
-} forEach _factionProfileConfigRhs;
+    { _aegisFactions pushBackUnique _x } forEach _roleFactions;
+} forEach _factionProfileConfigAegis;
 
-private _allRhsPresent = true;
+private _allAegisPresent = true;
 {
     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
-        diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
-        _allRhsPresent = false;
+        diag_log format ["DSC: Aegis faction '%1' not found - falling back to vanilla", _x];
+        _allAegisPresent = false;
     };
-} forEach _rhsFactions;
+} forEach _aegisFactions;
 
-private _selectedProfile = if (_allRhsPresent) then {
-    diag_log "DSC: All RHS factions detected - using RHS faction profile";
-    _factionProfileConfigRhs
+private _selectedProfile = if (_allAegisPresent) then {
+    diag_log "DSC: All Aegis factions detected - using Aegis faction profile";
+    _factionProfileConfigAegis
 } else {
     diag_log "DSC: Using vanilla faction profile";
     _factionProfileConfigVanilla
@@ -130,6 +192,40 @@ private _getTimeAsString = {
 
     format ["%1:%2:%3", _hours, _minutes, _seconds];
 };
+
+// ============================================================================
+// Auto-detect faction profile: check if all RHS factions exist in CfgFactionClasses
+// ============================================================================
+// private _rhsFactions = [];
+// {
+//     private _roleFactions = (_y getOrDefault ["factions", []]);
+//     { _rhsFactions pushBackUnique _x } forEach _roleFactions;
+// } forEach _factionProfileConfigRhs;
+
+// private _allRhsPresent = true;
+// {
+//     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
+//         diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
+//         _allRhsPresent = false;
+//     };
+// } forEach _rhsFactions;
+
+// private _selectedProfile = if (_allRhsPresent) then {
+//     diag_log "DSC: All RHS factions detected - using RHS faction profile";
+//     _factionProfileConfigRhs
+// } else {
+//     diag_log "DSC: Using vanilla faction profile";
+//     _factionProfileConfigVanilla
+// };
+
+// private _getTimeAsString = {
+//     private _daytime = dayTime;
+//     private _hours = floor _daytime;
+//     private _minutes = floor ((_daytime - _hours) * 60);
+//     private _seconds = floor ((((_daytime - _hours) * 60) - _minutes) * 60);
+
+//     format ["%1:%2:%3", _hours, _minutes, _seconds];
+// };
 
 // ============================================================================
 // STEP 0: Init Server Globals
@@ -174,7 +270,7 @@ diag_log "DSC: ========== Determining Map Influence ==========";
 systemChat "Initializing influence map...";
 
 // Campaign profiles: "offensive" (opFor dominant), "defensive" (bluFor dominant), "contested" (mixed)
-private _influenceData = [_locations, "offensive", _factionData] call DSC_core_fnc_initInfluence;
+private _influenceData = [_locations, "contested", _factionData] call DSC_core_fnc_initInfluence;
 missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 
 systemChat "Influence map initialized!";
@@ -356,6 +452,16 @@ private _baseRegistry = [_influenceData, _factionData] call DSC_core_fnc_initBas
 missionNamespace setVariable ["DSC_baseRegistry", _baseRegistry, true];
 
 systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _getTimeAsString, count _baseRegistry];
+
+// ============================================================================
+// STEP 4c: Presence Manager (world population around the player)
+// ============================================================================
+// Builds a zone registry (bases / outposts / camps / populated areas) from
+// influence data and spawns a 20s tick loop driving a per-zone state machine.
+// Sprint 1 is log-only — no spawning yet. Player main base is excluded; it is
+// owned by fnc_initBases for the whole session.
+diag_log "DSC: ========== Initializing Presence Manager ==========";
+[_influenceData] call DSC_core_fnc_initPresenceManager;
 
 // ============================================================================
 // STEP 5: Mission Generation Loop

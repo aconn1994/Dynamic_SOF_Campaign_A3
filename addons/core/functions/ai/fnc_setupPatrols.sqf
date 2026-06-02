@@ -64,6 +64,10 @@ private _spawnRadiusRange = _configOverrides getOrDefault ["spawnRadius", [600, 
 private _patrolRadiusRange = _configOverrides getOrDefault ["patrolRadius", [600, 1200, 1800, 2400, 3200]];
 private _specialGroups = _configOverrides getOrDefault ["specialGroups", []];
 private _specialChance = _configOverrides getOrDefault ["specialChance", 0.15];
+// Optional: lock the spawn direction (degrees from zone center). Used by
+// dual-faction contested zones to place opposing patrols on opposite sides.
+// -1 = random (default).
+private _spawnAngle = _configOverrides getOrDefault ["spawnAngle", -1];
 
 // Calculate number of patrols
 private _numPatrols = (_patrolCountRange select 0) + floor random ((_patrolCountRange select 1) - (_patrolCountRange select 0) + 1);
@@ -78,7 +82,7 @@ for "_i" from 1 to _numPatrols do {
     } else {
         selectRandom _groupTemplates
     };
-    
+
     private _groupPath = _selectedGroup get "path";
     private _groupName = _selectedGroup get "groupName";
     private _doctrineTags = _selectedGroup get "doctrineTags";
@@ -87,14 +91,40 @@ for "_i" from 1 to _numPatrols do {
 
     // Find safe spawn position with random radius
     private _spawnRadius = (_spawnRadiusRange select 0) + random ((_spawnRadiusRange select 1) - (_spawnRadiusRange select 0));
-    private _groupSpawnPos = [_locationPos, 0, _spawnRadius, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+    private _groupSpawnPos = if (_spawnAngle >= 0) then {
+        // Directional spawn — used to put opposing patrols on opposite sides.
+        // Walk inward along the bearing until we hit land, then fall back to a
+        // random safe position if the whole bearing is over water.
+        private _ang = _spawnAngle + (random 30) - 15;
+        private _pos = _locationPos getPos [_spawnRadius, _ang];
+        private _r = _spawnRadius;
+        while { surfaceIsWater _pos && _r > 50 } do {
+            _r = _r - 25;
+            _pos = _locationPos getPos [_r, _ang];
+        };
+        if (surfaceIsWater _pos) then {
+            // Bearing is over water — give up directionality, take any safe pos
+            _pos = [_locationPos, 0, _spawnRadius, 5, 0, 20, 0] call BIS_fnc_findSafePos;
+        };
+        _pos
+    } else {
+        [_locationPos, 0, _spawnRadius, 5, 0, 20, 0] call BIS_fnc_findSafePos
+    };
+
+    // Safety net — even BIS_fnc_findSafePos can occasionally return a water
+    // position on rocky shorelines. Skip the patrol if so.
+    if (surfaceIsWater _groupSpawnPos) then {
+        diag_log format ["DSC: fnc_setupPatrols - Patrol %1: no land spawn near %2, skipping", _i, _locationPos];
+        continue;
+    };
 
     // Parse the group path and spawn
     private _pathParts = _groupPath splitString "/";
     private _groupConfig = configFile >> "CfgGroups";
     { _groupConfig = _groupConfig >> _x } forEach _pathParts;
-    
-    private _spawnedGroup = [_groupSpawnPos, _side, _groupConfig] call BIS_fnc_spawnGroup;
+
+    private _spawnedGroup = [_groupSpawnPos, _side, _groupConfig] call DSC_core_fnc_spawnGroupYielding;
+    if (isNull _spawnedGroup) then { continue };
     (_result get "groups") pushBack _spawnedGroup;
     (_result get "tags") pushBack _doctrineTags;
     (_result get "units") append (units _spawnedGroup);
@@ -103,7 +133,7 @@ for "_i" from 1 to _numPatrols do {
     private _patrolRadius = (_patrolRadiusRange select 0) + random ((_patrolRadiusRange select 1) - (_patrolRadiusRange select 0));
     [_spawnedGroup, _locationPos, _patrolRadius] call BIS_fnc_taskPatrol;
 
-    sleep 1;
+    sleep 0.5;
 };
 
 diag_log format ["DSC: fnc_setupPatrols - Total: %1 units, %2 groups", count (_result get "units"), count (_result get "groups")];

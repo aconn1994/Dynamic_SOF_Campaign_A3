@@ -196,6 +196,8 @@ private _vehiclesSpawned = 0;
         };
 
         _vehiclesSpawned = _vehiclesSpawned + 1;
+
+        uiSleep 0.2;
     } forEach _parkingSpots;
 } forEach _clusters;
 

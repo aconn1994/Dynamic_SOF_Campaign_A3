@@ -60,6 +60,13 @@ Functions:
 │   fnc_setupGuards (entry-point guards)      │
 │   Helipads, motor pool, TOC vehicles        │
 ├─────────────────────────────────────────────┤
+│ STEP 4c: fnc_initPresenceManager (LIVE)     │
+│   Build zone registry from influence data   │
+│   Spawn worker scope (drains queues)        │
+│   Spawn 20s tick (state machine + metrics)  │
+│   Zones: base / outpost / camp / town       │
+│   See .crush/presence-manager.md            │
+├─────────────────────────────────────────────┤
 │ STEP 5: Mission Loop (LIVE, spawned)        │
 │   Pulls from DSC_missionQueue (tablet) or   │
 │   generates random. Honors abort flag.      │
@@ -121,6 +128,11 @@ fnc_initInfluence
     │    influenceMap: locationId → { controlledBy, influence, type, faction }
     │    bases[], outposts[], camps[], populatedAreas[], missionSites[]
     │    locations[] (enriched hashmaps for downstream use)
+    │
+    ├──→ fnc_initPresenceManager (consumes influence data)
+    │      └── DSC_presenceZones: zone hashmaps keyed by location id
+    │          State machine populates the world around the player.
+    │          See .crush/presence-manager.md
     │
     ▼
 fnc_selectMission (or direct template)

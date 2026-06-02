@@ -30,7 +30,7 @@ workshop = [
 ]
 
 [developer_ace]
-extends = "developer"
+extends = "developer_qol"
 workshop = [
     "463939057", # ACE
     "782415569", # Remove Stamina - ACE
@@ -38,36 +38,35 @@ workshop = [
 
 [developer_factions]
 extends = "developer_ace"
-# dlc = [
-#     "Western Sahara"
-# ]
+dlc = [
+    "Western Sahara"
+]
 workshop = [
-    "843577117", # RHSUSAF
-    "843425103", # RHSAFRF
-    "843593391", # RHSGREF
-    "843632231", # RHSSAF
+    # "843577117", # RHSUSAF
+    # "843425103", # RHSAFRF
+    # "843593391", # RHSGREF
+    # "843632231", # RHSSAF
     # "2162749089", # Legion Studios Core
-    # "949252631", # Aegis Mod
+    "949252631",  # Aegis Mod
+    "2225864448", # Aegis - Marines
+    "2225865544", # Aegis - Police
+    "2225873516", # Aegis Atlas
+    "1873244913", # Aegus Atlas - Opposing Forces
+    "2843094358", # Athena
+    "2684335735", # Revolucion
 ]
 
 [play_test_factions]
 extends = "developer_factions"
 workshop = [
-
-    "333310405", # Enhanced Movement
-    "2034363662", # Enhanced Movement Rework
     "1638341685", # DUI - Squad Radar
-    # "338988835", # MCC
     "2791403093", # Better Inventory
     "2884936024", # Blastcore Compiled
     "1770265310", # No More Aircraft Bouncing
     "2041057379", # A3 Thermal Improvement
-    "3407948300", # JSRS Soundmod 2025
     "3283642267", # Speshal Core
     "3283612524", # Animate - Rewrite
     "3540049844", # DZN XPI
-    # "2595680138", # NI Arms
-    "3147482833", # TOTT AiO
     "3564392635", # Modern Sniper Systems
-    # "2975268929", # TPNVG
+    "3614460136", # Modern Carbine Systems
 ]

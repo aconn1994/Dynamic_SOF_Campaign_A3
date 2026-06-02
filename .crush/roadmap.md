@@ -1,6 +1,6 @@
 # Roadmap — DSC
 
-*Updated April 29, 2026*
+*Updated June 2, 2026*
 
 ## Phase 1: Mission Area Generation — COMPLETE
 
@@ -170,15 +170,58 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
 - [ ] Intel-driven mission selection
 - [ ] Campaign threads — track faction engagement history
 
-### World Simulation — Presence Manager (Design: `.crush/base-initialization.md`)
-- [ ] **`fnc_presenceManager`** — sleep-loop (15-30s) checking player position against influence/base data
-- [ ] **Zone state machine** — `DORMANT → ACTIVATING → ACTIVE → DESPAWNING → DORMANT` per zone, prevents double-spawn
-- [ ] **OpFor base activation** — guards + garrison spawn when player within ~1.5km, despawn at ~2.5km
-- [ ] **BluFor base activation** — friendly ambient troops spawn on player approach
-- [ ] **Forced encounters** — if player in opFor territory with no combat for X min, inject patrol near position
-- [ ] **Civilian/ambient life** — populate towns with civilians when player approaches
-- [ ] **QRF from bases** — opFor bases spawn QRF toward active mission AO
-- [ ] Environmental immersion layer separate from mission system
+### World Simulation — Presence Manager (Design: `.crush/presence-manager.md`)
+
+**Sprints 1-8 shipped** — full world population system around the player.
+
+- [x] **`fnc_initPresenceManager`** — server-spawned 20s tick, zone state machine, queue + worker
+- [x] **Zone state machine** — `DORMANT → ACTIVATING → ACTIVE → DESPAWNING → DORMANT`, async worker pacing, ACTIVATING-abandonment cleanup
+- [x] **OpFor + bluFor bases / outposts / camps** — static defenders, marksmen, mortars, parked vehicles (Sprints 2, 7)
+- [x] **Civilian populated areas** — influence-scaled density, always-present floor (Sprints 3-4)
+- [x] **Military overlay on populated zones** — patrol from controlling side, recce-filtered (Sprint 5)
+- [x] **Mission AO arbitration** — military zones suspend when overlapping active mission AO, civilians stay (Sprint 6)
+- [x] **Global entity budget** — 100u/30v cap, closest-first prioritization (Sprint 6)
+- [x] **Contested-zone dual-faction skirmishes** — east + west patrols on opposite sides, natural engagement (Sprint 8)
+- [x] **Instrumentation** — per-zone activation latency, periodic STATS report, debug map markers, speed sampling
+
+**Performance findings (June 2026, 15-min helicopter test)**
+- 100% completion rate but **22% of activations abandoned** (spawned then immediately torn down at speed)
+- Avg latency 20s = one tick exactly. Tick interval dominates the metric.
+- Budget cap is **not** the bottleneck (5% skip rate)
+- Root cause: useful engagement band (activation→despawn) is 400m for populated areas. At 70 m/s player crosses it in 5.7s, well under the 20s tick.
+
+**Sprint A: Handler Registry Refactor (NEXT)**
+- [ ] **`addons/core/functions/presence/handlers/`** — new directory, one handler per zone type
+- [ ] **`fnc_registerPresenceHandler`** — adds to `DSC_presenceHandlers` hashmap
+- [ ] **Handler contract** — hashmap with `activateRadius`, `despawnRadius`, `despawnGrace`, `budgetUnits`, `budgetVehicles`, `populate`, optional `despawn`, optional `lifecycle` ("delete" | "pause")
+- [ ] **`fnc_activatePresenceZone` becomes thin dispatcher** — looks up handler by `_zone get "type"`, calls its populate slot
+- [ ] **`fnc_despawnPresenceZone` becomes thin dispatcher** — same pattern, default to entity-list delete if no handler.despawn
+- [ ] **Builtin handlers extracted**: `populatedArea`, `base`, `outpost`, `camp` — mechanical move, no new behavior
+- [ ] **Acceptance**: 15-min helicopter test produces identical (or trivially close) `DSC_presenceStats`
+
+**Sprint B: Per-Handler Performance Tuning**
+- [ ] **Drop main tick to 8s** (probably — re-measure)
+- [ ] **Per-type radii**: populated areas get wider despawn (Option C), bases keep tight
+- [ ] **Re-run helicopter test**, target abandoned < 5%
+- [ ] Decide on speed-scaled radius (Option B) only if numbers still show issues
+
+**Sprint C: Pause-Instead-of-Delete Lifecycle**
+- [ ] **`PAUSED` sub-state** — `disableSimulation` + `disableAI "ALL"` on grace start
+- [ ] **Extended second grace** (~120s) — full delete only after this
+- [ ] **Re-entry during pause** — `enableSimulation true; enableAI "ALL"`, no `createUnit` cost
+- [ ] **Roll out order**: populated areas → camps + outposts → bases
+
+**Sprint D (separate feature)**: Structure archetype data → new zone types
+- Rural compounds, factories/warehouses, checkpoints, etc.
+- Each becomes one handler registration under the refactored architecture
+- Depends on structure-archetype data layer (user-owned design)
+
+**Sprint E (separate subsystem)**: Roving entities
+- Civilian vehicles wandering between towns
+- Military motorized/mechanized patrols on roads
+- Built as sibling to zone manager, not a new zone type
+
+**Deferred**: Forced encounters (forced patrol injection when no combat for X minutes in opFor territory). Out of presence manager scope — would be a separate immersion system.
 
 ## Design Philosophy
 
@@ -199,4 +242,6 @@ AO population overhauled: garrison uses individual groups per unit with cqb_base
 
 Phase 1 is complete. Mission config system + mission archetype refactor both shipped. Four RAID variants live (KILL_CAPTURE, SUPPLY_DESTROY, INTEL_GATHER, HOSTAGE_RESCUE), each driven by ~15 lines of config in `fnc_generateMission`. New mission types of the RAID family are now content authoring tasks.
 
-Next up: **Mission Series Framework** — chain raids with branching logic. The standardized outcome schema (`DSC_lastMissionOutcome`) and intel token system (`DSC_currentMission >> intelTokens`) are both already populated by the mission loop, so series construction is mostly framework code on top of existing data.
+**Presence Manager** — Sprints 1-8 shipped. World simulation populates the area around the player with civilians, military patrols, base garrisons, static defenses, mortars, and contested-zone skirmishes. Mission AO arbitration coordinates with the mission system. Instrumented with per-zone activation latency, periodic STATS reports, debug markers. A 15-minute helicopter performance test surfaced a 22% activation-abandonment rate at speed — the next sprints (A: handler registry refactor, B: per-type perf tuning, C: pause-instead-of-delete) address this before new presence content (Sprint D: structure archetype data; Sprint E: roving entities) lands. See `.crush/presence-manager.md` for the full state.
+
+Next up: **Sprint A — Presence Manager Handler Registry Refactor**. Mechanical extraction of zone-type populate/despawn logic into discrete handler functions, registered with the manager loop. No behavior change; sets the stage for performance tuning (B), pause-instead-of-delete lifecycle (C), and the much larger variety of zone types (D) that the long-term vision needs.

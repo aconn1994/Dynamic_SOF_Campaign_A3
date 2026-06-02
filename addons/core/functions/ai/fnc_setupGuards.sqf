@@ -242,11 +242,17 @@ private _usedPositions = [];
         (_result get "units") pushBack _unit;
         _usedPositions pushBack _pos;
         _totalGuards = _totalGuards + 1;
+
+        uiSleep 0.15;
     } forEach _guardPositions;
 
     if (_guardPositions isNotEqualTo []) then {
         diag_log format ["DSC: setupGuards - %1: %2 guards (%3)", typeOf _building, count _guardPositions, _placementMethod];
     };
+
+    // Yield between buildings so per-frame work stays bounded even when many
+    // buildings spawn 0-1 guards each (large bases).
+    uiSleep 0.1;
 
 } forEach _selectedBuildings;
 
