@@ -146,7 +146,7 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["populate",       DSC_core_fnc_presenceHandlerOutpost],
     ["despawn",        {}],
     ["lifecycle",      "pause"],
-    ["pauseGrace",     150],
+    ["pauseGrace",     75],
     ["paused",         false]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
@@ -160,7 +160,7 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["populate",       DSC_core_fnc_presenceHandlerCamp],
     ["despawn",        {}],
     ["lifecycle",      "pause"],
-    ["pauseGrace",     120],
+    ["pauseGrace",     45],
     ["paused",         false]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
@@ -174,7 +174,7 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["populate",       DSC_core_fnc_presenceHandlerPopulatedArea],
     ["despawn",        {}],
     ["lifecycle",      "pause"],
-    ["pauseGrace",     120],
+    ["pauseGrace",     60],
     ["paused",         false]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
@@ -465,7 +465,13 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         {
             private _z = _zones get _x;
             private _zs = _z get "state";
-            if (_zs in ["ACTIVE", "ACTIVATING", "DESPAWNING", "PAUSED"]) then {
+            // DESPAWNING zones are condemned — the worker will free their
+            // units within the next cycle. Counting them in the budget cap
+            // creates artificial scarcity (60%+ skipRate observed in flight
+            // tests where 10+ zones sat DESPAWNING simultaneously after a
+            // helicopter sprint). Exclude them so closer candidates can
+            // activate while the worker drains the despawn queue.
+            if (_zs in ["ACTIVE", "ACTIVATING", "PAUSED"]) then {
                 _curUnits    = _curUnits + count (_z get "units");
                 _curVehicles = _curVehicles + count (_z get "vehicles");
             };
@@ -588,6 +594,16 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                         if (_minDist > _depR) then {
                             private _lifecycle = [_zType, "lifecycle", "delete"] call _fnc_handlerVal;
                             private _activeFor = round (serverTime - (_zone getOrDefault ["stateSince", serverTime]));
+                            // Speed-aware: if the player blew past at >35 m/s
+                            // (~125 km/h), they're not coming back. Skip pause
+                            // lifecycle and route straight to DESPAWNING so the
+                            // budget isn't consumed by zones that will never
+                            // resume. resumeRate=0% in helicopter sprints proved
+                            // pause is dead weight under sustained motion.
+                            if (_lifecycle == "pause" && _avgPlayerSpeed > 35) then {
+                                _lifecycle = "delete";
+                                ["pauseSkippedFast"] call _fnc_bumpStat;
+                            };
                             if (_lifecycle == "pause") then {
                                 // Freeze instead of delete. Re-entry within pauseGrace
                                 // wakes the zone instantly. Beyond pauseGrace, fall

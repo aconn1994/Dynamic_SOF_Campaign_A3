@@ -251,6 +251,12 @@ private _defenseGroup = createGroup [_side, true];
 // ============================================================================
 if ((units _defenseGroup) isNotEqualTo []) then {
     (_result get "groups") pushBack _defenseGroup;
+    _defenseGroup enableDynamicSimulation true;
+    {
+        if (!isNull objectParent _x) then {
+            (objectParent _x) enableDynamicSimulation true;
+        };
+    } forEach (units _defenseGroup);
     [_defenseGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _defenseGroup;

@@ -20,7 +20,7 @@ class EditorData
 	};
 	class LayerIndexProvider
 	{
-		nextID=587;
+		nextID=606;
 	};
 	class Camera
 	{
@@ -31,7 +31,7 @@ class EditorData
 	};
 };
 binarizationWanted=0;
-sourceName="dsc_altis";
+sourceName="~dsc_altis";
 addons[]=
 {
 	"A3_Structures_F_Mil_Flags",

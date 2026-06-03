@@ -125,6 +125,7 @@ for "_i" from 1 to _numPatrols do {
 
     private _spawnedGroup = [_groupSpawnPos, _side, _groupConfig] call DSC_core_fnc_spawnGroupYielding;
     if (isNull _spawnedGroup) then { continue };
+    _spawnedGroup enableDynamicSimulation true;
     (_result get "groups") pushBack _spawnedGroup;
     (_result get "tags") pushBack _doctrineTags;
     (_result get "units") append (units _spawnedGroup);

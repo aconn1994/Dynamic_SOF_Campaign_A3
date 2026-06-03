@@ -176,6 +176,7 @@ Groups are tagged by the classifier for downstream filtering:
 - Vehicle patrol dismount cycle is deferred — current implementation drives road loops only
 - **Presence manager state machine** — `_activateQueue` and `_despawnQueue` must be mutated **in place** (`deleteAt`). Reassigning the local (`_q = _q - [_zone]`) creates a new array, breaks the worker's reference, and silently leaks units. Same for ACTIVATING→DORMANT: if entities already exist on the zone, route through DESPAWNING or you orphan them.
 - **Presence manager handler dispatch** (Sprint A) — when adding new zone types, register a handler with `fnc_registerPresenceHandler`. Do not add branches to `fnc_activatePresenceZone`. See `.crush/presence-manager.md`.
+- **Dynamic simulation is enabled globally** — `enableDynamicSimulationSystem true` in `fnc_initServer` Step 0. Category distances: Group=1500m, Vehicle=2000m, EmptyVehicle=500m, Prop=300m. Every presence-spawned group MUST opt in via `enableDynamicSimulation true` (already wired in setupCivilians, setupGarrison, setupPatrols, setupStaticDefenses, setupMortarEmplacement, setupVehicles, setupGuards, setupVehiclePatrol). Combat activation (FiredNear EH) is unaffected by dyn-sim state. NOTE: `setDynamicSimulationDistanceCoef` is a **global** setter (takes a class String, not a Group/Object); there is no per-entity coef in stock Arma — to vary AI ranges per role, tune the global category distances instead.
 
 ## Detailed System Docs
 

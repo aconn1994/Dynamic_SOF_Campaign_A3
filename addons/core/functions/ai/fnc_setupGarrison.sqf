@@ -329,18 +329,23 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
                 [_grp, _reactionDelay] call DSC_core_fnc_addCombatActivation;
             };
 
+            _grp enableDynamicSimulation true;
+
             (_result get "groups") pushBack _grp;
             (_result get "units") pushBack _unit;
             (_result get "tags") pushBack ["GARRISON", "FOOT"];
 
             _clusterUnits = _clusterUnits + 1;
+            uiSleep 0.1;
         } forEach _spawnPositions;
 
+        uiSleep 0.1;
     } forEach _clusterBuildings;
 
     diag_log format ["DSC: setupGarrison - Cluster at %1: %2 buildings, %3 units",
         _anchorPos, count _clusterBuildings, _clusterUnits];
 
+    uiSleep 0.15;
 } forEach _anchors;
 
 // ============================================================================

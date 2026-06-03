@@ -57,10 +57,9 @@ workshop = [
 ]
 
 [play_test_factions]
-extends = "developer_factions"
+extends = "developer_ace"
 workshop = [
     "1638341685", # DUI - Squad Radar
-    "2791403093", # Better Inventory
     "2884936024", # Blastcore Compiled
     "1770265310", # No More Aircraft Bouncing
     "2041057379", # A3 Thermal Improvement

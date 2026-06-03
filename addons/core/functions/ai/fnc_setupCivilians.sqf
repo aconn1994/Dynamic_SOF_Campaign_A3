@@ -165,6 +165,10 @@ for "_i" from 0 to (_count - 1) do {
     private _cycleWp = _group addWaypoint [_locationPos, 0];
     _cycleWp setWaypointType "CYCLE";
 
+    // Dyn-sim: engine freezes idle civilians outside the Group activation
+    // distance (1500m globally). Combat activation is unaffected.
+    _group enableDynamicSimulation true;
+
     (_result get "units")  pushBack _unit;
     (_result get "groups") pushBack _group;
     _spawned = _spawned + 1;

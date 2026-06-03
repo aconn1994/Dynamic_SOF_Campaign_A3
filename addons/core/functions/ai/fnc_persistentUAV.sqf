@@ -54,11 +54,18 @@ _uav flyInHeight _altitude;
 _uav allowDamage true;
 
 // Connect to player terminal
+// IMPORTANT: don't use CARELESS — it makes the AI cling to its current
+// waypoint and ignore terminal "Move here" / "Loiter here" commands.
+// AWARE + disableAI AUTOCOMBAT keeps the drone non-engaging while
+// remaining responsive to player AI commands from the terminal.
 private _uavGroup = group _uav;
-{
-    _x setBehaviour "CARELESS";
-    _x disableAI "AUTOCOMBAT";
-} forEach units _uavGroup;
+// {
+//     _x setBehaviour "AWARE";
+//     _x setCombatMode "BLUE";
+//     _x disableAI "AUTOCOMBAT";
+//     _x disableAI "TARGET";
+//     _x disableAI "AUTOTARGET";
+// } forEach units _uavGroup;
 
 // Make undetectable by enemy AI
 _uav setCaptive true;

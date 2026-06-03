@@ -206,10 +206,16 @@ private _vehiclesSpawned = 0;
 // ============================================================================
 if (units _crewGroup isNotEqualTo []) then {
     (_result get "groups") pushBack _crewGroup;
+    _crewGroup enableDynamicSimulation true;
     [_crewGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _crewGroup;
 };
+
+// Vehicles themselves: parked unarmed = "EmptyVehicle" (500m), armed w/crew
+// = follows crew via "Vehicle" (2000m). Opt the vehicles in so the engine
+// freezes the empty ones when no player is near.
+{ _x enableDynamicSimulation true } forEach (_result get "vehicles");
 
 diag_log format ["DSC: fnc_setupVehicles - Spawned %1 vehicles (%2 with crew)", _vehiclesSpawned, count (_result get "units")];
 

@@ -1,6 +1,6 @@
 # Presence Manager — DSC World Simulation
 
-*Last updated: June 2026 — Sprints 1-8 + A/B/C/D shipped, irregular-overlay tangent shipped, Sprint E next*
+*Last updated: June 2026 — Sprints 1-8 + A/B/C/D + Stutter Pass shipped, real-mission shakedown next, Sprint E after*
 
 ## Overview
 
@@ -114,11 +114,32 @@ Special transitions:
 | Type | actR | depR | grace | budgetU/V | lifecycle | pauseGrace | Spawn content |
 |---|---|---|---|---|---|---|---|
 | `base` | 1500 | 4000 | 90s | 20 / 3 | delete | (180s configured, not used) | Static defenders + 2-3 patrols + 1-2 mortars + 2 parked vehicles |
-| `outpost` | 1200 | 3000 | 75s | 8 / 1 | pause | 150s | Static defenders (towers, marksmen, statics) + 1-2 small patrols + 0-1 parked vehicle |
-| `camp` | 900 | 1800 | 60s | 4 / 1 | pause | 120s | 1 patrol if controlled; armed-civilian patrol if `controlledBy=neutral` |
-| `populatedArea` | 1500 | 2400 | 60s | 8 / 0 | pause | 120s | Civilians (3-12, influence-scaled) + optional military overlay + contested skirmish opposing patrol + irregular overlay on neutral zones |
+| `outpost` | 1200 | 3000 | 75s | 8 / 1 | pause | 75s | Static defenders (towers, marksmen, statics) + 1-2 small patrols + 0-1 parked vehicle |
+| `camp` | 900 | 1800 | 60s | 4 / 1 | pause | 45s | 1 patrol if controlled; armed-civilian patrol if `controlledBy=neutral` |
+| `populatedArea` | 1500 | 2400 | 60s | 8 / 0 | pause | 60s | Civilians (3-12, influence-scaled) + optional military overlay + contested skirmish opposing patrol + irregular overlay on neutral zones |
 
 Tick interval: 8s (global). Budget cap: 150 units / 40 vehicles.
+
+**Speed-aware pause skip** (June 2026 post-flight-test tuning) — when the
+player's average tick speed exceeds 35 m/s (~125 km/h), the `ACTIVE → exit`
+decision forces `lifecycle=delete` regardless of registered config. This
+prevents helicopter sprints from filling the budget cap with PAUSED zones
+the player will never return to. Stat counter: `pauseSkippedFast`.
+
+**Budget excludes DESPAWNING** (June 2026 second pass) — condemned zones
+are no longer counted against the unit/vehicle cap. Previously a wave of
+zones in DESPAWNING (waiting for the worker to drain them) artificially
+exhausted the budget and forced new candidates to skip. Counting only
+`ACTIVE + ACTIVATING + PAUSED` aligns the cap with zones that actually
+consume resources for more than a worker cycle.
+
+**Note on testing with `setAccTime`**: don't tune from logs captured at
+accelerated sim time. The presence manager mixes real-time (`uiSleep`,
+`diag_tickTime`, worker yields) with sim-time (`sleep`, `serverTime`,
+`velocity`). Under 4× sim time: ticks fire 4× faster, grace counters
+expire 4× faster, but per-unit spawn cost stays at real-time, making
+the worker look stalled and latencies look catastrophic. Always validate
+perf changes at 1× speed.
 
 ### Subsystems
 
@@ -182,15 +203,17 @@ opFor-controlled towns). Lifts automatically when the mission ends.
 Before Sprint B, we ran a 15-minute helicopter loop at sustained 60-73 m/s
 with full metrics. Key numbers:
 
-| Metric | Pre-tuning | Post Sprint B | Post Sprint C |
-|---|---|---|---|
-| Activations | 41 | 24 | 9 |
-| Completion rate | 98-100% | 100% | 100% |
-| Budget skip rate | 5% | 0% | 0% |
-| Avg latency | 20.06s | 8.7s | 8.0s |
-| **Abandoned (spawned but player blew past)** | **22%** | **0%** | **0%** |
-| Active duration (avg) | ~25s | ~50-80s | ~60-100s |
-| Pause/resume saves | n/a | n/a | 3 of 7 paused zones resumed (43%) |
+| Metric | Pre-tuning | Post Sprint B | Post Sprint C | Post Stutter Pass (June '26) |
+|---|---|---|---|---|
+| Activations (9-min loop) | 41 | 24 | 9 | 21 |
+| Completion rate | 98-100% | 100% | 100% | 100% |
+| Budget skip rate | 5% | 0% | 0% | **0%** (was 60% before fix) |
+| Avg latency | 20.06s | 8.7s | 8.0s | 15s (heavier per-zone work post-Sprint D) |
+| **Abandoned (spawned but player blew past)** | **22%** | **0%** | **0%** | **0%** |
+| Active duration (avg) | ~25s | ~50-80s | ~60-100s | 40-180s |
+| Pause/resume saves | n/a | n/a | 3 of 7 paused zones resumed (43%) | 0 (speed-skip routes sprints to delete) |
+| Active zones during sprint (cruise) | n/a | n/a | 1-3 | **4-6** |
+| Peak budget usage | n/a | n/a | 163u/150u (over) | 143u/150u (under) |
 
 ### Original root cause (now resolved)
 
@@ -661,7 +684,51 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 11. **Sprint C** — PAUSED state + freeze/resume lifecycle (populatedArea, camp, outpost); base stays delete
 12. **Tangent (post-C)** — Irregular overlay fills neutral-influence populated areas and camps with a small armed-civilian patrol, force-east-side for player hostility
 13. **Sprint D** — Functional location tags (`industrial_zone`, `commercial_hub`, `port_zone`, etc.) + `primaryFunction` from scanner; populatedArea civilians now flavored by zone character via weighted `classMix` (new `civilian_worker` resolver); indoor garrison layer adds two passes per populated zone — a controlling-faction garrison (gated by control + influence, mission-density caps/satellites) and an always-on irregular garrison (low-chance armed-civilian compound, runs regardless of control). New helpers: `fnc_setupLightMilitaryGarrison`, `garrison_light` skill profile. Civilian-garrison variant built but disabled.
+14. **Stutter Pass (June 2026)** — Post-Sprint-D stutter investigation. Five independent fixes shipped: (a) `fnc_setupGarrison` got `uiSleep` yields per createUnit + between buildings + between clusters (was the only setup fn without yields; Sprint D's controlling+irregular passes were bursting 12-20 createUnits in one scheduler slot). (b) `enableDynamicSimulationSystem true` + global category distances added to `fnc_initServer` (was completely off — every `triggerDynamicSimulation` call in the codebase was a silent no-op); every presence-spawned group opts in via `enableDynamicSimulation true`. Discovered `setDynamicSimulationDistanceCoef` is a global category setter (takes a String like `setDynamicSimulationDistance`), not a per-group setter — there is no per-group coef in stock Arma. (c) `pauseGrace` shortened across the board (populatedArea 120→60s, outpost 150→75s, camp 120→45s). (d) Speed-aware pause skip — when avg player speed >35 m/s, ACTIVE→exit routes to `delete` regardless of registered lifecycle, preventing helicopter sprints from filling the cap with PAUSED zones that will never resume. (e) DESPAWNING excluded from budget gate calculation — condemned zones were inflating `usedUnits` while waiting for the worker, causing false-positive cap exhaustion. Combined result: `skipRate` dropped 60% → 0%, peak budget 163u → 143u, active zones during sustained sprint 0-1 → 4-6.
+15. **Engine dyn-sim layer enabled** — see dedicated section below.
 
 ## Sprints Up Next
 
+- **Real-mission shakedown** — verify dyn-sim doesn't freeze AI at wrong moments, combat activation triggers cleanly, no boundary stutters when crossing population edges on foot/in vehicle
 - **Sprint E** *(separate subsystem)* — Roving entities (civilian vehicles, mil patrols, boats)
+
+## Engine Dynamic Simulation Layer (June 2026)
+
+Orthogonal to the state machine and the pause lifecycle. Activated in
+`fnc_initServer` Step 0:
+
+```sqf
+enableDynamicSimulationSystem true;
+"Group"        setDynamicSimulationDistance 1500;
+"Vehicle"      setDynamicSimulationDistance 2000;
+"EmptyVehicle" setDynamicSimulationDistance 500;
+"Prop"         setDynamicSimulationDistance 300;
+```
+
+Every presence-spawned group opts in (`enableDynamicSimulation true`):
+
+| Setup fn | Opt-in | Effective AI distance |
+|---|---|---|
+| `setupCivilians` | ✓ | 1500m (Group) |
+| `setupGarrison` | ✓ | 1500m |
+| `setupPatrols` | ✓ | 1500m |
+| `setupStaticDefenses` | ✓ (group + statics) | 1500m / 2000m statics |
+| `setupMortarEmplacement` | ✓ (group + mortars) | 1500m / 2000m mortars |
+| `setupVehicles` | ✓ (crew + vehicles) | 1500m / 500m parked empty |
+| `setupGuards` | ✓ | 1500m |
+| `setupVehiclePatrol` | ✓ | 1500m / 2000m vehicle |
+
+`setDynamicSimulationDistanceCoef` is **global** (takes a class String,
+same as `setDynamicSimulationDistance`) — there is no per-group or
+per-unit coef. To vary AI ranges per role, tune the global category
+distances. We initially attempted civilian-specific shortening via coef
+calls on Groups/Objects; those error and were reverted.
+
+Interaction with presence lifecycle:
+- Pause (`enableSimulation false`) is the explicit "player left" freeze
+- Dyn-sim is the per-frame "no one's looking" auto-freeze inside ACTIVE
+- They stack cleanly. Combat activation (FiredNear) bypasses both.
+
+Previously the engine system was off — `triggerDynamicSimulation true`
+calls in `fnc_setupBase.sqf` were silent no-ops. Discovered and fixed
+during the post-Sprint-D stutter investigation.

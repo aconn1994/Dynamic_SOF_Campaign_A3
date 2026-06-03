@@ -140,6 +140,9 @@ _spawnedGroup setVariable ["DSC_vehPatrol_state", "DRIVING"];
 _spawnedGroup setVariable ["DSC_vehPatrol_qrf", false];
 _spawnedGroup setVariable ["DSC_vehPatrol_center", _locationPos];
 
+_spawnedGroup enableDynamicSimulation true;
+_vehicle enableDynamicSimulation true;
+
 diag_log format ["DSC: fnc_setupVehiclePatrol - Spawned %1: vehicle %2, crew %3, dismounts %4",
     _groupName, typeOf _vehicle, count _crew, count _dismounts];
 
