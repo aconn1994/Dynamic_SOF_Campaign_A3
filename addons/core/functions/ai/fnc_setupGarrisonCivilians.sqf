@@ -2,6 +2,12 @@
 /*
  * Function: DSC_core_fnc_setupGarrisonCivilians
  * Description:
+ *     [Currently UNUSED — kept as dormant utility.] Civilian indoor
+ *     garrison was trialed alongside the light-military garrison but
+ *     disabled because the wandering civilian pass already carries the
+ *     "alive" feel without the per-cluster cost. Re-enable by reinstating
+ *     the civilian-cluster path in fnc_presenceHandlerPopulatedArea.
+ *
  *     Thin wrapper around fnc_setupGarrison that places civilians inside
  *     building positions instead of military units. Used by the presence
  *     manager to give towns/settlements/compounds the feeling of "people

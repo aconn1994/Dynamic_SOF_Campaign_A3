@@ -459,73 +459,93 @@ specialized population, and the resolver can grow new keys
 (`civilian_dockworker`, `civilian_youth`, etc.) without touching the
 scanner.
 
-**Part 3 — Indoor garrison layer (populated areas + neutral camps).** On
-top of the wandering civilian pass, the populatedArea handler now places
-1-2 *indoor* clusters per zone using `fnc_setupGarrison` driven by two new
-wrappers:
+**Part 3 — Indoor garrison layer (populated areas).** On top of the
+wandering civilian pass, the populatedArea handler now places multiple
+*indoor* clusters of armed units using `fnc_setupGarrison` + a new
+wrapper:
 
-- `fnc_setupGarrisonCivilians` — civilians inside building positions
-  (CARELESS, allowFleeing 0, skill 0.3). Headcount is hard-capped by an
-  inverse-density size tier so cities don't get destroyed by population
-  scaling:
-
-  | sizeTier | bldg count | anchor range | unit caps (main/side) | zone-gate roll |
-  |---|---|---|---|---|
-  | isolated   | <5    | 1     | 2 / 1 | 80% |
-  | settlement | 5-14  | 1-2   | 2 / 1 | 70% |
-  | town       | 15-49 | 1     | 2 / 1 | 45% |
-  | city       | 50+   | 1     | 2 / 1 | 45% (= town for first rollout) |
-
-- `fnc_setupLightMilitaryGarrison` — small armed garrison from the
+- `fnc_setupLightMilitaryGarrison` — armed garrison cluster from the
   controlling side's foot-infantry pool. Uses combat activation
   (FiredNear EH) and the new `garrison_light` skill profile (softer than
-  `cqb_baseline` — slow reactions, wide spread). Gate: `controlledBy ∈
-  {opFor, bluFor, contested}` AND `influence ≥ 0.4`.
+  `cqb_baseline` — slow reactions, wide spread). Tuned to **mission
+  density** (caps + satellites match `fnc_populateAO`):
 
-Both wrappers share an `anchorCount` override so the handler can
-orchestrate per-cluster civ-vs-military splits. The roll matrix:
+  | sizeTier | bldg count | anchors | mainCap / sideCap | satellite range | sat radius |
+  |---|---|---|---|---|---|
+  | isolated   | <5    | 1     | 4 / 2 | 1-2 | 50m |
+  | settlement | 5-14  | 1-2   | 4 / 2 | 1-3 | 50m |
+  | town       | 15-49 | 1-2   | 4 / 2 | 1-3 | 50m |
+  | city       | 50+   | 1-3   | 4 / 2 | 1-3 | 50m |
 
-| Zone control | Civilian | Light Mil | Notes |
-|---|---|---|---|
-| neutral   | 100% | 0% | No military gate passes |
-| bluFor    | 70% | 30% | Friendly partner occupies a house |
-| opFor     | 60% | 40% | Hostile-occupied house |
-| contested | 50% | 50% | Side re-rolled per cluster (opFor *or* bluFor) |
+  Each cluster = 1 anchor (up to 4 units) + 1-3 satellites within 50m
+  (up to 2 units each) → **6-10 units per occupied compound**.
 
-Per-cluster roll creates emergent "is that building occupied? civilians
-or hostiles?" tension. A 2-anchor town can land both civ, both mil, or
-one of each — and the player has no way to tell from outside.
+The handler runs **two independent garrison passes** per zone:
 
-**Camp handler** also gets a rare (~30%) indoor civilian garrison on
-neutral camps to add "abandoned compound that turns out to be inhabited"
-moments. Other camp control types skip the garrison pass — military
-pipeline already handles them.
+1. **Controlling-faction garrison** — gated by `controlledBy ∈ {opFor,
+   bluFor, contested}` AND `influence ≥ 0.3`. The handler decides total
+   cluster count by sizeTier (isolated 1, settlement/town 1-2, city
+   1-3), then per-cluster engagement roll (70% across all three controls)
+   determines how many actually spawn. Contested side is re-rolled per
+   call — opFor *or* bluFor partner.
 
-**Excluded by design**: `base` and `outpost` zones never spawn indoor
-garrisons. Bases are deterrent territory players are meant to *avoid*,
-not clear room by room.
+2. **Irregular garrison** — runs on *any* populated zone regardless of
+   control or influence. Represents the armed civilian populace, so it
+   shouldn't depend on faction control. Always 1 cluster, force-east
+   side for player hostility (same trick used by the wandering
+   irregular overlay + contested skirmish). Sources from `irregulars`
+   role, falls back to `opForPartner`.
+
+   | Control | Irregular garrison chance |
+   |---|---|
+   | neutral   | 40% |
+   | contested | 40% |
+   | opFor     | 20% |
+   | bluFor    | 25% |
+
+   Higher on neutral/contested (the populace is the only armed
+   presence); lower on opFor/bluFor (controlling garrison already
+   provides combat encounters there). opFor towns can stack both
+   garrison passes — rare, but creates dense compound encounters.
+
+A civilian indoor garrison variant (`fnc_setupGarrisonCivilians`) was
+also built but is currently **disabled** — wandering civilians already
+carry the "alive" feel without the extra budget cost. The wrapper is
+kept as a dormant utility, easy to re-enable from the handler if
+revisited later.
+
+**Camp / base / outpost zones**: no indoor garrison. Camps already have
+their light patrol or irregular overlay; bases and outposts are
+deterrent territory players are meant to *avoid*, not clear room by
+room.
 
 **Files added/changed**:
 - `addons/core/functions/ai/fnc_setupGarrison.sqf` — `unitPoolOverride`
   config branch (skips CfgGroups walk when supplied)
 - `addons/core/functions/ai/fnc_setupGarrisonCivilians.sqf` — new
-  wrapper, classMix-driven pool, CARELESS post-processing
+  wrapper, classMix-driven pool, CARELESS post-processing (currently
+  unused)
 - `addons/core/functions/ai/fnc_setupLightMilitaryGarrison.sqf` — new
-  wrapper, combat-activation, `garrison_light` skill profile
+  wrapper, combat-activation, `garrison_light` skill profile,
+  mission-density satellite/cap settings
 - `addons/core/functions/ai/fnc_getSkillProfile.sqf` — added
   `garrison_light` profile
 - `addons/core/functions/presence/fnc_initPresenceManager.sqf` — zone
   hashmap now carries `mainStructures` / `sideStructures` (anchor
   selection needs them)
 - `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf`
-  — orchestrates per-cluster civ/mil split
-- `addons/core/functions/presence/fnc_presenceHandlerCamp.sqf` — rare
-  neutral-camp civilian garrison
+  — controlling-faction garrison + always-on irregular garrison pass
+- `addons/core/functions/presence/fnc_presenceHandlerCamp.sqf` —
+  unchanged content (civilian-garrison variant trialed and removed)
 
-**Budget impact**: ~2-4 added units per typical zone, gated by the
-spawn-chance roll (≈55% of populated zones add nothing). Cities held
-flat to town levels intentionally for first observation pass; will be
-dialed down separately if perf degrades.
+**Budget impact**: With mission-density tuning, an active opFor town can
+add up to ~12-20 indoor units (controlling cluster + irregular cluster)
+on top of wandering civilians and the existing military overlay. The
+combined per-cluster + irregular spawn rolls keep most activations
+lighter, but worst-case populated zones now sit around 25-35u (vs ~10u
+pre-Sprint-D). Sprint B's 150u global budget cap absorbs this; if perf
+shows pressure, the first lever is the controlling-faction per-cluster
+engagement roll (currently 0.70 across all three controls).
 
 **Sprint E — Roving Entities Subsystem** (separate from zones)
 
@@ -608,15 +628,21 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 | `addons/core/functions/presence/fnc_presenceHandlerBase.sqf` | Base preset (delete lifecycle) |
 | `addons/core/functions/presence/fnc_presenceHandlerOutpost.sqf` | Outpost preset (pause lifecycle, 150s) |
 | `addons/core/functions/presence/fnc_presenceHandlerCamp.sqf` | Camp preset (pause lifecycle, 120s); short-circuits to irregular overlay for neutral |
-| `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf` | Civilians + military overlay + skirmish + irregular overlay (pause lifecycle, 120s) |
+| `addons/core/functions/presence/fnc_presenceHandlerPopulatedArea.sqf` | Civilians + military overlay + skirmish + irregular overlay + indoor garrison passes (pause lifecycle, 120s) |
 | `addons/core/functions/presence/fnc_presenceLogTimings.sqf` | Per-call timing aggregation |
-| `addons/core/functions/ai/fnc_setupCivilians.sqf` | Civilian peds with CARELESS waypoints |
+| `addons/core/functions/ai/fnc_setupCivilians.sqf` | Civilian peds with CARELESS waypoints; accepts weighted `classMix` |
+| `addons/core/functions/ai/fnc_setupGarrison.sqf` | Indoor anchor+satellite garrison engine; `unitPoolOverride` config supported |
+| `addons/core/functions/ai/fnc_setupGarrisonCivilians.sqf` | Civilian indoor garrison wrapper (dormant — currently unused) |
+| `addons/core/functions/ai/fnc_setupLightMilitaryGarrison.sqf` | Indoor military garrison wrapper, mission-density caps, `garrison_light` skill |
 | `addons/core/functions/ai/fnc_setupStaticDefenses.sqf` | Tower + bunker defenders, marksman-preferred pool |
 | `addons/core/functions/ai/fnc_setupMortarEmplacement.sqf` | Mortar tube + crew |
 | `addons/core/functions/ai/fnc_setupContestedSkirmish.sqf` | West-side opposing patrol for contested zones |
 | `addons/core/functions/ai/fnc_resolveIrregularOverlay.sqf` | Armed-civilian patrol for neutral-influence zones (east-side, hostile to player) |
+| `addons/core/functions/ai/fnc_resolveCivilianMix.sqf` | Tag → resolver-key weighted civilian mix |
 | `addons/core/functions/ai/fnc_setupPatrols.sqf` | Group spawn + `taskPatrol`, supports `spawnAngle` |
 | `addons/core/functions/ai/fnc_filterPatrolGroups.sqf` | Recce/fireteam filter |
+| `addons/core/functions/ai/fnc_getSkillProfile.sqf` | Skill profiles incl. `garrison_light` |
+| `addons/core/functions/faction/fnc_resolveEntityClass.sqf` | Civilian resolver keys (`civilian`, `_suit`, `_labcoat`, `_worker`) |
 | `addons/core/functions/faction/fnc_spawnGroupYielding.sqf` | Drop-in BIS_fnc_spawnGroup with yields |
 | `.crush/PRESENCE_MANAGER.md` | Research/notes from Claude Web — kept for context |
 
@@ -634,7 +660,7 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 10. **Sprint B** — Per-handler tuning: 8s tick, asymmetric hysteresis bands, 150u/40v budget, active-duration log
 11. **Sprint C** — PAUSED state + freeze/resume lifecycle (populatedArea, camp, outpost); base stays delete
 12. **Tangent (post-C)** — Irregular overlay fills neutral-influence populated areas and camps with a small armed-civilian patrol, force-east-side for player hostility
-13. **Sprint D** — Functional location tags (`industrial_zone`, `commercial_hub`, `port_zone`, etc.) + `primaryFunction` from scanner; populatedArea civilians now flavored by zone character via weighted `classMix` (new `civilian_worker` resolver); indoor garrison layer adds per-cluster civilian-vs-light-military roll on populated areas + rare civilian garrison on neutral camps (`fnc_setupGarrisonCivilians`, `fnc_setupLightMilitaryGarrison`, `garrison_light` skill profile)
+13. **Sprint D** — Functional location tags (`industrial_zone`, `commercial_hub`, `port_zone`, etc.) + `primaryFunction` from scanner; populatedArea civilians now flavored by zone character via weighted `classMix` (new `civilian_worker` resolver); indoor garrison layer adds two passes per populated zone — a controlling-faction garrison (gated by control + influence, mission-density caps/satellites) and an always-on irregular garrison (low-chance armed-civilian compound, runs regardless of control). New helpers: `fnc_setupLightMilitaryGarrison`, `garrison_light` skill profile. Civilian-garrison variant built but disabled.
 
 ## Sprints Up Next
 

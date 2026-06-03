@@ -77,14 +77,15 @@ if (_sizeTier == "") then {
 };
 
 // City === town intentionally for first rollout.
+// [anchorMin, anchorMax, mainCap, sideCap, spawnChance, satMin, satMax]
 private _tier = switch (_sizeTier) do {
-    case "isolated":   { [1, 1, 2, 1, 0.70] };
-    case "settlement": { [1, 1, 2, 1, 0.60] };
-    case "town":       { [1, 1, 2, 1, 0.40] };
-    case "city":       { [1, 1, 2, 1, 0.40] };
-    default            { [1, 1, 1, 1, 0.25] };
+    case "isolated":   { [1, 1, 4, 2, 0.70, 1, 2] };
+    case "settlement": { [1, 2, 4, 2, 0.70, 1, 3] };
+    case "town":       { [1, 2, 4, 2, 0.70, 1, 3] };
+    case "city":       { [1, 3, 4, 2, 0.70, 1, 3] };
+    default            { [1, 3, 4, 2, 0.70, 1, 3] };
 };
-_tier params ["_aMin", "_aMax", "_mainCap", "_sideCap", "_spawnChance"];
+_tier params ["_aMin", "_aMax", "_mainCap", "_sideCap", "_spawnChance", "_satMin", "_satMax"];
 
 private _anchorOverride = _config getOrDefault ["anchorCount", -1];
 if (_anchorOverride >= 0) then {
@@ -108,9 +109,9 @@ private _garrisonConfig = createHashMapFromArray [
     ["sideStructureCap", _sideCap],
     ["density",          "light"],
     ["scalingTable", [
-        [99999, [_aMin, _aMax], [0, 1]]
+        [99999, [_aMin, _aMax], [_satMin, _satMax]]
     ]],
-    ["satelliteRadius",  35],
+    ["satelliteRadius",  50],
     ["skillProfile",     "garrison_light"],
     ["skillVariance",    0.05],
     ["combatActivation", true],

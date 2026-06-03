@@ -68,16 +68,26 @@ if ((count _civClassMix) > 1) then {
 };
 
 // ============================================================================
-// Indoor garrison layer (Sprint D part 3) — civilians + optional light mil
+// Indoor garrison layer (Sprint D part 3) — light military only
 // ============================================================================
-// Per-cluster civ/mil roll creates "is that building occupied? civvies or
-// hostiles?" tension. Density inverse to zone size so cities stay affordable
-// (see fnc_setupGarrisonCivilians sizeTier table).
+// Civilian indoor garrisons were trialed and disabled — they cost budget
+// for little gameplay payoff (wandering civilians already carry the
+// "alive" feel). Light military indoor garrisons stay: they create the
+// "is that building occupied?" tension in hostile/contested territory.
+//
+// Irregulars (armed civilian populace) get a separate, independent roll
+// that runs on *any* populated area regardless of control/influence —
+// they're not aligned with the controlling faction, they're locals who
+// happen to be armed. Roll is intentionally low (~25-35%) so encounters
+// stay surprising rather than constant.
 private _mainStructs = _zone getOrDefault ["mainStructures", []];
 private _sideStructs = _zone getOrDefault ["sideStructures", []];
 private _totalStructs = (count _mainStructs) + (count _sideStructs);
 
-if (_totalStructs > 0) then {
+private _milAllowed = (_controlledBy in ["opFor", "bluFor", "contested"])
+    && { _influence >= 0.3 };
+
+if (_totalStructs > 0 && _milAllowed) then {
     private _sizeTier = switch (true) do {
         case (_totalStructs < 5):  { "isolated" };
         case (_totalStructs < 15): { "settlement" };
@@ -87,66 +97,42 @@ if (_totalStructs > 0) then {
 
     // Overall zone-gate roll — perf safety valve. Larger zones less likely.
     private _zoneChance = switch (_sizeTier) do {
-        case "isolated":   { 0.80 };
-        case "settlement": { 0.70 };
-        case "town":       { 0.45 };
-        case "city":       { 0.45 };  // === town for first rollout
-        default            { 0.30 };
+        case "isolated":   { 1 };
+        case "settlement": { 1 };
+        case "town":       { 1 };
+        case "city":       { 1 };  // === town for first rollout
+        default            { 1 };
     };
 
     if (random 1 <= _zoneChance) then {
         // Total cluster count per tier (1-2 max)
         private _totalClusters = switch (_sizeTier) do {
-            case "isolated":   { 1 };
+            case "isolated":   { (selectRandom [1, 1]) };
             case "settlement": { (selectRandom [1, 2]) };
-            case "town":       { 1 };
-            case "city":       { 1 };
-            default            { 1 };
+            case "town":       { (selectRandom [1, 2]) };
+            case "city":       { (selectRandom [1, 3]) };
+            default            { (selectRandom [1, 2]) };
         };
 
-        // Military-garrison gate
-        private _milAllowed = (_controlledBy in ["opFor", "bluFor", "contested"])
-            && { _influence >= 0.4 };
-
-        // Per-cluster type roll
-        private _civClusters = 0;
+        // Per-cluster engagement roll — even in hostile territory, not every
+        // building is a hardpoint. Skip rate by control: bluFor 70%, opFor
+        // 60%, contested 50% (numbers mirror prior civ/mil split).
         private _milClusters = 0;
         for "_i" from 1 to _totalClusters do {
             private _roll = random 1;
-            private _wantMil = false;
-            switch (_controlledBy) do {
-                case "neutral":    { _wantMil = false };
-                case "bluFor":     { _wantMil = (_roll < 0.30) };
-                case "opFor":      { _wantMil = (_roll < 0.40) };
-                case "contested":  { _wantMil = (_roll < 0.50) };
-                default            { _wantMil = false };
+            private _wantMil = switch (_controlledBy) do {
+                case "bluFor":    { _roll < 0.70 };
+                case "opFor":     { _roll < 0.70 };
+                case "contested": { _roll < 0.70 };
+                default            { false };
             };
-            if (_wantMil && !_milAllowed) then { _wantMil = false };
-            if (_wantMil) then { _milClusters = _milClusters + 1 }
-                          else { _civClusters = _civClusters + 1 };
+            if (_wantMil) then { _milClusters = _milClusters + 1 };
         };
 
-        // --- Civilian garrison call ---
-        if (_civClusters > 0) then {
-            private _garrCivResult = [_pos, createHashMapFromArray [
-                ["mainStructures", _mainStructs],
-                ["sideStructures", _sideStructs],
-                ["classMix",       _civClassMix],
-                ["sizeTier",       _sizeTier],
-                ["anchorCount",    _civClusters],
-                ["forceSpawn",     true]
-            ]] call DSC_core_fnc_setupGarrisonCivilians;
-
-            (_zone get "units")  append (_garrCivResult getOrDefault ["units", []]);
-            (_zone get "groups") append (_garrCivResult getOrDefault ["groups", []]);
-        };
-
-        // --- Military garrison call (per-cluster side from controlling roles) ---
         if (_milClusters > 0) then {
             private _factionData = missionNamespace getVariable ["DSC_factionData", createHashMap];
 
-            // For contested: re-roll side per call (chaos). Other controls
-            // use a fixed role list.
+            // Contested: re-roll side per call (chaos). Other controls fixed.
             private _garrRoles = switch (_controlledBy) do {
                 case "opFor":     { ["opFor", "opForPartner", "irregulars"] };
                 case "bluFor":    { ["bluForPartner", "bluFor"] };
@@ -199,9 +185,83 @@ if (_totalStructs > 0) then {
                 (_zone get "units")  append (_garrMilResult getOrDefault ["units", []]);
                 (_zone get "groups") append (_garrMilResult getOrDefault ["groups", []]);
 
-                diag_log format ["DSC: activatePresenceZone [%1] - garrison: %2 civ-cluster(s), %3 mil-cluster(s) (role=%4 tier=%5 ctrl=%6)",
-                    _id, _civClusters, _milClusters, _garrRole, _sizeTier, _controlledBy];
+                diag_log format ["DSC: activatePresenceZone [%1] - mil garrison: %2 cluster(s) (role=%3 tier=%4 ctrl=%5)",
+                    _id, _milClusters, _garrRole, _sizeTier, _controlledBy];
             };
+        };
+    };
+};
+
+// ============================================================================
+// Irregular indoor garrison — runs on any populated area, low chance
+// ============================================================================
+// Armed civilian populace. Independent of `controlledBy` / `_influence` so
+// the player can stumble into a hostile compound anywhere. Sourced from the
+// `irregulars` role (falls back to `opForPartner` to match the wandering
+// irregular overlay's role priority). Force-east side for player hostility
+// — same trick the irregular overlay + contested skirmish use.
+if (_totalStructs > 0) then {
+    private _sizeTier = switch (true) do {
+        case (_totalStructs < 5):  { "isolated" };
+        case (_totalStructs < 15): { "settlement" };
+        case (_totalStructs < 50): { "town" };
+        default                    { "city" };
+    };
+
+    // Higher chance in neutral/contested (where the populace is the only
+    // armed presence), lower in opFor-/bluFor-controlled (controlling
+    // garrison already provides combat encounters).
+    private _irrChance = switch (_controlledBy) do {
+        case "neutral":   { 0.40 };
+        case "contested": { 0.40 };
+        case "opFor":     { 0.20 };
+        case "bluFor":    { 0.25 };
+        default            { 0.30 };
+    };
+
+    if (random 1 < _irrChance) then {
+        private _factionData = missionNamespace getVariable ["DSC_factionData", createHashMap];
+
+        private _irrGroups = [];
+        private _irrRole = "";
+        {
+            private _role = _x;
+            private _roleData = _factionData getOrDefault [_role, createHashMap];
+            private _roleGroupsHM = _roleData getOrDefault ["groups", createHashMap];
+
+            private _collected = [];
+            {
+                _collected append (_y select {
+                    private _t = _x getOrDefault ["doctrineTags", []];
+                    ("FOOT" in _t || "PATROL" in _t)
+                        && { !("ARMOR" in _t) }
+                        && { !("NAVAL" in _t) }
+                });
+            } forEach _roleGroupsHM;
+
+            if (_collected isNotEqualTo []) exitWith {
+                _irrGroups = _collected;
+                _irrRole = _role;
+            };
+        } forEach ["irregulars", "opForPartner"];
+
+        if (_irrGroups isNotEqualTo []) then {
+            // 1 cluster only — armed-civilian holdout, not a hardpoint.
+            private _irrResult = [_pos, _irrGroups, east,
+                createHashMapFromArray [
+                    ["mainStructures", _mainStructs],
+                    ["sideStructures", _sideStructs],
+                    ["sizeTier",       _sizeTier],
+                    ["anchorCount",    1],
+                    ["forceSpawn",     true]
+                ]
+            ] call DSC_core_fnc_setupLightMilitaryGarrison;
+
+            (_zone get "units")  append (_irrResult getOrDefault ["units", []]);
+            (_zone get "groups") append (_irrResult getOrDefault ["groups", []]);
+
+            diag_log format ["DSC: activatePresenceZone [%1] - irregular garrison: 1 cluster (role=%2 tier=%3 ctrl=%4)",
+                _id, _irrRole, _sizeTier, _controlledBy];
         };
     };
 };
@@ -253,7 +313,7 @@ if (_controlledBy in ["opFor", "bluFor", "contested"] && {_influence >= 0.3}) th
         private _primaryAngle = if (_controlledBy == "contested") then { random 360 } else { -1 };
 
         private _patrolConfig = createHashMapFromArray [
-            ["patrolCount",  [1, 1]],
+            ["patrolCount",  [0, 3]],
             ["spawnRadius",  [(_radius max 100), (_radius max 200) + 100]],
             ["patrolRadius", [(_radius max 150), (_radius max 250) + 100]],
             ["spawnAngle",   _primaryAngle]
@@ -291,7 +351,7 @@ if (_controlledBy == "neutral") then {
         _pos,
         _radius,
         createHashMapFromArray [
-            ["patrolCount", [1, 1]]
+            ["patrolCount", [0, 3]]
         ]
     ] call DSC_core_fnc_resolveIrregularOverlay;
 

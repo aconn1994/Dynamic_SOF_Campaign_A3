@@ -115,8 +115,10 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | Compound Markers | `fnc_drawCompoundMarkers` | Contact_circle4 + alpha-numeric dot markers, scale-aware |
 | Interaction Handler | `fnc_addInteractionHandler` | addAction wiring for interactable objects; populates intelTokens on active mission |
 | AO Population | `fnc_populateAO` | Multi-faction: garrison → guards → vehicles → patrols. Auto-extracts assets if not in mission config |
-| Presence Manager | `fnc_initPresenceManager` / `fnc_activatePresenceZone` / `fnc_despawnPresenceZone` | World simulation around the player: 20s tick state machine (DORMANT→ACTIVATING→ACTIVE→DESPAWNING), civilians, base/outpost/camp/town zones, contested skirmishes, mission AO arbitration, budget cap, instrumentation. See `.crush/presence-manager.md`. Sprint A (handler registry refactor) is next. |
-| Civilians | `fnc_setupCivilians` | Wandering civilian peds with CARELESS waypoints, cached classname pool from `DSC_factionData.civilians.manPool` |
+| Presence Manager | `fnc_initPresenceManager` / `fnc_activatePresenceZone` / `fnc_despawnPresenceZone` | World simulation around the player: 8s tick state machine (DORMANT→ACTIVATING→ACTIVE→PAUSED→DESPAWNING), civilians, base/outpost/camp/town zones, contested skirmishes, indoor garrisons, mission AO arbitration, budget cap, instrumentation. See `.crush/presence-manager.md`. Sprint D shipped (functional tags + civilian flavor + indoor garrison layer). Sprint E next. |
+| Civilians | `fnc_setupCivilians` | Wandering civilian peds with CARELESS waypoints, cached classname pool from `DSC_factionData.civilians.manPool`; accepts weighted `classMix` for tag-driven flavor |
+| Civilian Mix Resolver | `fnc_resolveCivilianMix` | Maps location tags + primaryFunction → weighted resolver-key mix for `setupCivilians` |
+| Indoor Garrison | `fnc_setupGarrison` / `fnc_setupLightMilitaryGarrison` | Anchor + satellite buildings, units placed at building positions; light-mil wrapper drives populatedArea indoor encounters (combat-activated, `garrison_light` skill) |
 | Contested Skirmish | `fnc_setupContestedSkirmish` | West-side opposing patrol on contested zones — east + west naturally hostile, engagement on contact |
 | Yielding Spawner | `fnc_spawnGroupYielding` | Drop-in for `BIS_fnc_spawnGroup` with `uiSleep` between unit creates to spread the cost across frames |
 | Vehicles | `fnc_setupVehicles` / `fnc_setupVehiclePatrol` | Parked vehicles near garrison + motorized road patrols |
