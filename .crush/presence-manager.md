@@ -570,17 +570,286 @@ pre-Sprint-D). Sprint B's 150u global budget cap absorbs this; if perf
 shows pressure, the first lever is the controlling-faction per-cluster
 engagement roll (currently 0.70 across all three controls).
 
-**Sprint E — Roving Entities Subsystem** (separate from zones)
+### Sprint D.5 — Microzones (PLANNED)
+
+The named-location / military-tier passes covered by Sprints 1-D handle
+~40-66 major zones on Altis. Between them — and especially across rural
+stretches a few km from any town — `fnc_initInfluence` produces a fifth
+bucket the presence manager currently ignores: `_missionSites`. Every
+scanned location that isn't a NameCity/NameVillage/NameCityCapital and
+isn't military lands here:
+
+- Orphan-recovery clusters from `fnc_scanLocations` Stage 3.5
+  (flood-filled building groups beyond 500m of any named location,
+  named by grid reference)
+- Small `NameLocal` pockets and isolated farms
+- Industrial-shed clusters (`Land_i_Shed_Ind_F` complexes etc.)
+
+All of these already carry Sprint D's `tags`, `primaryFunction`, and
+`functionalProfile` data. D.5 turns them into a new family of zone
+types registered against the existing handler registry — same tick
+loop, same worker, same state machine, same budget gate, same mission
+AO arbitration. No second loop, no second worker.
+
+**Design principles**
+
+- Reuse Sprint A's registry verbatim. Every new microzone type is a
+  one-file handler + `registerPresenceHandler` call. Tick loop stays
+  type-agnostic.
+- Small radii + `lifecycle=delete`. Pausing 200 microzones would torch
+  the 150u budget cap; they're so cheap that re-spawning on re-entry
+  is cheaper than carrying frozen entities.
+- Density caps at registration time so dense rural strips don't
+  generate 30 overlapping microzones at one stretch of map.
+- Per-tick activation throttle so a fast traverse never pays more than
+  a few microzone spawns in a single tick.
+
+**Microzone defaults**
+
+| Property | Major zones (today) | Microzones |
+|---|---|---|
+| actR / depR | 900-1500 / 1800-4000 | 400-700 / 800-1200 |
+| Grace | 60-90s | 30s |
+| Lifecycle | pause | **delete** |
+| budgetU/V | 4-20 / 0-3 | 2-6 / 0-1 |
+| Estimated count (Altis) | ~40-66 | 100-300 |
+| Spawn content | civilians + garrison + patrols + statics | one small flavor pass |
+
+**Initial zone types** (tag-driven dispatch from `_missionSites`)
+
+| Type | Trigger | Civilian content | Military projection multiplier |
+|---|---|---|---|
+| `industrialSite` | `industrial_zone` ∈ tags OR `primaryFunction=industrial` | 1-3 `civilian_worker` | 1.0× |
+| `agriculturalSite` | `agricultural_zone` OR `primaryFunction=agricultural` | 1-2 `civilian_worker`, CARELESS | 0.5× (low-value, militaries rarely garrison farms) |
+| `infrastructureNode` | `infrastructure_node` ∈ tags | usually none | **2.0×** (high-value, real militaries protect comms/fuel/power) |
+| `isolatedCompound` | orphan cluster ≥2 buildings, no functional tag | none | 1.0× (the random-encounter sweet spot) |
+
+`roadsideCheckpoint` is deferred to D.6+ (needs a road-detection pass
+in the scanner).
+
+**Controller projection model**
+
+A controlling faction with a base/outpost/camp nearby should *project*
+outward into surrounding compounds — patrols and guard clusters in the
+ring around each installation. This produces a realistic gradient:
+dense military presence near installations, fading into civilian /
+contested territory, with irregulars dominating the gaps between
+controllers.
+
+At microzone activation, the handler calls a shared helper:
+
+```sqf
+private _projection = [_zone] call DSC_core_fnc_resolveMicrozoneProjection;
+// returns hashmap:
+//   "controllerSide"     <SIDE>    east/west/sideUnknown (no controller in range)
+//   "controllerFaction"  <STRING>  cfg faction id of controlling installation
+//   "guardChance"        <NUMBER>  0..1, includes type multiplier
+//   "patrolChance"       <NUMBER>  0..1, includes type multiplier
+//   "guardSize"          <ARRAY>   [min,max] units for guard cluster
+//   "patrolSize"         <ARRAY>   [min,max] units for patrol
+//   "strength"           <NUMBER>  raw projection strength, for debug
+```
+
+Resolution:
+
+1. **Find controller** — nearest base/outpost/camp within
+   `projectionRange = 3000m` (read from zone's recorded distance to
+   the influence map's installations, no spatial scan needed at tick
+   time)
+2. **Projection strength** —
+   `controller.influence × (1 - dist/projectionRange)` clamped to 0..1
+3. **Guard chance** —
+   `baseGuard × strength × typeMultiplier` where `baseGuard = 0.55`
+4. **Patrol chance** —
+   `basePatrol × strength × typeMultiplier` where `basePatrol = 0.45`
+5. **Fallback when no controller in range** — original civilian /
+   irregular rolls apply (25-30% irregular fireteam on opFor-leaning
+   `_missionSites`, lone armed civilian on `infrastructureNode`)
+
+**Worked examples** (with `baseGuard=0.55`, `basePatrol=0.45`):
+
+| Setup | Strength | Guard chance | Patrol chance |
+|---|---|---|---|
+| `isolatedCompound` 800m from opFor base, influence 1.0 | 0.73 | 40% | 33% |
+| `industrialSite` 1500m from contested outpost, influence 0.5 | 0.25 | 14% | 11% |
+| `infrastructureNode` 1200m from opFor outpost, influence 0.8 | 0.48 | **53%** (2× type mult) | **43%** |
+| `agriculturalSite` 2500m from opFor base, influence 1.0 | 0.17 | 5% (0.5× mult) | 4% |
+| Any microzone with no controller in 3km | 0 | 0% | falls back to irregular roll |
+
+The model naturally produces the desired feel: walking out from an
+opFor base you'll hit guarded compounds at 1km, occasional patrols at
+2km, mostly empty / irregular activity beyond 3km. Bluefor-controlled
+rings work the same way; bluefor projection is friendly to the player
+but the patrols still exist and read as "secured AO."
+
+**Implementation notes**:
+- `controllerSide` comes from the faction profile (east for opFor, etc.) so
+  spawned units inherit the correct hostility. Irregular fallback
+  still force-east as elsewhere in the manager.
+- The 3000m projection range can shrink for camps (`projectionRange =
+  1500m`) since camps are weaker installations — held as a config knob
+  on the influence-installation data, not the microzone.
+
+**Anchored foot patrols** (folded in from a separate scope discussion)
+
+D.5 includes anchored patrols as a first-class handler-config option,
+not a separate system. Anchored = the group's waypoints loop within a
+fixed radius of the microzone center; despawn is governed by the same
+state machine as the rest of the zone's entities. This is distinct
+from **roving** foot patrols (Sprint E), which traverse between points
+with no home anchor and need their own activation/despawn rules.
+
+Why anchored belongs in D.5:
+- They map perfectly onto the existing state machine (zone has a fixed
+  position, hysteresis bands work)
+- `fnc_filterPatrolGroups` + the existing waypoint loop logic from
+  `fnc_presenceActivateMilitary` ports over directly — smaller
+  radius, single group
+- Read as "patrol" to the player even though they're attached to a
+  zone — covers the "walking 2km from infil, bump into a 3-man
+  patrol" gap
+
+Handler config shape — each microzone type declares **shape** (radius,
+size bounds, pool source, skill), and `fnc_resolveMicrozoneProjection`
+supplies the **chance**. Type multipliers live on the handler:
+
+```sqf
+["military", createHashMapFromArray [
+    ["typeMultiplier",  1.0],          // 0.5 for ag, 2.0 for infra
+    ["guard", createHashMapFromArray [
+        ["size",        [2, 4]],       // min/max units in the anchor cluster
+        ["radius",      40],           // satellite spawn radius around anchor
+        ["skill",       "garrison_light"],
+        ["irregularFallback", true]    // use irregulars when no controller in range
+    ]],
+    ["patrol", createHashMapFromArray [
+        ["size",        [2, 3]],
+        ["radius",      300],          // patrol waypoint radius
+        ["skill",       "garrison_light"]
+    ]]
+]]
+```
+
+Per-type rollout (only the shape knobs vary; chance is projection-driven):
+
+| Zone type | typeMult | Guard size / radius | Patrol size / radius | Irregular fallback |
+|---|---|---|---|---|
+| `industrialSite` | 1.0× | 2-4 / 40m | 2-3 / 250m | yes |
+| `isolatedCompound` | 1.0× | 2-3 / 30m | 2-3 / 300m | yes (the random-encounter case) |
+| `infrastructureNode` | 2.0× | 1-2 / 20m | 2 / 200m | no (just a lone armed civ) |
+| `agriculturalSite` | 0.5× | (no guard config) | (no patrol config) | rare lone armed civ |
+
+Both guards and patrols use combat activation (FiredNear EH), so
+dormant clusters cost basically nothing until the player engages.
+
+**Density / cost controls**
+
+At microzone-registration time (one pass in `fnc_initPresenceManager`):
+
+1. **Major-zone exclusion** — skip any microzone whose center is within
+   1200m of an existing base/outpost/camp/populatedArea. Those zones'
+   radii already cover that ground; doubling up wastes budget and
+   creates weird overlap visuals.
+2. **Greedy spacing cull** — 600m minimum between accepted microzones,
+   first-come-first-served. Otherwise an industrial complex
+   generates 8 overlapping `industrialSite`s.
+
+At tick time:
+
+3. **Per-tick microzone activation cap** — at most 3 new microzone
+   activations per tick on top of major-zone activations. Cheap
+   individually, but a fast traverse across a dense strip shouldn't
+   pay 30 spawns in one tick.
+4. **Sort preference** — major zones win budget ties when both
+   compete. Keep microzones from starving major-zone activations.
+
+**Expected steady-state cost**
+
+Walking infil, ~2km traverse: encounter 2-4 microzones along the way,
+with a meaningful mix of civilians + military presence the closer you
+get to opFor installations. Standing budget consumption ~15-25u at any
+time (vs ~10-15u of a civilians-only model). Major-zone budget
+untouched. Per-tick activation throttle (3 microzones max) bounds the
+worst-case spawn cost in any single tick to ~18u, spread across the
+8s tick window via `fnc_spawnGroupYielding`'s per-unit `uiSleep`.
+
+Target frame-time delta: 0-1ms at sustained traverse. Levers if it
+creeps higher: drop per-tick cap 3→2, shrink projection range
+3000m→2500m, lower `baseGuard`/`basePatrol` constants.
+
+**Files (planned)**
+
+- `fnc_initPresenceManager.sqf` — consume `_missionSites`; tag-dispatch
+  to microzone types; major-zone exclusion + spacing cull pass;
+  pre-compute per-microzone nearest-controller distance + side so the
+  tick-time helper is O(1)
+- `fnc_resolveMicrozoneProjection.sqf` (new shared helper) — reads
+  zone's recorded controller distance + handler's `military` block,
+  returns `{controllerSide, controllerFaction, guardChance,
+  patrolChance, guardSize, patrolSize, strength}`. One place for the
+  projection math.
+- `fnc_presenceHandlerIndustrialSite.sqf` — civilian_worker pass +
+  projection-driven guard + optional anchored patrol
+- `fnc_presenceHandlerAgriculturalSite.sqf` — small civilian_worker
+  pass, CARELESS, very rare lone armed civilian
+- `fnc_presenceHandlerInfrastructureNode.sqf` — projection-driven
+  (2× multiplier) guard / patrol; usually no civilians
+- `fnc_presenceHandlerIsolatedCompound.sqf` — projection-driven
+  guard / patrol with irregular fallback when no controller in range
+- `fnc_setupAnchoredPatrol.sqf` (new shared helper) — single small
+  group, waypoint loop within radius around an anchor, combat
+  activation, `garrison_light` skill, **`uiSleep` between
+  `createUnit` calls** via `fnc_spawnGroupYielding`. Reused by all
+  microzone handlers that opt in via the patrol config block. Also a
+  candidate for retrofit into populatedArea / camp handlers if the
+  smaller patrol size reads better than the current 1-2 full-size
+  patrols.
+- `fnc_setupAnchoredGuard.sqf` (new shared helper) — small static-ish
+  cluster (no waypoints, or single SENTRY waypoint at anchor) sized
+  per handler config, combat activation, `garrison_light` skill,
+  yielding spawn. Lighter weight than `fnc_setupGarrison` — no
+  satellite buildings, no interior placement.
+- `fnc_registerPresenceHandler.sqf` — no change (existing schema
+  already supports arbitrary type keys + nested config blocks)
+
+**Acceptance criteria**
+
+- Walking 2km from a HALO/extract point: at least 1 microzone
+  encounter on average; world doesn't feel empty between zones
+- Frame time delta vs pre-D.5: within noise (target ≤ 1ms)
+- Budget skip rate ≤ 10% on a 15-min mixed traverse (driving + walking)
+- Microzone abandoned rate ≤ 15% (slightly looser than major zones —
+  small zones with small bands, by design)
+- Anchored patrol groups are visibly *patrolling* (waypoints cycling),
+  not standing at the anchor — verified in playtest
+
+**Open items deferred to D.6+ / E**
+
+- `roadsideCheckpoint` — needs road-segment scan pass
+- Roving foot patrols (no anchor) → Sprint E
+- Roving vehicles / boats → Sprint E
+- Stationary military emplacements on roads (HMG nests etc. away from
+  any installation) → either D.6 or fold into `roadsideCheckpoint`
+
+### Sprint E — Roving Entities Subsystem (separate from zones)
 
 Some presence is fundamentally not zone-based:
 - Civilian vehicles wandering between towns
 - Military motorized/mechanized patrols on roads
 - Boats along coastline
+- Roving **foot** patrols with no home anchor — long waypoint chains,
+  spawn at bubble edge, despawn behind player
 
 These need their own loop, their own budget, their own activation logic
 (probably "spawn near a road within Nkm of the player, drive, despawn at
 distance"). Built as a sibling system to the zone manager, not a new zone
 type.
+
+D.5's *anchored* patrols cover most of the "world feels populated
+between zones" perceived value. Roving foot patrols in E are
+polish — at human walking speed across kilometers, player
+intersections are rare and the budget vs. perceived-impact ratio is
+worse than roving vehicles or boats.
 
 ## Diagnostics and Tuning Tools
 

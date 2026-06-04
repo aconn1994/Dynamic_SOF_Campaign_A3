@@ -9,6 +9,8 @@ PREP_SUB(ai,persistentUAV);
 PREP_SUB(ai,populateAO);
 PREP_SUB(ai,resolveCivilianMix);
 PREP_SUB(ai,resolveIrregularOverlay);
+PREP_SUB(ai,setupAnchoredGuard);
+PREP_SUB(ai,setupAnchoredPatrol);
 PREP_SUB(ai,setupCivilians);
 PREP_SUB(ai,setupContestedSkirmish);
 PREP_SUB(ai,setupGarrison);
@@ -70,12 +72,17 @@ PREP_SUB(presence,activatePresenceZone);
 PREP_SUB(presence,despawnPresenceZone);
 PREP_SUB(presence,initPresenceManager);
 PREP_SUB(presence,presenceActivateMilitary);
+PREP_SUB(presence,presenceHandlerAgriculturalSite);
 PREP_SUB(presence,presenceHandlerBase);
 PREP_SUB(presence,presenceHandlerCamp);
+PREP_SUB(presence,presenceHandlerIndustrialSite);
+PREP_SUB(presence,presenceHandlerInfrastructureNode);
+PREP_SUB(presence,presenceHandlerIsolatedCompound);
 PREP_SUB(presence,presenceHandlerOutpost);
 PREP_SUB(presence,presenceHandlerPopulatedArea);
 PREP_SUB(presence,presenceLogTimings);
 PREP_SUB(presence,registerPresenceHandler);
+PREP_SUB(presence,resolveMicrozoneProjection);
 
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);

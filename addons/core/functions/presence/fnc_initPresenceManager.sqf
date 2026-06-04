@@ -48,6 +48,7 @@ private _bases          = _influenceData getOrDefault ["bases", []];
 private _outposts       = _influenceData getOrDefault ["outposts", []];
 private _camps          = _influenceData getOrDefault ["camps", []];
 private _populatedAreas = _influenceData getOrDefault ["populatedAreas", []];
+private _missionSites   = _influenceData getOrDefault ["missionSites", []];
 
 // Exclude the player main base from presence management — it is eagerly
 // populated by fnc_initBases and lives for the whole session.
@@ -106,8 +107,197 @@ private _buildZone = {
 { [_x, "camp"]          call _buildZone } forEach _camps;
 { [_x, "populatedArea"] call _buildZone } forEach _populatedAreas;
 
-diag_log format ["DSC: presenceManager - Registered %1 zones (bases:%2 outposts:%3 camps:%4 populated:%5)",
+diag_log format ["DSC: presenceManager - Registered %1 major zones (bases:%2 outposts:%3 camps:%4 populated:%5)",
     count _zones, count _bases, count _outposts, count _camps, count _populatedAreas];
+
+// ============================================================================
+// Microzones (Sprint D.5) — mission sites tagged with functional character
+// ============================================================================
+// Mission sites are the "everything else" bucket from fnc_initInfluence —
+// orphan clusters, small civilian pockets, industrial sheds. They already
+// carry Sprint D's tags/primaryFunction. We turn them into tag-dispatched
+// microzones registered against the existing handler registry, with two
+// density safeguards applied at registration time so they don't drown the
+// budget or visually overlap major zones:
+//
+//   1. Major-zone exclusion (1200m)  — skip microzones whose center sits
+//      inside a major zone's influence ring
+//   2. Greedy spacing cull (600m)    — first-come-first-served between
+//      accepted microzones so dense industrial complexes don't generate
+//      8 overlapping clones
+//
+// A per-tick activation throttle in the tick loop (cap 3 microzone
+// activations per tick) bounds worst-case spawn cost during fast traversal.
+
+private _microzonesAccepted = 0;
+private _microzonesRejectedNearMajor = 0;
+private _microzonesRejectedSpacing   = 0;
+
+private _majorExclusionRadius = 900;
+private _microSpacing         = 600;
+
+// Snapshot major-zone centers (only those just added above) for the
+// exclusion check.
+private _majorCenters = [];
+{
+    private _z = _zones get _x;
+    _majorCenters pushBack (_z get "position");
+} forEach (keys _zones);
+
+private _classifyMicrozone = {
+    params ["_tags", "_primaryFn"];
+    if (("agricultural_zone" in _tags) || {_primaryFn == "agricultural"}) exitWith { "agriculturalSite" };
+    if (("industrial_zone" in _tags) || {"industrial_hub" in _tags} || {_primaryFn == "industrial"}) exitWith { "industrialSite" };
+    if ("infrastructure_node" in _tags) exitWith { "infrastructureNode" };
+    "isolatedCompound"
+};
+
+// Build the controller-precompute candidate list once
+// [pos, controlledBy, faction, influence, projRange]
+private _ctrlCandidates = [];
+{
+    private _inf = _influenceMap getOrDefault [_x get "id", createHashMap];
+    private _cb  = _inf getOrDefault ["controlledBy", "neutral"];
+    if (_cb in ["opFor", "bluFor", "contested"]) then {
+        _ctrlCandidates pushBack [
+            _x get "position",
+            _cb,
+            _inf getOrDefault ["faction", ""],
+            _inf getOrDefault ["influence", 0],
+            4500
+        ];
+    };
+} forEach (_bases + _outposts);
+{
+    private _inf = _influenceMap getOrDefault [_x get "id", createHashMap];
+    private _cb  = _inf getOrDefault ["controlledBy", "neutral"];
+    if (_cb in ["opFor", "bluFor", "contested"]) then {
+        _ctrlCandidates pushBack [
+            _x get "position",
+            _cb,
+            _inf getOrDefault ["faction", ""],
+            _inf getOrDefault ["influence", 0],
+            2500
+        ];
+    };
+} forEach _camps;
+
+// Map controlledBy -> engine side via factionData role lookup
+private _factionDataInit = missionNamespace getVariable ["DSC_factionData", createHashMap];
+private _sideForControl = {
+    params ["_cb"];
+    private _role = switch (_cb) do {
+        case "opFor":     { "opFor" };
+        case "bluFor":    { "bluFor" };
+        case "contested": { "opForPartner" };
+        default            { "" };
+    };
+    if (_role == "") exitWith { sideUnknown };
+    (_factionDataInit getOrDefault [_role, createHashMap]) getOrDefault ["side", east]
+};
+
+// Track accepted microzone positions for the spacing cull
+private _acceptedMicroCenters = [];
+
+{
+    private _loc      = _x;
+    private _locId    = _loc get "id";
+    private _locPos   = _loc get "position";
+    private _locTags  = _loc getOrDefault ["tags", []];
+    private _locPrim  = _loc getOrDefault ["primaryFunction", ""];
+
+    // Skip if inside player base
+    if (_playerBasePos distance2D _locPos < 50) then { continue };
+
+    // Major-zone exclusion
+    private _nearMajor = false;
+    {
+        if (_locPos distance2D _x < _majorExclusionRadius) exitWith { _nearMajor = true };
+    } forEach _majorCenters;
+    if (_nearMajor) then {
+        _microzonesRejectedNearMajor = _microzonesRejectedNearMajor + 1;
+        continue
+    };
+
+    // Greedy spacing cull
+    private _tooClose = false;
+    {
+        if (_locPos distance2D _x < _microSpacing) exitWith { _tooClose = true };
+    } forEach _acceptedMicroCenters;
+    if (_tooClose) then {
+        _microzonesRejectedSpacing = _microzonesRejectedSpacing + 1;
+        continue
+    };
+
+    private _zType = [_locTags, _locPrim] call _classifyMicrozone;
+
+    // Build the zone hashmap (mirrors _buildZone, plus controller precompute)
+    private _inf = _influenceMap getOrDefault [_locId, createHashMap];
+    private _zone = createHashMapFromArray [
+        ["id",           _locId],
+        ["type",         _zType],
+        ["position",     _locPos],
+        ["radius",       _loc getOrDefault ["radius", 100]],
+        ["name",         _loc getOrDefault ["name", _locId]],
+        ["controlledBy", _inf getOrDefault ["controlledBy", "neutral"]],
+        ["faction",      _inf getOrDefault ["faction", ""]],
+        ["influence",    _inf getOrDefault ["influence", 0]],
+        ["structures",        _loc getOrDefault ["structures", []]],
+        ["mainStructures",    _loc getOrDefault ["mainStructures", []]],
+        ["sideStructures",    _loc getOrDefault ["sideStructures", []]],
+        ["tags",              _locTags],
+        ["primaryFunction",   _locPrim],
+        ["functionalProfile", _loc getOrDefault ["functionalProfile", createHashMap]],
+        ["state",        "DORMANT"],
+        ["stateSince",   serverTime],
+        ["graceUntil",   0],
+        ["combatUntil",  0],
+        ["units",        []],
+        ["vehicles",     []],
+        ["groups",       []]
+    ];
+
+    // ----- Nearest-controller precompute -----
+    // Pick controller maximizing strength = influence * (1 - dist/projRange)
+    private _bestStrength = 0;
+    private _bestDist     = 999999;
+    private _bestControl  = "neutral";
+    private _bestFaction  = "";
+    private _bestInf      = 0;
+    private _bestRange    = 0;
+    {
+        _x params ["_cpPos", "_cpCb", "_cpFac", "_cpInf", "_cpRange"];
+        private _d = _locPos distance2D _cpPos;
+        if (_d < _cpRange) then {
+            private _s = _cpInf * (1 - (_d / _cpRange));
+            if (_s > _bestStrength) then {
+                _bestStrength = _s;
+                _bestDist     = _d;
+                _bestControl  = _cpCb;
+                _bestFaction  = _cpFac;
+                _bestInf      = _cpInf;
+                _bestRange    = _cpRange;
+            };
+        };
+    } forEach _ctrlCandidates;
+
+    _zone set ["controllerDist",       _bestDist];
+    _zone set ["controllerSide",       [_bestControl] call _sideForControl];
+    _zone set ["controllerFaction",    _bestFaction];
+    _zone set ["controllerInfluence",  _bestInf];
+    _zone set ["controllerControl",    _bestControl];
+    _zone set ["controllerProjRange",  _bestRange];
+
+    _zones set [_locId, _zone];
+    _acceptedMicroCenters pushBack _locPos;
+    _microzonesAccepted = _microzonesAccepted + 1;
+} forEach _missionSites;
+
+diag_log format ["DSC: presenceManager - Microzones: %1 accepted, %2 near-major-rejected, %3 spacing-rejected (of %4 mission sites)",
+    _microzonesAccepted, _microzonesRejectedNearMajor, _microzonesRejectedSpacing, count _missionSites];
+
+diag_log format ["DSC: presenceManager - Registered %1 zones total",
+    count _zones];
 
 missionNamespace setVariable ["DSC_presenceZones", _zones, true];
 
@@ -133,7 +323,8 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["despawn",        {}],
     ["lifecycle",      "delete"],
     ["pauseGrace",     180],
-    ["paused",         false]
+    ["paused",         false],
+    ["class",          "major"]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
 [createHashMapFromArray [
@@ -147,7 +338,8 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["despawn",        {}],
     ["lifecycle",      "pause"],
     ["pauseGrace",     75],
-    ["paused",         false]
+    ["paused",         false],
+    ["class",          "major"]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
 [createHashMapFromArray [
@@ -161,7 +353,8 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["despawn",        {}],
     ["lifecycle",      "pause"],
     ["pauseGrace",     45],
-    ["paused",         false]
+    ["paused",         false],
+    ["class",          "major"]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
 [createHashMapFromArray [
@@ -175,7 +368,125 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["despawn",        {}],
     ["lifecycle",      "pause"],
     ["pauseGrace",     60],
-    ["paused",         false]
+    ["paused",         false],
+    ["class",          "major"]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+// ============================================================================
+// Microzone handlers (Sprint D.5)
+// ============================================================================
+// Small radii + lifecycle=delete so dense rural strips don't fill the budget
+// with PAUSED zones the player won't revisit. typeMultiplier sets per-zone
+// projection weight (infrastructure 2.0, ag 0.5, others 1.0). The shared
+// fnc_resolveMicrozoneProjection helper reads these blocks at activation
+// time and returns guardChance/patrolChance based on nearest-controller data
+// the zone carries from init.
+
+[createHashMapFromArray [
+    ["type",           "industrialSite"],
+    ["activateRadius", 1100],
+    ["despawnRadius",  1700],
+    ["despawnGrace",   30],
+    ["budgetUnits",    15],
+    ["budgetVehicles", 0],
+    ["populate",       DSC_core_fnc_presenceHandlerIndustrialSite],
+    ["despawn",        {}],
+    ["lifecycle",      "delete"],
+    ["pauseGrace",     0],
+    ["paused",         false],
+    ["class",          "micro"],
+    ["military", createHashMapFromArray [
+        ["typeMultiplier", 1.0],
+        ["guard", createHashMapFromArray [
+            ["size",              [3, 5]],
+            ["radius",            40],
+            ["skill",             "garrison_light"],
+            ["irregularFallback", true]
+        ]],
+        ["patrol", createHashMapFromArray [
+            ["size",   [4, 5]],
+            ["radius", 250],
+            ["skill",  "garrison_light"]
+        ]]
+    ]]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "isolatedCompound"],
+    ["activateRadius", 1100],
+    ["despawnRadius",  1700],
+    ["despawnGrace",   30],
+    ["budgetUnits",    13],
+    ["budgetVehicles", 0],
+    ["populate",       DSC_core_fnc_presenceHandlerIsolatedCompound],
+    ["despawn",        {}],
+    ["lifecycle",      "delete"],
+    ["pauseGrace",     0],
+    ["paused",         false],
+    ["class",          "micro"],
+    ["military", createHashMapFromArray [
+        ["typeMultiplier", 1.0],
+        ["guard", createHashMapFromArray [
+            ["size",              [3, 5]],
+            ["radius",            30],
+            ["skill",             "garrison_light"],
+            ["irregularFallback", true]
+        ]],
+        ["patrol", createHashMapFromArray [
+            ["size",   [4, 5]],
+            ["radius", 300],
+            ["skill",  "garrison_light"]
+        ]]
+    ]]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "infrastructureNode"],
+    ["activateRadius", 1100],
+    ["despawnRadius",  1700],
+    ["despawnGrace",   30],
+    ["budgetUnits",    11],
+    ["budgetVehicles", 0],
+    ["populate",       DSC_core_fnc_presenceHandlerInfrastructureNode],
+    ["despawn",        {}],
+    ["lifecycle",      "delete"],
+    ["pauseGrace",     0],
+    ["paused",         false],
+    ["class",          "micro"],
+    ["military", createHashMapFromArray [
+        ["typeMultiplier", 2.0],
+        ["guard", createHashMapFromArray [
+            ["size",              [3, 4]],
+            ["radius",            20],
+            ["skill",             "garrison_light"],
+            ["irregularFallback", false]
+        ]],
+        ["patrol", createHashMapFromArray [
+            ["size",   [3, 4]],
+            ["radius", 200],
+            ["skill",  "garrison_light"]
+        ]]
+    ]]
+]] call DSC_core_fnc_registerPresenceHandler;
+
+[createHashMapFromArray [
+    ["type",           "agriculturalSite"],
+    ["activateRadius", 1100],
+    ["despawnRadius",  1700],
+    ["despawnGrace",   30],
+    ["budgetUnits",    6],
+    ["budgetVehicles", 0],
+    ["populate",       DSC_core_fnc_presenceHandlerAgriculturalSite],
+    ["despawn",        {}],
+    ["lifecycle",      "delete"],
+    ["pauseGrace",     0],
+    ["paused",         false],
+    ["class",          "micro"],
+    ["military", createHashMapFromArray [
+        ["typeMultiplier", 0.5]
+        // no guard / patrol blocks — projection returns zero chance,
+        // handler does its own 5% lone-armed-civilian roll
+    ]]
 ]] call DSC_core_fnc_registerPresenceHandler;
 
 // ============================================================================
@@ -218,11 +529,15 @@ private _stateColor = createHashMapFromArray [
     private _zRad   = _zone get "radius";
 
     private _markerR = switch (_zType) do {
-        case "base":          { (_zRad max 200) + 200 };
-        case "outpost":       { (_zRad max 150) + 150 };
-        case "camp":          { (_zRad max 75)  + 75  };
-        case "populatedArea": { (_zRad max 150) + 100 };
-        default               { 150 };
+        case "base":               { (_zRad max 200) + 200 };
+        case "outpost":            { (_zRad max 150) + 150 };
+        case "camp":               { (_zRad max 75)  + 75  };
+        case "populatedArea":      { (_zRad max 150) + 100 };
+        case "industrialSite":     { (_zRad max 60)  + 40  };
+        case "isolatedCompound":   { (_zRad max 50)  + 30  };
+        case "infrastructureNode": { (_zRad max 40)  + 30  };
+        case "agriculturalSite":   { (_zRad max 50)  + 30  };
+        default                    { 100 };
     };
 
     private _mName = format ["dsc_presence_%1", _zoneId];
@@ -739,9 +1054,18 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         // Sort by distance ascending; enqueue while we have unit/vehicle headroom.
         // Skipped candidates stay DORMANT — the next tick gives them another chance
         // once active zones despawn and free budget.
+        //
+        // Microzone throttle (Sprint D.5): cap NEW microzone activations per
+        // tick. Microzones are cheap individually, but a fast traversal across
+        // a dense rural strip can land 10+ candidates in one tick — yielding
+        // spawns inside the worker still adds up. Major zones bypass the
+        // throttle so they always win when both are competing for budget.
+        private _maxMicrosPerTick = 4;
+        private _microsThisTick   = 0;
         _candidates sort true;
         private _approved = 0;
         private _budgetSkipped = 0;
+        private _microSkippedThrottle = 0;
         {
             _x params ["_d", "_zone"];
             // Estimate cost from the registered handler — kept conservative
@@ -749,11 +1073,16 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
             private _zt = _zone get "type";
             private _estU = [_zt, "budgetUnits",    5] call _fnc_handlerNum;
             private _estV = [_zt, "budgetVehicles", 0] call _fnc_handlerNum;
+            private _zClass = [_zt, "class", "major"] call _fnc_handlerVal;
 
-            if ((_curUnits + _estU > _budgetUnits) || (_curVehicles + _estV > _budgetVehicles)) then {
-                _budgetSkipped = _budgetSkipped + 1;
-                ["budgetSkipped"] call _fnc_bumpStat;
+            if (_zClass == "micro" && {_microsThisTick >= _maxMicrosPerTick}) then {
+                _microSkippedThrottle = _microSkippedThrottle + 1;
+                // Stay DORMANT — next tick gets another shot.
             } else {
+                if ((_curUnits + _estU > _budgetUnits) || (_curVehicles + _estV > _budgetVehicles)) then {
+                    _budgetSkipped = _budgetSkipped + 1;
+                    ["budgetSkipped"] call _fnc_bumpStat;
+                } else {
                 _zone set ["processed", false];
                 _zone set ["dormantExitTime", diag_tickTime];
                 _zone set ["distAtActivating", _d];
@@ -778,17 +1107,21 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                 _curUnits    = _curUnits + _estU;
                 _curVehicles = _curVehicles + _estV;
                 _approved = _approved + 1;
+                if (_zClass == "micro") then { _microsThisTick = _microsThisTick + 1 };
                 ["dormantToActivating"] call _fnc_bumpStat;
                 ["budgetApproved"] call _fnc_bumpStat;
                 // Promote counter
                 _dormant = _dormant - 1;
                 _activatingCt = _activatingCt + 1;
+                };
             };
         } forEach _candidates;
 
-        if (_budgetSkipped > 0) then {
-            diag_log format ["DSC: presence — budget gate: %1 candidates approved, %2 skipped (cap %3u/%4v, used %5u/%6v)",
-                _approved, _budgetSkipped, _budgetUnits, _budgetVehicles, _curUnits, _curVehicles];
+        if (_budgetSkipped > 0 || _microSkippedThrottle > 0) then {
+            diag_log format ["DSC: presence — budget gate: %1 candidates approved, %2 budget-skipped, %3 micro-throttled (cap %4u/%5v, used %6u/%7v, %8/%9 micros this tick)",
+                _approved, _budgetSkipped, _microSkippedThrottle,
+                _budgetUnits, _budgetVehicles, _curUnits, _curVehicles,
+                _microsThisTick, _maxMicrosPerTick];
         };
 
         private _missionLabel = if (_hasMission) then {

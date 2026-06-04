@@ -158,6 +158,39 @@ Groups are tagged by the classifier for downstream filtering:
 **Quality**: `ELITE`, `MILITIA`, `CONSCRIPTS`, `NIGHT_CAPABLE`
 **Behavior**: `PATROL`
 
+## Frame-Spike Avoidance (yield convention)
+
+Any code path that spawns multiple units, vehicles, or large
+quantities of objects in a single scheduler slot will cause a visible
+frame stutter. The mod has a standing convention:
+
+- **Use `fnc_spawnGroupYielding` instead of `BIS_fnc_spawnGroup`** for
+  all AI group spawns. It walks the `CfgGroups` entry one unit at a
+  time with `uiSleep 0.1` between `createUnit` calls so the renderer
+  can interleave frames.
+- **Insert `uiSleep` (not `sleep`) between repeated heavy ops** —
+  `createUnit`, `createVehicle`, building-position iteration, large
+  marker draws. The setup family already does this:
+  `fnc_setupCivilians` (0.15), `fnc_setupGarrison` (0.1),
+  `fnc_setupGuards` (0.15), `fnc_setupStaticDefenses` (0.1),
+  `fnc_setupVehicles` (0.2), `fnc_setupMortarEmplacement` (0.2).
+- **`uiSleep` vs `sleep`**: `uiSleep` is real-time and unaffected by
+  `setAccTime`, making it correct for spreading per-frame cost.
+  `sleep` is sim-time scaled — fine for game-logic delays, wrong for
+  frame-spike avoidance (under 4× accelerated sim, a `sleep 0.1`
+  becomes 25ms and no longer yields a frame).
+- **Mass deletion** also spikes — `fnc_missionCleanup` uses
+  `sleep 0.05` between deletions. Same pattern applies to any new
+  cleanup code.
+- **Worker pattern**: the presence manager's worker scope drains its
+  activate/despawn queues one zone per cycle with a `uiSleep` between
+  zones. Any new subsystem with bursty spawn work should follow the
+  same single-cycle-with-yield design rather than a tight forEach.
+
+When adding new spawn or teardown code: if it creates more than ~3
+entities at once, it needs a yield. Validate at 1× sim speed (see the
+gotcha below about `setAccTime`).
+
 ## Gotchas
 
 - `CfgGroups` faction class names sometimes differ from `CfgFactionClasses` (e.g., `BLU_G_F` → `Guerilla`). Workarounds are in `fnc_extractGroups`.
