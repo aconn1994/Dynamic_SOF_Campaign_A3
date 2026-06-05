@@ -37,10 +37,10 @@ private _primaryFn    = _zone getOrDefault ["primaryFunction", ""];
 // Civilians — density scaled by control + influence, floor ensures life
 // ============================================================================
 private _density = switch (_controlledBy) do {
-    case "opFor":     { (1 - (_influence * 0.7)) max 0.25 };
-    case "contested": { 0.65 };
-    case "bluFor":    { 1.0 };
-    default            { 0.9 };
+    case "opFor":     { (1 - (_influence * 0.5)) max 0.25 };
+    case "contested": { 0.5 };
+    case "bluFor":    { 0.7 };
+    default            { 0.6 };
 };
 
 private _basePop = (count _structures) * 0.4;
@@ -111,7 +111,7 @@ if (_totalStructs > 0 && _milAllowed) then {
             case "settlement": { (selectRandom [1, 2]) };
             case "town":       { (selectRandom [1, 2]) };
             case "city":       { (selectRandom [1, 3]) };
-            default            { (selectRandom [1, 2]) };
+            default            { (selectRandom [1, 1]) };
         };
 
         // Per-cluster engagement roll — even in hostile territory, not every
@@ -313,7 +313,7 @@ if (_controlledBy in ["opFor", "bluFor", "contested"] && {_influence >= 0.3}) th
         private _primaryAngle = if (_controlledBy == "contested") then { random 360 } else { -1 };
 
         private _patrolConfig = createHashMapFromArray [
-            ["patrolCount",  [0, 3]],
+            ["patrolCount",  [0, 2]],
             ["spawnRadius",  [(_radius max 100), (_radius max 200) + 100]],
             ["patrolRadius", [(_radius max 150), (_radius max 250) + 100]],
             ["spawnAngle",   _primaryAngle]

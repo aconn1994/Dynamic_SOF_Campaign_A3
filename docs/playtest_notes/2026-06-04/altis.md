@@ -1,0 +1,83 @@
+Mod Setup
+```toml
+[default]
+workshop = [
+    "450814997", # CBA_A3
+]
+# mission = "test.VR"
+mission = "DSC_Altis.Altis"
+# mission = "DSC_Livonia.enoch"
+# mission = "DSC_Malden.Malden"
+# mission = "DSC_Stratis.Stratis"
+# mission = "DSC_Tanoa.Tanoa"
+
+[developer]
+extends = "default"
+workshop = [
+    "3499977893", # Advanced Developer Tools
+    "1779063631", # Zeus Enhanced
+    "623475643", # Eden Enhanced
+    "632435682", # Remove Stamina
+    "642912021", # ZEC
+    "3567067667", # ZEIC
+]
+
+[developer_qol]
+extends = "developer"
+workshop = [
+    "333310405", # Enhanced Movement
+    "2034363662", # Enhanced Movement Rework
+    "3407948300", # JSRS Soundmod 2025
+    "2791403093", # Better Inventory
+]
+
+[developer_ace]
+extends = "developer_qol"
+workshop = [
+    "463939057", # ACE
+    "782415569", # Remove Stamina - ACE
+]
+
+[developer_factions]
+extends = "developer_ace"
+dlc = [
+    "Western Sahara"
+]
+workshop = [
+    # "843577117", # RHSUSAF
+    # "843425103", # RHSAFRF
+    # "843593391", # RHSGREF
+    # "843632231", # RHSSAF
+    # "2162749089", # Legion Studios Core
+    "949252631",  # Aegis Mod
+    "2225864448", # Aegis - Marines
+    "2225865544", # Aegis - Police
+    "2225873516", # Aegis Atlas
+    "1873244913", # Aegus Atlas - Opposing Forces
+    "2843094358", # Athena
+    "2684335735", # Revolucion
+]
+
+[play_test_factions]
+extends = "developer_factions"
+workshop = [
+    "1638341685", # DUI - Squad Radar
+    "2884936024", # Blastcore Compiled
+    "1770265310", # No More Aircraft Bouncing
+    "2041057379", # A3 Thermal Improvement
+    "3283642267", # Speshal Core
+    "3283612524", # Animate - Rewrite
+    "3540049844", # DZN XPI
+    "3564392635", # Modern Sniper Systems
+    "3614460136", # Modern Carbine Systems
+]
+```
+
+Did an offset HALO jump.  Got into a few gunfights on the walk in to objective.  Died, the medic disappeared again and I died.  All of the zones despawned and respawned while I was HALOing back in sight and I immediately died when I got on the ground.
+
+Ideas:
+
+- Squad has infinite health
+- Combat lock on enaged zones for 15 mins
+- No more full overcast.  I can't see shit
+- Figure out legitimate death/spawn menu

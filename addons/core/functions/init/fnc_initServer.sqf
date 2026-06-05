@@ -289,66 +289,66 @@ missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 systemChat "Influence map initialized!";
 
 // Debug: Influence markers
-private _influenceMap = _influenceData get "influenceMap";
-private _enrichedLocations = _influenceData get "locations";
+// private _influenceMap = _influenceData get "influenceMap";
+// private _enrichedLocations = _influenceData get "locations";
 
-{
-    private _loc = _x;
-    private _locId = _loc get "id";
-    private _locPos = _loc get "position";
-    private _locName = _loc get "name";
-    private _locRadius = _loc get "radius";
-    private _locInf = _influenceMap getOrDefault [_locId, createHashMap];
+// {
+//     private _loc = _x;
+//     private _locId = _loc get "id";
+//     private _locPos = _loc get "position";
+//     private _locName = _loc get "name";
+//     private _locRadius = _loc get "radius";
+//     private _locInf = _influenceMap getOrDefault [_locId, createHashMap];
 
-    if (_locInf isEqualTo createHashMap) then { continue };
+//     if (_locInf isEqualTo createHashMap) then { continue };
 
-    private _controlledBy = _locInf get "controlledBy";
-    private _influence = _locInf get "influence";
-    private _infType = _locInf get "type";
-    private _faction = _locInf getOrDefault ["faction", ""];
+//     private _controlledBy = _locInf get "controlledBy";
+//     private _influence = _locInf get "influence";
+//     private _infType = _locInf get "type";
+//     private _faction = _locInf getOrDefault ["faction", ""];
 
-    private _color = switch (_controlledBy) do {
-        case "opFor":     { "ColorRed" };
-        case "bluFor":    { "ColorBlue" };
-        case "contested": { "ColorYellow" };
-        default           { "ColorWhite" };
-    };
+//     private _color = switch (_controlledBy) do {
+//         case "opFor":     { "ColorRed" };
+//         case "bluFor":    { "ColorBlue" };
+//         case "contested": { "ColorYellow" };
+//         default           { "ColorWhite" };
+//     };
 
-    // Area marker — size and opacity scale with influence type and strength
-    private _areaRadius = switch (_infType) do {
-        case "base":          { (_locRadius max 200) + 300 };
-        case "outpost":       { (_locRadius max 150) + 200 };
-        case "camp":          { (_locRadius max 75) + 100 };
-        case "populatedArea": { (_locRadius max 150) + 200 };
-        default               { (_locRadius max 50) + 100 };
-    };
+//     // Area marker — size and opacity scale with influence type and strength
+//     private _areaRadius = switch (_infType) do {
+//         case "base":          { (_locRadius max 200) + 300 };
+//         case "outpost":       { (_locRadius max 150) + 200 };
+//         case "camp":          { (_locRadius max 75) + 100 };
+//         case "populatedArea": { (_locRadius max 150) + 200 };
+//         default               { (_locRadius max 50) + 100 };
+//     };
 
-    private _areaName = format ["dsc_inf_area_%1", _locId];
-    private _areaMarker = createMarkerLocal [_areaName, _locPos];
-    _areaMarker setMarkerShapeLocal "ELLIPSE";
-    _areaMarker setMarkerSizeLocal [_areaRadius, _areaRadius];
-    _areaMarker setMarkerColorLocal _color;
-    _areaMarker setMarkerAlphaLocal (0.1 + (_influence * 0.25));
+//     private _areaName = format ["dsc_inf_area_%1", _locId];
+//     private _areaMarker = createMarkerLocal [_areaName, _locPos];
+//     _areaMarker setMarkerShapeLocal "ELLIPSE";
+//     _areaMarker setMarkerSizeLocal [_areaRadius, _areaRadius];
+//     _areaMarker setMarkerColorLocal _color;
+//     _areaMarker setMarkerAlphaLocal (0.1 + (_influence * 0.25));
 
-    // Point marker — icon distinguishes type
-    private _markerIcon = switch (_infType) do {
-        case "base":          { "hd_flag" };
-        case "outpost":       { "mil_triangle" };
-        case "camp":          { "mil_dot" };
-        case "populatedArea": { "loc_Fortress" };
-        default               { "mil_dot" };
-    };
+//     // Point marker — icon distinguishes type
+//     private _markerIcon = switch (_infType) do {
+//         case "base":          { "hd_flag" };
+//         case "outpost":       { "mil_triangle" };
+//         case "camp":          { "mil_dot" };
+//         case "populatedArea": { "loc_Fortress" };
+//         default               { "mil_dot" };
+//     };
 
-    private _factionLabel = ["", format [" (%1)", _faction]] select (_faction != "");
-    private _markerName = format ["dsc_inf_point_%1", _locId];
-    private _pointMarker = createMarkerLocal [_markerName, _locPos];
-    _pointMarker setMarkerTypeLocal _markerIcon;
-    _pointMarker setMarkerColorLocal _color;
-    _pointMarker setMarkerTextLocal format ["%1 [%2 %3]%4", _locName, _controlledBy, _influence toFixed 1, _factionLabel];
+//     private _factionLabel = ["", format [" (%1)", _faction]] select (_faction != "");
+//     private _markerName = format ["dsc_inf_point_%1", _locId];
+//     private _pointMarker = createMarkerLocal [_markerName, _locPos];
+//     _pointMarker setMarkerTypeLocal _markerIcon;
+//     _pointMarker setMarkerColorLocal _color;
+//     _pointMarker setMarkerTextLocal format ["%1 [%2 %3]%4", _locName, _controlledBy, _influence toFixed 1, _factionLabel];
 
-} forEach _enrichedLocations;
+// } forEach _enrichedLocations;
 
-diag_log "DSC: Influence debug markers created";
+// diag_log "DSC: Influence debug markers created";
 
 // ============================================================================
 // STEP 4: Mark Military Installations on Player Maps
