@@ -141,9 +141,9 @@ if ((units _group) isEqualTo []) exitWith {
 (_result get "groups") pushBack _group;
 _group enableDynamicSimulation true;
 
-if (_combatActivation) then {
-    [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-};
+// if (_combatActivation) then {
+//     [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
+// };
 
 diag_log format ["DSC: setupAnchoredPatrol - spawned %1 units patrolling r=%2 (side=%3 skill=%4)",
     _spawned, _patrolRadius, _side, _skillProfile];

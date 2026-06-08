@@ -235,9 +235,9 @@ private _globalSlot = 0;
                 _entGroup setBehaviour "SAFE";
                 _entGroup setCombatMode "GREEN";
                 _entGroup enableAttack false;
-                if (_behavior != "captive") then {
-                    [_entGroup] call DSC_core_fnc_addCombatActivation;
-                };
+                // if (_behavior != "captive") then {
+                //     [_entGroup] call DSC_core_fnc_addCombatActivation;
+                // };
                 if (!(_entGroup in _aoGroups)) then { _aoGroups pushBack _entGroup };
             };
         };

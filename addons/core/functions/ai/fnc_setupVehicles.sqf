@@ -207,7 +207,7 @@ private _vehiclesSpawned = 0;
 if (units _crewGroup isNotEqualTo []) then {
     (_result get "groups") pushBack _crewGroup;
     _crewGroup enableDynamicSimulation true;
-    [_crewGroup] call DSC_core_fnc_addCombatActivation;
+    // [_crewGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _crewGroup;
 };

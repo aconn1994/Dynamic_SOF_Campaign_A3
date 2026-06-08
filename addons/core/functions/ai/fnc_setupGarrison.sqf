@@ -325,9 +325,9 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
 
             [_unit, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;
 
-            if (_useCombatActivation) then {
-                [_grp, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-            };
+            // if (_useCombatActivation) then {
+            //     [_grp, _reactionDelay] call DSC_core_fnc_addCombatActivation;
+            // };
 
             _grp enableDynamicSimulation true;
 

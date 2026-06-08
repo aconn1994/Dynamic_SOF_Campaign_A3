@@ -159,9 +159,9 @@ _wp setWaypointCompletionRadius _radius;
 (_result get "groups") pushBack _group;
 _group enableDynamicSimulation true;
 
-if (_combatActivation) then {
-    [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-};
+// if (_combatActivation) then {
+//     [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
+// };
 
 diag_log format ["DSC: setupAnchoredGuard - spawned %1 units (side=%2 skill=%3 r=%4)",
     _spawned, _side, _skillProfile, _radius];

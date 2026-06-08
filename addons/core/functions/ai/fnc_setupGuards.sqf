@@ -263,9 +263,9 @@ if ((units _guardsGroup) isNotEqualTo []) then {
     (_result get "groups") pushBack _guardsGroup;
     _guardsGroup enableDynamicSimulation true;
 
-    if (_useCombatActivation) then {
-        [_guardsGroup, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-    };
+    // if (_useCombatActivation) then {
+    //     [_guardsGroup, _reactionDelay] call DSC_core_fnc_addCombatActivation;
+    // };
 } else {
     deleteGroup _guardsGroup;
 };

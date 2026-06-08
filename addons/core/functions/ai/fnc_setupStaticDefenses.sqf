@@ -257,7 +257,7 @@ if ((units _defenseGroup) isNotEqualTo []) then {
             (objectParent _x) enableDynamicSimulation true;
         };
     } forEach (units _defenseGroup);
-    [_defenseGroup] call DSC_core_fnc_addCombatActivation;
+    // [_defenseGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _defenseGroup;
 };

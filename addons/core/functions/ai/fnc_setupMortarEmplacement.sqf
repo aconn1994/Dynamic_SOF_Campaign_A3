@@ -105,7 +105,7 @@ if ((units _group) isNotEqualTo []) then {
     (_result get "groups") pushBack _group;
     _group enableDynamicSimulation true;
     { _x enableDynamicSimulation true } forEach (_result get "vehicles");
-    [_group] call DSC_core_fnc_addCombatActivation;
+    // [_group] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _group;
 };
