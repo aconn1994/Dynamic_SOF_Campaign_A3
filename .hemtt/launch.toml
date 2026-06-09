@@ -27,7 +27,7 @@ workshop = [
     "2034363662", # Enhanced Movement Rework
     "3407948300", # JSRS Soundmod 2025
     "2791403093", # Better Inventory
-    "2434257231", # Lambs Danger Dev
+    # "2434257231", # Lambs Danger Dev
 ]
 
 [developer_ace]

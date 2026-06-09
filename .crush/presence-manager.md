@@ -827,6 +827,314 @@ polish — at human walking speed across kilometers, player
 intersections are rare and the budget vs. perceived-impact ratio is
 worse than roving vehicles or boats.
 
+### Sprint E Phase 1 — Ambient Air (SHIPPED June 2026)
+
+Sibling subsystem to the zone manager. Independent globals, tick, worker,
+budget. Phase 1 shipped air (rotary + fixed-wing). Phase 2 added ground
+motorized/mechanized patrols. Phase 3 closes out the feature with foot
+patrols and boats.
+
+**Scheduler isolation strategy.** SQF `spawn`s don't run in parallel — they
+time-slice on a single cooperative scheduler. "Independent" here means
+decoupled state + decision timing, not parallelism. Three concrete moves:
+
+1. **Phase-offset ticks.** Presence ticks at t=0, 8, 16; roving starts at
+   t=4 and ticks every 8s. Decision windows alternate, so spawn queues fill
+   at different wall-clock moments and the workers grab work at different
+   times. The roving tick loop opens with `uiSleep 4` to seed the offset.
+2. **Independent worker scope.** Roving worker has its own queue
+   (`DSC_rovingSpawnQueue`), its own heartbeat, its own pacing
+   (`uiSleep 1.5` between spawns). Yields with `uiSleep` so the engine
+   gets frames even if the presence worker is also active.
+3. **Independent budget.** Air caps are tiny (2 rotary + 1 fixed-wing
+   concurrently). A rotary spawn is ~1 createVehicle + createVehicleCrew —
+   roughly 1/40th the cost of a base activation, so contention with the
+   presence worker is essentially impossible at Phase 1 scale.
+
+A shared `DSC_presenceWorkerBusy` back-pressure flag was considered and
+deferred. With Phase 1 air caps it's unnecessary; revisit when Phase 2
+adds heavier ground spawns.
+
+**Hotspot model.** Air spawn density is biased toward military
+installations and airbases:
+
+| Tier | Source | Weight |
+|---|---|---|
+| `airbase` | 3den-placed `player_base_<N>` markers | 4.0 |
+| `base` | Bases from `DSC_influenceData` (opFor / bluFor controlled only) | 3.0 |
+| `outpost` | Outposts from `DSC_influenceData` (opFor / bluFor controlled only) | 1.5 |
+
+Airbases (`player_base_*` markers) sided to bluFor (west) by default —
+they are the player's airfields and we want ambient west traffic biased
+toward them. Bases and outposts sided per their controlling faction
+(neutral / contested skipped — ambiguous side ownership = wrong-side
+spawns and player confusion).
+
+**Spawn algorithm** (`fnc_rovingSpawnAir`):
+
+1. Side roll: per-tick independent east/west rolls (both can fire same tick)
+2. Origin pick: candidates = side hotspots within 6km of player + 30% of
+   farther side hotspots (rare ambient overflight floor)
+3. Weighted random pick by `weight × (1 + influence)`
+4. Destination: random hotspot 4-15km from origin; if none, synth point on
+   far side of player along origin→player vector
+5. Spawn position: 4-6km (rotary) or 6-9km (fixed-wing) from player along
+   the player→origin direction, so the flight path passes through the
+   player's vicinity en route to destination
+6. Altitude: rotary 100-150m, fixed-wing 600-1000m
+7. Waypoints: MID (near player) → DEST → EXIT (6km past dest) so the
+   aircraft keeps flying outbound if the despawn sweep is delayed
+
+**Behavior posture.** AWARE + `disableAI "AUTOCOMBAT"` + `disableAI
+"TARGET"` + `disableAI "AUTOTARGET"`. Matches the `persistentUAV` gotcha:
+CARELESS makes flyers cling to waypoints; AWARE without autocombat gives
+clean ambient transit. Player can shoot first; the aircraft won't fire
+back in Phase 1.
+
+**Aircraft selection.** Pulls from `factionData[opFor|bluFor].assets[...]
+.helicopters` (attack + transport) or `.planes` (attack + transport).
+Partner roles (opForPartner, bluForPartner) skipped per design — keeps
+side attribution clean. Irregulars don't fly.
+
+**Spawn pacing.**
+
+| Parameter | Value | Notes |
+|---|---|---|
+| Tick interval | 8s | Same as presence, phase-offset 4s |
+| Per-tick roll chance | 35% per side | Independent east/west rolls |
+| Min interval per side | 45s | Per-side cooldown |
+| Rotary / fixed-wing split | 80% / 20% | Helo traffic feels more frequent |
+| Rotary budget cap | 3 active | bumped from 2 post-playtest |
+| Fixed-wing budget cap | 2 active | bumped from 1 post-playtest |
+
+**Despawn rules** (`fnc_rovingDespawnSweep`, runs at top of every tick):
+
+- Rotary: distance > 5km from player, OR vehicle dead/null
+- Fixed-wing: distance > 8km from player, OR vehicle dead/null
+- Failsafe: age > 600s catches any frozen / pathfinding-stuck aircraft
+
+Dot-product "behind player" gating intentionally NOT used in Phase 1 —
+spawn pattern already routes aircraft through the player's vicinity
+toward a far destination, so pure distance is enough. Revisit if Phase 2
+testing shows pop-in artifacts.
+
+**Mission AO arbitration.** Independent of presence. When
+`DSC_currentMission.state ∈ {"active", "briefing"}`, fresh air rovers are
+not spawned. Existing rovers continue their flight path (high altitude,
+ambient — they don't interfere with missions on the ground).
+
+**Globals exposed.**
+
+```sqf
+DSC_rovingHotspots          // hashmap with "all", "east", "west" arrays
+DSC_rovingActive            // active rover records
+DSC_rovingSpawnQueue        // pending spawn requests
+DSC_rovingBudgetRotary      // 2
+DSC_rovingBudgetFixed       // 1
+DSC_rovingWorkerHeartbeat   // diag_tickTime
+DSC_rovingStats             // counters: spawned, rotarySpawned, fixedWingSpawned,
+                            //   despawned, nearHotspotSpawns, skippedAoOverlap,
+                            //   skippedBudget, spawnAttempts
+```
+
+**Instrumentation (every 60s):**
+
+```
+DSC: ===== ROVING STATS (10.0 min) =====
+DSC: roving - spawned=12 (rotary=10 fixedWing=2) despawned=8 active=4
+DSC: roving - attempts=34 skipBudget=18 skipAO=0 nearHotspot=11
+```
+
+Per-spawn log: `DSC: roving spawned [rotary] Mi-8 src=base/loc_94 dst=4200m alt=120m sideKey=east`
+Per-despawn log: `DSC: roving despawned [rotary/roving_air_east_1234.56] dist=5320m`
+
+**Files shipped.**
+
+- `addons/core/functions/presence/fnc_initRovingManager.sqf` (new) — tick + worker, phase-offset 4s, budget gate, mission AO arbitration
+- `addons/core/functions/presence/fnc_resolveRovingHotspots.sqf` (new) — hotspot registry from influence + `player_base_*` markers
+- `addons/core/functions/presence/fnc_rovingSpawnAir.sqf` (new) — rotary / fixed-wing transit spawner
+- `addons/core/functions/presence/fnc_rovingDespawnSweep.sqf` (new) — distance + death cull
+- `addons/core/functions/init/fnc_initServer.sqf` — STEP 4d call after presence init
+- `addons/core/XEH_PREP.hpp` — 4 new functions registered
+
+### Sprint E Phase 2 — Roving Ground Patrols (SHIPPED June 2026)
+
+Adds motorized / mechanized road patrols as a third roving category
+alongside Phase 1 air. Same sibling subsystem, same tick + worker, same
+phase-offset — just a new spawner and a third budget bucket.
+
+**Spawn algorithm** (`fnc_rovingSpawnGround`):
+
+1. Side roll: independent east/west rolls per tick (separate cooldowns
+   from air so ground and air pacing don't drag each other)
+2. Hotspot filter: non-airbase only (aircraft launch from airbases,
+   ground vehicles roll from bases / outposts)
+3. Range filter: hotspot must be within 5km of player — ground vehicles
+   are slow; distant hotspots produce rovers that never reach the
+   encounter window
+4. Road pick: `nearRoads` within 1km of hotspot, filter to roads
+   **1500-3000m from player** (spawn-bubble edge band — out of FOV/audio,
+   close enough to drive into engagement window)
+5. Group selection: classified groups tagged `MOTORIZED+PATROL`
+   (preferred) → `MECHANIZED+PATROL` → `MOTORIZED` fallback; AT_TEAM /
+   AA_TEAM excluded (too heavy for ambient transit)
+6. Spawn via `BIS_fnc_spawnGroup` (handles vehicle + crew creation in
+   one go — small burst, ~5-7 createUnits + 1 createVehicle)
+7. Waypoints: `fnc_buildRoadRoute` from spawn position toward player
+   direction, 4-5km route; sample 4 waypoints from the route
+8. Final waypoint past the despawn ring so the rover keeps driving
+   outbound if the despawn sweep is delayed
+
+**Behavior posture** — matches Phase 1 air. AWARE + BLUE combat mode +
+`disableAI "AUTOCOMBAT"` + `disableAI "TARGET"` + `disableAI
+"AUTOTARGET"`. Speed `LIMITED` so AI actually navigates the road
+network without flipping or oversteering. They return fire if attacked
+but won't engage the player on detection.
+
+**Spawn pacing.**
+
+| Parameter | Value | Notes |
+|---|---|---|
+| Per-tick ground roll chance | 30% per side | lighter than air (35%); bumped from 20% post-playtest |
+| Min interval per side (ground) | 60s | shortened from 90s post-playtest |
+| Ground budget cap | 4 active | bumped from 3 post-playtest |
+| Hotspot proximity | within 7km of player | bumped from 5km, with closest-side-hotspot fallback when nothing in range |
+| Despawn radius | 4500m | bumped from 3500m so patrol can roam without instant culling |
+
+**Ambient patrol redesign (post-playtest, iterated).** Original ground design
+tied spawn position to a hotspot, which led to rovers spawning 5-10 km from
+the player and despawning before reaching the encounter zone. Final model
+decouples hotspot from spawn geometry entirely:
+
+**Hotspot → faction; player position → spawn ring.** The nearest hotspot to
+the player decides which faction shows up (player in opFor territory sees
+opFor patrols; bluFor territory sees bluFor patrols). Spawn position is a
+random road in a ring **2.5-4 km from the player** for ground / **2.5-4.5 km
+(rotary) or 4-6 km (fixed-wing)** for air. The same rule applies to both
+ground and air rovers.
+
+This matches the user's intent: "spawn points can be similar to the
+garrison/guard/patrol/statics/vehicles types" — the rover *exists in the
+world near the player*, not at some distant installation. The hotspot
+controls flavor, not geography.
+
+**Ground spawn flow:**
+1. Find nearest non-airbase hotspot to player → side / faction pool
+2. Pick a random direction + distance (**0.8-2.5 km**), find a road near that point
+3. Spawn group via `BIS_fnc_spawnGroup`, `moveInCargo` all dismounts so the
+   whole team transits in the vehicle (not on foot), `selectLeader driver`
+4. `spawn fnc_rovingGroundPatrolLoop` — single road-bound MOVE waypoint at
+   a time via `fnc_buildRoadRoute`, brief 30-60s hold, repeat. Adapted from
+   the proven `fnc_setupVehiclePatrol` pattern. (`BIS_fnc_taskPatrol` was
+   tried; its `findSafePos` waypoints sent rovers off-road into pathing
+   deadlocks.)
+5. Despawn ring 5 km
+
+**Air spawn flow:**
+1. Find nearest hotspot to player (airbases included) → side / aircraft pool
+2. Pick a random direction; spawn point at altitude on that side of player
+3. Synth destination on the opposite side (6-10 km past player)
+4. **Behavior roll** at spawn (55/45 split):
+   - **TRANSIT** (~55%): MID → DEST → EXIT waypoints route the aircraft
+     straight through the player's area. Reads as "flight passing through."
+   - **LOITER** (~45%): 3 orbital waypoints on a ring around a near-player
+     point (600m radius rotary / 1500m fixed-wing) with CYCLE waypoint to
+     loop. A scheduled scope drops the cycle after 90-180s and adds the
+     exit waypoint. Reads as "patrol / monitoring / deterrent orbit."
+5. Despawn 5 km (rotary) / 8 km (fixed-wing)
+
+**Force-mount dismounts (ground).** `BIS_fnc_spawnGroup` for motorized
+infantry teams only auto-mounts driver + gunner from the CfgGroups vehicle
+entry; dismounts spawn on foot. That left rovers with a stationary truck
+and infantry milling around it. After spawn we `moveInCargo` everyone who
+isn't already in the vehicle and `selectLeader driver` so the taskPatrol
+waypoints route through the driver's control loop.
+
+**Aircraft + ground worker dispatch.** The roving worker now dispatches
+on queue-item subtype:
+
+```sqf
+if (_subtype == "ground") then {
+    [_hotspots, _factionData, _sideKey] call DSC_core_fnc_rovingSpawnGround;
+} else {
+    [_subtype, _hotspots, _factionData, _sideKey] call DSC_core_fnc_rovingSpawnAir;
+};
+```
+
+Air spawners still pace `uiSleep 1.5` after every spawn; ground spawns
+respect the same yield. A ground spawn costs ~5-7 createUnit + 1
+createVehicle (~200-400ms wall-clock), still well within Phase 1's
+isolation budget vs the presence manager.
+
+**Air far-floor tightened** in the same pass. The Phase 1 "spawn from
+a distant hotspot when nothing's nearby" sprinkle dropped 30% → 15% —
+post-playtest, 30% was producing too many irrelevant overflights when
+the player was near installations. New value biases air harder toward
+the player's local region while still preventing silence in empty
+wilderness.
+
+**Files shipped.**
+
+- `addons/core/functions/presence/fnc_rovingSpawnGround.sqf` (new) — motorized / mechanized road patrol spawner
+- `addons/core/functions/presence/fnc_rovingDespawnSweep.sqf` — extended with `ground` type (3500m cull)
+- `addons/core/functions/presence/fnc_initRovingManager.sqf` — ground budget global, ground rolls, worker dispatcher
+- `addons/core/functions/presence/fnc_rovingSpawnAir.sqf` — far-floor tightened 0.30 → 0.15
+- `addons/core/XEH_PREP.hpp` — 1 new function registered
+
+**Phase 3 — Foot patrols + boats (SHIPPED).** Closes out the roving feature
+with two final rover types.
+
+**Foot patrol spawn flow** (`fnc_rovingSpawnFoot.sqf`):
+1. Nearest non-airbase hotspot → side / faction pool (same as ground/air)
+2. Spawn position via `BIS_fnc_findSafePos` 600-1500m from player in random
+   direction. Foot patrols spawn closer than vehicles since they're slower
+   and the player needs to actually encounter them.
+3. Group pool = classified FOOT + PATROL groups; excludes AT_TEAM / AA_TEAM
+   / MOTORIZED / MECHANIZED / ARMORED. Falls back to FOOT-only if no PATROL
+   group exists for the faction.
+4. Spawn via `fnc_spawnGroupYielding` (the yielding variant) so the
+   per-unit `createUnit` cost doesn't stutter the scheduler.
+5. `BIS_fnc_taskPatrol` centered on the **player**, radius 1000m. Foot AI
+   handles findSafePos waypoints cleanly (unlike vehicles, which is why
+   we use the road-route loop for ground rovers).
+6. Despawn ring **2000m** — tight since walkers can't outrun the player.
+7. Budget cap **2 active**.
+
+**Boat spawn flow** (`fnc_rovingSpawnBoat.sqf`):
+1. Nearest hotspot (airbases included) → side / faction pool
+2. Find a water spawn position 800-2000m from player via random angle +
+   `surfaceIsWater` check. **Bails silently if no water in range** —
+   inland maps (e.g. Livonia) skip boat spawns automatically.
+3. Boat asset pulled from `extractAssets[faction].boats` (flat array).
+   Boats don't reliably exist as CfgGroups entries, so this is
+   classname-driven like air rovers.
+4. `createVehicle` + `createVehicleCrew` (generic crew — faction-specific
+   crew on boats requires per-slot `createUnit` from the manPool, which
+   wasn't worth the complexity for ambient roving).
+5. Patrol via 3-4 manually generated water waypoints in a ring 1000-2000m
+   from the player (each validated with `surfaceIsWater`), with a `CYCLE`
+   waypoint so the boat loops. If fewer than 2 water points are found
+   (narrow coast), spawns a single "idle in place" waypoint at the spawn
+   position rather than failing.
+6. Despawn ring **3500m**.
+7. Budget cap **2 active**.
+
+**Cooldowns + roll chances:**
+
+| Type | Cooldown | Roll chance per tick | Notes |
+|---|---|---|---|
+| Foot | 75s | 35% | Single roll (no per-side — side derived at spawn) |
+| Boat | 120s | 30% | Single roll; silent no-op on inland maps |
+
+**Despawn sweep extensions** — foot rovers have no vehicle, so the sweep
+uses the group leader's distance and considers the rover "dead" if the
+group has zero living units. Boats use the same vehicle-distance pattern
+as ground/air.
+
+**Behavior posture (all rover types):** AWARE + `disableAI` AUTOCOMBAT /
+TARGET / AUTOTARGET. Ambient world presence, not forced encounter. All
+rovers will return fire if attacked but won't engage on detection.
+
 ## Diagnostics and Tuning Tools
 
 ### Periodic STATS report (every 60s)
@@ -935,7 +1243,6 @@ copyToClipboard str (missionNamespace getVariable "DSC_presenceHandlers");
 ## Sprints Up Next
 
 - **Real-mission shakedown** — verify dyn-sim doesn't freeze AI at wrong moments, combat activation triggers cleanly, no boundary stutters when crossing population edges on foot/in vehicle
-- **Sprint E** *(separate subsystem)* — Roving entities (civilian vehicles, mil patrols, boats)
 
 ## Engine Dynamic Simulation Layer (June 2026)
 

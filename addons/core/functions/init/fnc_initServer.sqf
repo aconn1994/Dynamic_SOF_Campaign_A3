@@ -477,6 +477,16 @@ diag_log "DSC: ========== Initializing Presence Manager ==========";
 [_influenceData] call DSC_core_fnc_initPresenceManager;
 
 // ============================================================================
+// STEP 4d: Roving Manager (Sprint E Phase 1 — ambient air)
+// ============================================================================
+// Sibling system to the presence manager. Independent globals, tick, worker.
+// Phase-offset 4s from presence so spawn decisions alternate on the scheduler.
+// Phase 1 ships air-only (rotary + fixed-wing); ground patrols and civilian
+// vehicles deferred to Phase 2/3.
+diag_log "DSC: ========== Initializing Roving Manager ==========";
+[_influenceData, _factionData] call DSC_core_fnc_initRovingManager;
+
+// ============================================================================
 // STEP 5: Mission Generation Loop
 // ============================================================================
 //

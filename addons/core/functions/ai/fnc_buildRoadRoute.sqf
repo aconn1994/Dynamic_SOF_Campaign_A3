@@ -55,7 +55,10 @@ _visitedRoads set [str _currentRoad, true];
 
 private _totalDistance = 0;
 private _currentDir = _preferredDir;
-private _maxSegments = 50;
+// Road segments in Arma 3 average 20-30m. 300 caps the walk at ~7.5km of
+// road, plenty for any caller while still preventing runaway loops on
+// pathological road networks (e.g. dirt-track spirals).
+private _maxSegments = 300;
 private _segmentCount = 0;
 
 while { _totalDistance < _targetDistance && _segmentCount < _maxSegments } do {

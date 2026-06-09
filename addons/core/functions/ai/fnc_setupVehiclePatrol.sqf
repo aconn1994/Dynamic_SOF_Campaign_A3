@@ -111,26 +111,23 @@ if (isNull _vehicle) exitWith {
     };
 } forEach units _spawnedGroup;
 
-// Check cargo capacity — trim excess dismounts that won't fit
+// Foot-patrol dismount cycle is disabled for now (see vehiclePatrolLoop
+// future-work block). Force-mount any dismounts into vehicle cargo so the
+// whole team transits together. Trim excess that won't fit. Driver is set
+// as group leader so the patrol waypoints route through the vehicle's
+// control loop, not a foot soldier's.
 private _cargoCapacity = _vehicle emptyPositions "cargo";
-if (count _dismounts > _cargoCapacity) then {
-    private _excess = count _dismounts - _cargoCapacity;
-    diag_log format ["DSC: fnc_setupVehiclePatrol - Vehicle has %1 cargo seats but %2 dismounts, removing %3 excess",
-        _cargoCapacity, count _dismounts, _excess];
-    for "_i" from 1 to _excess do {
-        private _unit = _dismounts deleteAt (count _dismounts - 1);
-        deleteVehicle _unit;
+{
+    if (_cargoCapacity > 0) then {
+        _x moveInCargo _vehicle;
+        _cargoCapacity = _cargoCapacity - 1;
+    } else {
+        deleteVehicle _x;
     };
-};
+} forEach _dismounts;
 
-// Need at least 2 dismounts for a meaningful foot patrol
-if (count _dismounts < 2) exitWith {
-    diag_log format ["DSC: fnc_setupVehiclePatrol - Only %1 dismounts after seat check, aborting", count _dismounts];
-    { deleteVehicle _x } forEach units _spawnedGroup;
-    deleteVehicle _vehicle;
-    deleteGroup _spawnedGroup;
-    _emptyResult
-};
+private _driver = driver _vehicle;
+if (!isNull _driver) then { _spawnedGroup selectLeader _driver };
 
 // Store patrol data on group
 _spawnedGroup setVariable ["DSC_vehPatrol_vehicle", _vehicle];
@@ -143,7 +140,7 @@ _spawnedGroup setVariable ["DSC_vehPatrol_center", _locationPos];
 _spawnedGroup enableDynamicSimulation true;
 _vehicle enableDynamicSimulation true;
 
-diag_log format ["DSC: fnc_setupVehiclePatrol - Spawned %1: vehicle %2, crew %3, dismounts %4",
+diag_log format ["DSC: fnc_setupVehiclePatrol - Spawned %1: vehicle %2, crew %3, dismounts %4 (all mounted)",
     _groupName, typeOf _vehicle, count _crew, count _dismounts];
 
 // ============================================================================

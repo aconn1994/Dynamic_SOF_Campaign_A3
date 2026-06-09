@@ -83,6 +83,14 @@ PREP_SUB(presence,presenceHandlerPopulatedArea);
 PREP_SUB(presence,presenceLogTimings);
 PREP_SUB(presence,registerPresenceHandler);
 PREP_SUB(presence,resolveMicrozoneProjection);
+PREP_SUB(presence,initRovingManager);
+PREP_SUB(presence,resolveRovingHotspots);
+PREP_SUB(presence,rovingSpawnAir);
+PREP_SUB(presence,rovingSpawnGround);
+PREP_SUB(presence,rovingSpawnFoot);
+PREP_SUB(presence,rovingSpawnBoat);
+PREP_SUB(presence,rovingGroundPatrolLoop);
+PREP_SUB(presence,rovingDespawnSweep);
 
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);
