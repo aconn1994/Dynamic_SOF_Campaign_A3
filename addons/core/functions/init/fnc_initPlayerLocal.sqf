@@ -126,39 +126,34 @@ jointOperationCenter addAction [
 ];
 
 // ============================================================================
-// Player Down/Revive System (ACE or Vanilla)
+// Dynamic Respawn (playtest aid)
 // ============================================================================
-private _hasACEMedical = isClass (configFile >> "CfgPatches" >> "ace_medical");
-missionNamespace setVariable ["DSC_hasACEMedical", _hasACEMedical, true];
-
-if (_hasACEMedical) then {
-    diag_log "DSC: ACE Medical detected - using ACE unconscious events";
-    
-    // Listen for ACE unconscious state change
-    ["ace_unconscious", {
-        params ["_unit", "_state"];
-        if (_unit != player) exitWith {};
-        if (!_state) exitWith {};
-        if (_unit getVariable ["DSC_isDown", false]) exitWith {};
-        
-        [_unit] spawn DSC_core_fnc_handlePlayerDown;
-    }] call CBA_fnc_addEventHandler;
-} else {
-    diag_log "DSC: Vanilla damage model - using HandleDamage EH";
-    
-    player addEventHandler ["HandleDamage", {
-        params ["_unit", "_selection", "_damage", "_source", "_projectile", "_hitIndex", "_instigator", "_hitPoint"];
-        
-        if (_unit getVariable ["DSC_isDown", false]) exitWith { 0 };
-        
-        if (_damage >= 1 || (damage _unit) + _damage >= 1) exitWith {
-            [_unit] spawn DSC_core_fnc_handlePlayerDown;
-            0
-        };
-        
-        _damage
-    }];
+// On death, drop an invisible "respawn_west_dynamic" marker a safe distance
+// from the kill site. The vanilla position-respawn template (respawn = 3)
+// then respawns the player there — side-specific markers (respawn_west_*)
+// override the generic base markers (respawn_*) — so play resumes near where
+// the player fell instead of back at base, keeping the presence manager's
+// local zones alive instead of despawning them.
+//
+// EntityKilled is a mission EH so it survives respawns (unlike an object EH).
+// DSC_dynRespawnArmed gates out the fake death the engine fires during
+// respawnOnStart at mission init — at that point the player unit sits at
+// [0,0,0] (numeric, so a type check won't catch it) and a marker placed there
+// would respawn the player at the map origin. We only arm once the player has
+// genuinely spawned into the world with a real position.
+DSC_dynRespawnArmed = false;
+[] spawn {
+    waitUntil { sleep 0.5; alive player && {(getPosATL player) distance2D [0, 0] > 100} };
+    DSC_dynRespawnArmed = true;
+    diag_log "DSC: Dynamic respawn armed";
 };
+
+addMissionEventHandler ["EntityKilled", {
+    params ["_killed"];
+    if (_killed isEqualTo player && {DSC_dynRespawnArmed}) then {
+        [_killed] call DSC_core_fnc_placeDynamicRespawn;
+    };
+}];
 
 // ============================================================================
 // Map Draw: Faction Flag Icons for Military Installations

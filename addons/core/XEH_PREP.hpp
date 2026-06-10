@@ -59,6 +59,7 @@ PREP_SUB(init,setupBase);
 // Base (player base actions, recruitment, insertions)
 PREP_SUB(base,haloJump);
 PREP_SUB(base,handlePlayerDown);
+PREP_SUB(base,placeDynamicRespawn);
 PREP_SUB(base,recruitMedic);
 PREP_SUB(base,requestExtraction);
 PREP_SUB(base,simulateFastTravel);

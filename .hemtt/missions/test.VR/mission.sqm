@@ -12,21 +12,24 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=76;
+		nextID=80;
+	};
+	class MarkerIDProvider
+	{
+		nextID=2;
 	};
 	class Camera
 	{
-		pos[]={7628.7192,41.924046,5284.4932};
-		dir[]={0.83827537,-0.54388118,0.038570676};
-		up[]={0.54330635,0.83916223,0.024998579};
-		aside[]={0.04596331,0,-0.99894309};
+		pos[]={7634.5254,13.835179,5275.5444};
+		dir[]={0.9297334,-0.36796898,-0.013952233};
+		up[]={0.36792758,0.92983812,-0.0055213799};
+		aside[]={-0.015005015,0,-0.99988747};
 	};
 };
 binarizationWanted=0;
 sourceName="test";
 addons[]=
 {
-	"A3_Modules_F_Curator_Curator",
 	"A3_Characters_F",
 	"A3_Weapons_F_Rifles_MX",
 	"A3_Sounds_F",
@@ -35,78 +38,219 @@ addons[]=
 	"A3_Weapons_F_Exp",
 	"A3_Weapons_F",
 	"A3_Weapons_F_Items",
-	"A3_Structures_F_Mil_Fortification",
-	"A3_Structures_F_Households_House_Big01",
-	"A3_Structures_F_Households_House_Shop02",
-	"A3_Structures_F_Households_House_Small01"
+	"A3_Characters_F_Exp",
+	"A3_Ui_F"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=8;
+		items=7;
 		class Item0
-		{
-			className="A3_Modules_F_Curator";
-			name="Arma 3 Zeus Update - Scripted Modules";
-			author="Bohemia Interactive";
-			url="https://www.arma3.com";
-		};
-		class Item1
 		{
 			className="A3_Characters_F";
 			name="Arma 3 Alpha - Characters and Clothing";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item2
+		class Item1
 		{
 			className="A3_Weapons_F";
 			name="Arma 3 Alpha - Weapons and Accessories";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item3
+		class Item2
 		{
 			className="A3_Sounds_F";
 			name="Arma 3 - Sound Effects";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item4
+		class Item3
 		{
 			className="A3_Sounds_F_Enoch";
 			name="Arma 3 Contact Platform - Sound Effects";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item5
+		class Item4
 		{
 			className="A3_Weapons_F_Exp";
 			name="Arma 3 Apex - Weapons and Accessories";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item6
+		class Item5
 		{
-			className="A3_Structures_F_Mil";
-			name="Arma 3 - Military Buildings and Structures";
+			className="A3_Characters_F_Exp";
+			name="Arma 3 Apex - Characters and Clothing";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
-		class Item7
+		class Item6
 		{
-			className="A3_Structures_F_Households";
-			name="Arma 3 - Houses";
+			className="A3_Ui_F";
+			name="Arma 3 - User Interface";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
 	};
 };
+dlcs[]=
+{
+	"Expansion"
+};
 randomSeed=4921750;
 class ScenarioData
 {
 	author="Acorn";
+	respawn=3;
+	respawnDelay=10;
+};
+class CustomAttributes
+{
+	class Category0
+	{
+		name="Multiplayer";
+		class Attribute0
+		{
+			property="RespawnTemplates";
+			expression="true";
+			class Value
+			{
+				class data
+				{
+					singleType="ARRAY";
+					class value
+					{
+						items=2;
+						class Item0
+						{
+							class data
+							{
+								singleType="STRING";
+								value="MenuPosition";
+							};
+						};
+						class Item1
+						{
+							class data
+							{
+								singleType="STRING";
+								value="Counter";
+							};
+						};
+					};
+				};
+			};
+		};
+		class Attribute1
+		{
+			property="ReviveMode";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=1;
+				};
+			};
+		};
+		class Attribute2
+		{
+			property="ReviveForceRespawnDelay";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=3;
+				};
+			};
+		};
+		class Attribute3
+		{
+			property="ENH_saveLoadout";
+			expression="if (!isMultiplayer || !_value || is3DEN || !hasInterface) exitWith {};        0 spawn        {            waitUntil {sleep 1; !isNull player};            player setVariable ['ENH_savedLoadout', getUnitloadout player];            player addMPEventHandler ['MPRespawn',            {                params ['_unit'];                private _loadout = _unit getVariable ['ENH_savedLoadout', []];                if (_loadout isNotEqualTo []) then {_unit setUnitLoadout _loadout};            }];        };";
+			class Value
+			{
+				class data
+				{
+					singleType="BOOL";
+					value=1;
+				};
+			};
+		};
+		class Attribute4
+		{
+			property="ReviveRequiredItems";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=0;
+				};
+			};
+		};
+		class Attribute5
+		{
+			property="ENH_respawnTickets_independent";
+			expression="if (!is3DEN && isMultiplayer && isServer) then {[independent, _value] call BIS_fnc_respawnTickets}";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=0;
+				};
+			};
+		};
+		class Attribute6
+		{
+			property="ENH_respawnTickets_east";
+			expression="if (!is3DEN && isMultiplayer && isServer) then {[east, _value] call BIS_fnc_respawnTickets}";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=0;
+				};
+			};
+		};
+		class Attribute7
+		{
+			property="ENH_respawnTickets_civilian";
+			expression="if (!is3DEN && isMultiplayer && isServer) then {[civilian, _value] call BIS_fnc_respawnTickets}";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=0;
+				};
+			};
+		};
+		class Attribute8
+		{
+			property="ENH_respawnTickets_west";
+			expression="if (!is3DEN && isMultiplayer && isServer) then {[west, _value] call BIS_fnc_respawnTickets}";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=0;
+				};
+			};
+		};
+		nAttributes=9;
+	};
 };
 class Mission
 {
@@ -129,75 +273,8 @@ class Mission
 	};
 	class Entities
 	{
-		items=7;
+		items=3;
 		class Item0
-		{
-			dataType="Logic";
-			class PositionInfo
-			{
-				position[]={7667.6782,5,5283.4907};
-				angles[]={-0,1.5764748,0};
-			};
-			id=8;
-			type="ModuleCurator_F";
-			class CustomAttributes
-			{
-				class Attribute0
-				{
-					property="ModuleCurator_F_Owner";
-					expression="_this setVariable ['Owner',_value,true];";
-					class Value
-					{
-						class data
-						{
-							singleType="STRING";
-							value="";
-						};
-					};
-				};
-				class Attribute1
-				{
-					property="ModuleCurator_F_Forced";
-					expression="_this setVariable ['Forced',_value,true];";
-					class Value
-					{
-						class data
-						{
-							singleType="SCALAR";
-							value=0;
-						};
-					};
-				};
-				class Attribute2
-				{
-					property="ModuleCurator_F_Name";
-					expression="_this setVariable ['Name',_value,true];";
-					class Value
-					{
-						class data
-						{
-							singleType="STRING";
-							value="";
-						};
-					};
-				};
-				class Attribute3
-				{
-					property="ModuleCurator_F_Addons";
-					expression="_this setVariable ['Addons',_value,true];";
-					class Value
-					{
-						class data
-						{
-							singleType="SCALAR";
-							value=2;
-						};
-					};
-				};
-				nAttributes=4;
-			};
-		};
-		class Item1
 		{
 			dataType="Group";
 			side="West";
@@ -209,8 +286,8 @@ class Mission
 					dataType="Object";
 					class PositionInfo
 					{
-						position[]={7665.0298,5.0014391,5275.5864};
-						angles[]={0,1.5503871,-0};
+						position[]={7651.9766,5.0014391,5278.2388};
+						angles[]={0,1.5503871,0};
 					};
 					side="West";
 					flags=7;
@@ -277,87 +354,60 @@ class Mission
 			};
 			id=53;
 		};
+		class Item1
+		{
+			dataType="Group";
+			side="East";
+			class Entities
+			{
+				items=1;
+				class Item0
+				{
+					dataType="Object";
+					class PositionInfo
+					{
+						position[]={7660.9189,5.0014391,5277.6196};
+						angles[]={0,4.6993051,0};
+					};
+					side="East";
+					flags=7;
+					class Attributes
+					{
+					};
+					id=77;
+					type="O_V_Soldier_TL_hex_F";
+				};
+			};
+			class Attributes
+			{
+			};
+			id=76;
+		};
 		class Item2
 		{
-			dataType="Object";
-			class PositionInfo
+			dataType="Marker";
+			position[]={7294.9678,5,5284.1279};
+			name="respawn_west";
+			text="Base";
+			type="Empty";
+			id=79;
+			class CustomAttributes
 			{
-				position[]={7668.0259,5.7664084,5274.7622};
-				angles[]={-0,1.5620923,0};
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
 			};
-			side="Empty";
-			flags=4;
-			class Attributes
-			{
-			};
-			id=57;
-			type="Land_HBarrierWall_corner_F";
-		};
-		class Item3
-		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={7667.5137,5.7664084,5279.2871};
-			};
-			side="Empty";
-			flags=4;
-			class Attributes
-			{
-			};
-			id=59;
-			type="Land_HBarrierWall_corner_F";
-		};
-		class Item4
-		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={7690.9614,8.0663748,5271.8662};
-				angles[]={0,3.1522961,-0};
-			};
-			side="Empty";
-			flags=5;
-			class Attributes
-			{
-				name="structure_1";
-			};
-			id=61;
-			type="Land_i_House_Big_01_V1_F";
-		};
-		class Item5
-		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={7732.8418,8.1795254,5301.4111};
-				angles[]={0,3.1377003,0};
-			};
-			side="Empty";
-			flags=5;
-			class Attributes
-			{
-				name="structure_3";
-			};
-			id=62;
-			type="Land_i_Shop_02_V3_F";
-		};
-		class Item6
-		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={7722.7642,6.3420548,5274.584};
-				angles[]={0,1.5795927,0};
-			};
-			side="Empty";
-			flags=5;
-			class Attributes
-			{
-				name="structure_2";
-			};
-			id=63;
-			type="Land_i_House_Small_01_V1_F";
 		};
 	};
 };

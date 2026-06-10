@@ -12,18 +12,18 @@ class EditorData
 	};
 	class ItemIDProvider
 	{
-		nextID=16;
+		nextID=17;
 	};
 	class MarkerIDProvider
 	{
-		nextID=1;
+		nextID=2;
 	};
 	class Camera
 	{
-		pos[]={2165.5593,22.016581,3463.512};
-		dir[]={-0.19579987,-0.19050162,-0.96196234};
-		up[]={-0.03799602,0.98168695,-0.18667397};
-		aside[]={-0.97990757,-3.7252903e-09,0.19945247};
+		pos[]={2160.168,20.714361,3451.2407};
+		dir[]={-0.043954175,-0.2666288,-0.9628101};
+		up[]={-0.012159869,0.96379411,-0.26636365};
+		aside[]={-0.99897379,3.8186408e-07,0.045604616};
 	};
 };
 binarizationWanted=0;
@@ -83,6 +83,8 @@ randomSeed=2169202;
 class ScenarioData
 {
 	author="Acorn";
+	respawn=3;
+	respawnDelay=10;
 };
 class CustomAttributes
 {
@@ -90,6 +92,64 @@ class CustomAttributes
 	{
 		name="Multiplayer";
 		class Attribute0
+		{
+			property="ReviveDelay";
+			expression="false";
+			class Value
+			{
+				class data
+				{
+					singleType="SCALAR";
+					value=16;
+				};
+			};
+		};
+		class Attribute1
+		{
+			property="ENH_saveLoadout";
+			expression="if (!isMultiplayer || !_value || is3DEN || !hasInterface) exitWith {};        0 spawn        {            waitUntil {sleep 1; !isNull player};            player setVariable ['ENH_savedLoadout', getUnitloadout player];            player addMPEventHandler ['MPRespawn',            {                params ['_unit'];                private _loadout = _unit getVariable ['ENH_savedLoadout', []];                if (_loadout isNotEqualTo []) then {_unit setUnitLoadout _loadout};            }];        };";
+			class Value
+			{
+				class data
+				{
+					singleType="BOOL";
+					value=1;
+				};
+			};
+		};
+		class Attribute2
+		{
+			property="RespawnTemplates";
+			expression="true";
+			class Value
+			{
+				class data
+				{
+					singleType="ARRAY";
+					class value
+					{
+						items=2;
+						class Item0
+						{
+							class data
+							{
+								singleType="STRING";
+								value="MenuPosition";
+							};
+						};
+						class Item1
+						{
+							class data
+							{
+								singleType="STRING";
+								value="Counter";
+							};
+						};
+					};
+				};
+			};
+		};
+		class Attribute3
 		{
 			property="ReviveMode";
 			expression="false";
@@ -102,31 +162,7 @@ class CustomAttributes
 				};
 			};
 		};
-		class Attribute1
-		{
-			property="RespawnTemplates";
-			expression="true";
-			class Value
-			{
-				class data
-				{
-					singleType="ARRAY";
-					class value
-					{
-						items=1;
-						class Item0
-						{
-							class data
-							{
-								singleType="STRING";
-								value="None";
-							};
-						};
-					};
-				};
-			};
-		};
-		nAttributes=2;
+		nAttributes=4;
 	};
 };
 class Mission
@@ -153,7 +189,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=10;
+		items=11;
 		class Item0
 		{
 			dataType="Group";
@@ -669,6 +705,32 @@ class Mission
 			angle=69.999992;
 			id=15;
 			atlOffset=0.00046920776;
+			class CustomAttributes
+			{
+				class Attribute0
+				{
+					property="ENH_markerShape";
+					expression="if (_value != 'NONE' && isServer) then {_this setMarkerShape _value}";
+					class Value
+					{
+						class data
+						{
+							singleType="STRING";
+							value="NONE";
+						};
+					};
+				};
+				nAttributes=1;
+			};
+		};
+		class Item10
+		{
+			dataType="Marker";
+			position[]={2157.636,12.815,3437.9741};
+			name="respawn_west";
+			type="Empty";
+			id=16;
+			atlOffset=1.8119812e-05;
 			class CustomAttributes
 			{
 				class Attribute0
