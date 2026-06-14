@@ -168,6 +168,12 @@ private _aegisFactions = [];
     { _aegisFactions pushBackUnique _x } forEach _roleFactions;
 } forEach _factionProfileConfigAegis;
 
+private _rhsFactions = [];
+{
+    private _roleFactions = (_y getOrDefault ["factions", []]);
+    { _rhsFactions pushBackUnique _x } forEach _roleFactions;
+} forEach _factionProfileConfigRhs;
+
 private _allAegisPresent = true;
 {
     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
@@ -176,12 +182,25 @@ private _allAegisPresent = true;
     };
 } forEach _aegisFactions;
 
+private _allRhsPresent = true;
+{
+    if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
+        diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
+        _allRhsPresent = false;
+    };
+} forEach _rhsFactions;
+
 private _selectedProfile = if (_allAegisPresent) then {
     diag_log "DSC: All Aegis factions detected - using Aegis faction profile";
     _factionProfileConfigAegis
 } else {
-    diag_log "DSC: Using vanilla faction profile";
-    _factionProfileConfigVanilla
+    if (_allRhsPresent) then {
+        diag_log "DSC: All RHS factions detected - using RHS faction profile";
+        _factionProfileConfigRhs
+    } else {
+        diag_log "DSC: Using vanilla faction profile";
+        _factionProfileConfigVanilla
+    }
 };
 
 private _getTimeAsString = {
@@ -192,40 +211,6 @@ private _getTimeAsString = {
 
     format ["%1:%2:%3", _hours, _minutes, _seconds];
 };
-
-// ============================================================================
-// Auto-detect faction profile: check if all RHS factions exist in CfgFactionClasses
-// ============================================================================
-// private _rhsFactions = [];
-// {
-//     private _roleFactions = (_y getOrDefault ["factions", []]);
-//     { _rhsFactions pushBackUnique _x } forEach _roleFactions;
-// } forEach _factionProfileConfigRhs;
-
-// private _allRhsPresent = true;
-// {
-//     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
-//         diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
-//         _allRhsPresent = false;
-//     };
-// } forEach _rhsFactions;
-
-// private _selectedProfile = if (_allRhsPresent) then {
-//     diag_log "DSC: All RHS factions detected - using RHS faction profile";
-//     _factionProfileConfigRhs
-// } else {
-//     diag_log "DSC: Using vanilla faction profile";
-//     _factionProfileConfigVanilla
-// };
-
-// private _getTimeAsString = {
-//     private _daytime = dayTime;
-//     private _hours = floor _daytime;
-//     private _minutes = floor ((_daytime - _hours) * 60);
-//     private _seconds = floor ((((_daytime - _hours) * 60) - _minutes) * 60);
-
-//     format ["%1:%2:%3", _hours, _minutes, _seconds];
-// };
 
 // ============================================================================
 // STEP 0: Init Server Globals

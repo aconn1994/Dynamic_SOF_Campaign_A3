@@ -110,8 +110,8 @@ if (_projRange > 0 && _ctrlDist < _projRange) then {
 // Sprint D.5 tuning iteration (June 2026 stress test): with narrower
 // 1.1km activate radius, fewer zones live at once — push chance higher
 // so individual encounters are denser rather than thinly spread.
-private _baseGuard  = 0.95;
-private _basePatrol = 0.90;
+private _baseGuard  = 0.35;
+private _basePatrol = 0.15;
 
 private _guardChance  = (_baseGuard  * _strength * _typeMult) min 1;
 private _patrolChance = (_basePatrol * _strength * _typeMult) min 1;

@@ -56,11 +56,11 @@ private _profiles = createHashMapFromArray [
         ["qrfDelay", [60, 120]],
         ["areaPresenceChance", 0.8],
         ["targetRoles", ["opFor", "opForPartner", "irregulars"]],
-        ["garrisonAnchors", [2, 3]],
+        ["garrisonAnchors", [1, 3]],
         ["garrisonSatellites", [1, 3]],
         ["guardCoverage", 0.8],
         ["guardsPerBuilding", [1, 2]],
-        ["patrolCount", [2, 3]],
+        ["patrolCount", [0, 3]],
         ["maxVehicles", 4],
         ["vehicleArmedChance", 0.5],
         ["description", "Mission against enemy faction."]
@@ -74,7 +74,7 @@ private _profiles = createHashMapFromArray [
     //   1 garrison anchor with 0-1 satellites = a single compound to clear
     //   Minimal guards, rare patrols, unarmed vehicles
     ["AFO_rural", createHashMapFromArray [
-        ["requiredTags", ["rural"]],
+        ["requiredTags", []],
         ["excludeTags", ["military", "urban", "base", "outpost"]],
         ["density", "light"],
         ["qrfEnabled", false],
@@ -91,8 +91,8 @@ private _profiles = createHashMapFromArray [
     ]],
 
     ["AFO_urban", createHashMapFromArray [
-        ["requiredTags", ["urban"]],
-        ["excludeTags", ["military", "rural", "base", "outpost", "isolated"]],
+        ["requiredTags", []],
+        ["excludeTags", ["military", "rural", "base", "outpost"]],
         ["density", "light"],
         ["qrfEnabled", false],
         ["areaPresenceChance", 0.3],

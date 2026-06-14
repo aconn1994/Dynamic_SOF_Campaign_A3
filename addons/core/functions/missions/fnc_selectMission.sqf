@@ -62,7 +62,7 @@ if (_influenceData isEqualTo createHashMap || _factionData isEqualTo createHashM
 if (_template isEqualTo createHashMap) then {
     _template = createHashMapFromArray [
         ["type", "KILL_CAPTURE"],
-        ["missionProfile", "AFO_rural"]
+        ["missionProfile", "ALL"]
         // ["regionCenter", getPos (allPlayers select 0)],
         // ["regionRadius", 5000]
     ];

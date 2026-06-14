@@ -182,7 +182,7 @@ _vehicle enableDynamicSimulation true;
 //
 // All air retains AWARE + autocombat-disabled posture, so loitering is
 // non-threatening to the player.
-private _behavior = ["loiter", "transit"] select (random 1 < 0.55);
+private _behavior = ["loiter", "transit"] select (random 1 < 0.05);
 
 if (_behavior == "transit") then {
     // Mid-waypoint near the player keeps the flight visible. Final waypoint

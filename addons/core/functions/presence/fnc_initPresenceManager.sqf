@@ -314,11 +314,11 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 // on the next tick.
 [createHashMapFromArray [
     ["type",           "base"],
-    ["activateRadius", 1500],
-    ["despawnRadius",  2000],
+    ["activateRadius", 800],
+    ["despawnRadius",  1000],
     ["despawnGrace",   90],
-    ["budgetUnits",    20],
-    ["budgetVehicles", 3],
+    ["budgetUnits",    10],
+    ["budgetVehicles", 2],
     ["populate",       DSC_core_fnc_presenceHandlerBase],
     ["despawn",        {}],
     ["lifecycle",      "delete"],
@@ -329,8 +329,8 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "outpost"],
-    ["activateRadius", 1200],
-    ["despawnRadius",  2000],
+    ["activateRadius", 800],
+    ["despawnRadius",  1000],
     ["despawnGrace",   75],
     ["budgetUnits",    8],
     ["budgetVehicles", 1],
@@ -344,8 +344,8 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "camp"],
-    ["activateRadius", 900],
-    ["despawnRadius",  1500],
+    ["activateRadius", 800],
+    ["despawnRadius",  1000],
     ["despawnGrace",   60],
     ["budgetUnits",    4],
     ["budgetVehicles", 1],
@@ -359,10 +359,10 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "populatedArea"],
-    ["activateRadius", 1500],
-    ["despawnRadius",  2000],
+    ["activateRadius", 800],
+    ["despawnRadius",  1000],
     ["despawnGrace",   60],
-    ["budgetUnits",    8],
+    ["budgetUnits",    5],
     ["budgetVehicles", 0],
     ["populate",       DSC_core_fnc_presenceHandlerPopulatedArea],
     ["despawn",        {}],
@@ -384,10 +384,10 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "industrialSite"],
-    ["activateRadius", 1000],
-    ["despawnRadius",  1500],
+    ["activateRadius", 600],
+    ["despawnRadius",  800],
     ["despawnGrace",   30],
-    ["budgetUnits",    8],
+    ["budgetUnits",    3],
     ["budgetVehicles", 0],
     ["populate",       DSC_core_fnc_presenceHandlerIndustrialSite],
     ["despawn",        {}],
@@ -398,13 +398,13 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["military", createHashMapFromArray [
         ["typeMultiplier", 1.0],
         ["guard", createHashMapFromArray [
-            ["size",              [3, 5]],
+            ["size",              [2, 3]],
             ["radius",            40],
             ["skill",             "garrison_light"],
             ["irregularFallback", true]
         ]],
         ["patrol", createHashMapFromArray [
-            ["size",   [4, 5]],
+            ["size",   [2, 3]],
             ["radius", 250],
             ["skill",  "garrison_light"]
         ]]
@@ -413,10 +413,10 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "isolatedCompound"],
-    ["activateRadius", 1000],
-    ["despawnRadius",  1500],
+    ["activateRadius", 600],
+    ["despawnRadius",  800],
     ["despawnGrace",   30],
-    ["budgetUnits",    8],
+    ["budgetUnits",    3],
     ["budgetVehicles", 0],
     ["populate",       DSC_core_fnc_presenceHandlerIsolatedCompound],
     ["despawn",        {}],
@@ -427,13 +427,13 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["military", createHashMapFromArray [
         ["typeMultiplier", 1.0],
         ["guard", createHashMapFromArray [
-            ["size",              [3, 5]],
+            ["size",              [2, 3]],
             ["radius",            30],
             ["skill",             "garrison_light"],
             ["irregularFallback", true]
         ]],
         ["patrol", createHashMapFromArray [
-            ["size",   [4, 5]],
+            ["size",   [2, 3]],
             ["radius", 300],
             ["skill",  "garrison_light"]
         ]]
@@ -442,10 +442,10 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "infrastructureNode"],
-    ["activateRadius", 1000],
-    ["despawnRadius",  1500],
+    ["activateRadius", 600],
+    ["despawnRadius",  800],
     ["despawnGrace",   30],
-    ["budgetUnits",    8],
+    ["budgetUnits",    3],
     ["budgetVehicles", 0],
     ["populate",       DSC_core_fnc_presenceHandlerInfrastructureNode],
     ["despawn",        {}],
@@ -456,13 +456,13 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
     ["military", createHashMapFromArray [
         ["typeMultiplier", 2.0],
         ["guard", createHashMapFromArray [
-            ["size",              [3, 4]],
+            ["size",              [2, 3]],
             ["radius",            20],
             ["skill",             "garrison_light"],
             ["irregularFallback", false]
         ]],
         ["patrol", createHashMapFromArray [
-            ["size",   [3, 4]],
+            ["size",   [2, 3]],
             ["radius", 200],
             ["skill",  "garrison_light"]
         ]]
@@ -471,10 +471,10 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 
 [createHashMapFromArray [
     ["type",           "agriculturalSite"],
-    ["activateRadius", 1000],
-    ["despawnRadius",  1500],
+    ["activateRadius", 600],
+    ["despawnRadius",  800],
     ["despawnGrace",   30],
-    ["budgetUnits",    6],
+    ["budgetUnits",    4],
     ["budgetVehicles", 0],
     ["populate",       DSC_core_fnc_presenceHandlerAgriculturalSite],
     ["despawn",        {}],

@@ -43,18 +43,18 @@ dlc = [
     "Western Sahara"
 ]
 workshop = [
-    # "843577117", # RHSUSAF
-    # "843425103", # RHSAFRF
-    # "843593391", # RHSGREF
-    # "843632231", # RHSSAF
+    "843577117", # RHSUSAF
+    "843425103", # RHSAFRF
+    "843593391", # RHSGREF
+    "843632231", # RHSSAF
     # "2162749089", # Legion Studios Core
-    "949252631",  # Aegis Mod
-    "2225864448", # Aegis - Marines
-    "2225865544", # Aegis - Police
-    "2225873516", # Aegis Atlas
-    "1873244913", # Aegus Atlas - Opposing Forces
-    "2843094358", # Athena
-    "2684335735", # Revolucion
+    # "949252631",  # Aegis Mod
+    # "2225864448", # Aegis - Marines
+    # "2225865544", # Aegis - Police
+    # "2225873516", # Aegis Atlas
+    # "1873244913", # Aegus Atlas - Opposing Forces
+    # "2843094358", # Athena
+    # "2684335735", # Revolucion
 ]
 
 [play_test_factions]

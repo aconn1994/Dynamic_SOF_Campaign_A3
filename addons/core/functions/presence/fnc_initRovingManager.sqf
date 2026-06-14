@@ -67,10 +67,10 @@ if (_eastCount == 0 && _westCount == 0) exitWith {
 // ============================================================================
 missionNamespace setVariable ["DSC_rovingActive", [], true];
 missionNamespace setVariable ["DSC_rovingSpawnQueue", [], true];
-missionNamespace setVariable ["DSC_rovingBudgetRotary", 3, true];
-missionNamespace setVariable ["DSC_rovingBudgetFixed", 2, true];
-missionNamespace setVariable ["DSC_rovingBudgetGround", 4, true];
-missionNamespace setVariable ["DSC_rovingBudgetFoot", 2, true];
+missionNamespace setVariable ["DSC_rovingBudgetRotary", 1, true];
+missionNamespace setVariable ["DSC_rovingBudgetFixed", 1, true];
+missionNamespace setVariable ["DSC_rovingBudgetGround", 2, true];
+missionNamespace setVariable ["DSC_rovingBudgetFoot", 3, true];
 missionNamespace setVariable ["DSC_rovingBudgetBoat", 2, true];
 missionNamespace setVariable ["DSC_rovingStats", createHashMapFromArray [
     ["spawned",            0],
@@ -151,14 +151,14 @@ diag_log format ["DSC: rovingManager - %1 east hotspots, %2 west hotspots regist
     private _lastSpawnGroundWest = 0;
     private _lastSpawnFoot = 0;
     private _lastSpawnBoat = 0;
-    private _minIntervalAir = 45;             // seconds between same-side air spawns
-    private _minIntervalGround = 60;          // seconds — ground patrols are heavier
-    private _minIntervalFoot = 75;            // seconds — foot patrols are slower / longer-lived
-    private _minIntervalBoat = 120;           // seconds — boats are coastal-only, rarer
-    private _rollChanceAir = 0.35;            // air roll chance when air cooldown elapsed
-    private _rollChanceGround = 0.30;         // ground roll chance — bumped from 0.20 to keep ground rovers more present
+    private _minIntervalAir = 1200;           // seconds between same-side air spawns
+    private _minIntervalGround = 600;         // seconds — ground patrols are heavier
+    private _minIntervalFoot = 300;           // seconds — foot patrols are slower / longer-lived
+    private _minIntervalBoat = 600;           // seconds — boats are coastal-only, rarer
+    private _rollChanceAir = 0.15;            // air roll chance when air cooldown elapsed
+    private _rollChanceGround = 0.20;         // ground roll chance — bumped from 0.20 to keep ground rovers more present
     private _rollChanceFoot = 0.35;           // foot roll chance
-    private _rollChanceBoat = 0.30;           // boat roll chance — will silently no-op on inland maps
+    private _rollChanceBoat = 0.20;           // boat roll chance — will silently no-op on inland maps
 
     private _lastStatsReport = diag_tickTime;
     private _statsReportInterval = 60;
