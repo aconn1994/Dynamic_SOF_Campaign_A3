@@ -31,36 +31,24 @@ jointOperationCenter addAction [
     "missionNamespace getVariable ['missionInProgress', false] && _target distance _this < 5"
 ];
 
-// player addAction [
-//     'Debrief Mission',
-//     {
-//         private _mission = missionNamespace getVariable ["DSC_currentMission", createHashMap];
-//         if (_mission isEqualTo createHashMap) exitWith { hint "No active mission." };
-        
-//         private _missionGroups = _mission getOrDefault ["groups", []];
-//         if (_missionGroups isEqualTo []) exitWith { hint "No mission groups found." };
-
-//         private _groupAlives = false;
-//         {
-//             if ([_x] call DSC_core_fnc_groupActive) then { _groupAlives = true };
-//         } forEach _missionGroups;
-
-//         if (!_groupAlives) then { 
-//             missionNamespace setVariable ["missionComplete", true, true]; 
-//         };
-//         missionNamespace setVariable ["missionInProgress", false, true];
-//     },
-//     [],
-//     6,
-//     false,
-//     true,
-//     "",
-//     "missionNamespace getVariable ['missionInProgress', false] && _target distance _this < 5"
-// ];
-
 // ============================================================================
-// Insertion Actions
+// Base Actions
 // ============================================================================
+["AmmoboxInit", [jointOperationCenter, true, { _this distance _target  < 6 }]] call BIS_fnc_arsenal;
+
+if (isClass (configFile >> "CfgPatches" >> "ace_arsenal")) then {
+    jointOperationCenter addAction [
+        "ACE Arsenal",
+        { [jointOperationCenter, player, true] call ace_arsenal_fnc_openBox; },
+        [],
+        5,
+        false,
+        true,
+        "",
+        "_target distance _this < 5"
+    ];
+};
+
 jointOperationCenter addAction [
     'HALO Jump',
     {
@@ -96,34 +84,48 @@ jointOperationCenter addAction [
     "_target distance _this < 5"
 ];
 
-player addAction [
-    'Request Extraction',
-    {
-        [player] spawn DSC_core_fnc_requestExtraction;
-    },
-    [],
-    1,
-    false,
-    true,
-    "",
-    ""
-];
+if (isClass (configFile >> "CfgPatches" >> "ace_arsenal")) then {
+    player addAction [
+        'Request Extraction',
+        {
+            [player] spawn DSC_core_fnc_requestExtraction;
+        },
+        [],
+        1,
+        false,
+        true,
+        "",
+        ""
+    ];
+};
+// player addAction [
+//     'Request Extraction',
+//     {
+//         [player] spawn DSC_core_fnc_requestExtraction;
+//     },
+//     [],
+//     1,
+//     false,
+//     true,
+//     "",
+//     ""
+// ];
 
-// ============================================================================
-// Base Recruitment Actions (on Joint Operations Center flagpole)
-// ============================================================================
-jointOperationCenter addAction [
-    'Recruit Medic',
-    {
-        [player] call DSC_core_fnc_recruitMedic;
-    },
-    [],
-    3,
-    false,
-    true,
-    "",
-    "_target distance _this < 5"
-];
+// // ============================================================================
+// // Base Recruitment Actions (on Joint Operations Center flagpole)
+// // ============================================================================
+// jointOperationCenter addAction [
+//     'Recruit Medic',
+//     {
+//         [player] call DSC_core_fnc_recruitMedic;
+//     },
+//     [],
+//     3,
+//     false,
+//     true,
+//     "",
+//     "_target distance _this < 5"
+// ];
 
 // ============================================================================
 // Dynamic Respawn (playtest aid)

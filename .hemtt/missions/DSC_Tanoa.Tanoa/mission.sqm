@@ -20,10 +20,10 @@ class EditorData
 	};
 	class Camera
 	{
-		pos[]={2160.168,20.714361,3451.2407};
-		dir[]={-0.043954175,-0.2666288,-0.9628101};
-		up[]={-0.012159869,0.96379411,-0.26636365};
-		aside[]={-0.99897379,3.8186408e-07,0.045604616};
+		pos[]={2159.7129,24.607403,3454.5811};
+		dir[]={-0.035977617,-0.46302441,-0.88561505};
+		up[]={-0.018794606,0.88634557,-0.46264282};
+		aside[]={-0.99917591,0,0.040590961};
 	};
 };
 binarizationWanted=0;
@@ -34,7 +34,6 @@ addons[]=
 	"A3_Weapons_F",
 	"A3_Modules_F_Curator_Curator",
 	"A3_Structures_F_Mil_Flags",
-	"A3_Weapons_F_Ammoboxes",
 	"A3_Ui_F"
 };
 class AddonsMetaData
@@ -177,6 +176,8 @@ class Mission
 		forecastWind=0.1;
 		forecastWaves=0.1;
 		forecastLightnings=0.1;
+		wavesForced=1;
+		windForced=1;
 		year=2035;
 		month=6;
 		day=6;
@@ -189,7 +190,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=11;
+		items=10;
 		class Item0
 		{
 			dataType="Group";
@@ -585,7 +586,7 @@ class Mission
 						class data
 						{
 							singleType="STRING";
-							value="";
+							value="#adminLogged";
 						};
 					};
 				};
@@ -649,52 +650,6 @@ class Mission
 		};
 		class Item8
 		{
-			dataType="Object";
-			class PositionInfo
-			{
-				position[]={2147.9868,13.696399,3420.3496};
-				angles[]={0.010663962,5.6732101,6.2352238};
-			};
-			side="Empty";
-			flags=4;
-			class Attributes
-			{
-			};
-			id=14;
-			type="B_supplyCrate_F";
-			class CustomAttributes
-			{
-				class Attribute0
-				{
-					property="ENH_virtualArsenal";
-					expression="if (!is3DEN && _value) then {['AmmoboxInit', [_this, true]] spawn BIS_fnc_arsenal}";
-					class Value
-					{
-						class data
-						{
-							singleType="BOOL";
-							value=1;
-						};
-					};
-				};
-				class Attribute1
-				{
-					property="ammoBox";
-					expression="[_this,_value] call bis_fnc_initAmmoBox;";
-					class Value
-					{
-						class data
-						{
-							singleType="STRING";
-							value="[[[[],[]],[[],[]],[[],[]],[[],[]]],false]";
-						};
-					};
-				};
-				nAttributes=2;
-			};
-		};
-		class Item9
-		{
 			dataType="Marker";
 			position[]={2245.2439,11.975,3462.5879};
 			name="player_base_1";
@@ -723,7 +678,7 @@ class Mission
 				nAttributes=1;
 			};
 		};
-		class Item10
+		class Item9
 		{
 			dataType="Marker";
 			position[]={2157.636,12.815,3437.9741};
