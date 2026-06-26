@@ -47,6 +47,15 @@ private _kept = [];
     private _type    = _record getOrDefault ["type",    "rotary"];
     private _spawnT  = _record getOrDefault ["spawnTime", _now];
 
+    // BFT-3 protection: groups commandeered through the Blue Force Tracker
+    // tablet carry a role tag. Skip the cleanup so the player doesn't watch
+    // a group they just tasked vanish. The fnc_bftExecuteCommand path also
+    // detaches the record from DSC_rovingActive, so this is belt-and-braces.
+    if (!isNull _group && {(_group getVariable ["DSC_bftRole", ""]) != ""}) then {
+        _kept pushBack _record;
+        continue;
+    };
+
     private _despawnRange = switch (_type) do {
         case "fixedWing": { 8000 };
         case "ground":    { 5000 }; // spawn ring is 0.8-2.5km, patrol radius local — 5km gives breathing room

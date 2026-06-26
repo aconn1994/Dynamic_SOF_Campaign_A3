@@ -93,6 +93,13 @@ PREP_SUB(presence,rovingSpawnBoat);
 PREP_SUB(presence,rovingGroundPatrolLoop);
 PREP_SUB(presence,rovingDespawnSweep);
 
+// Blue Force Tracker
+PREP_SUB(bft,bftSnapshot);
+PREP_SUB(bft,bftExecuteCommand);
+PREP_SUB(bft,bftResolveIconType);
+PREP_SUB(bft,bftQrfStaging);
+PREP_SUB(bft,bftQrfReact);
+
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);
 PREP_SUB(placement,placeInterior);

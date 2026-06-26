@@ -44,6 +44,8 @@ class RscCheckBox;
 class RscControlsGroupNoScrollbars;
 class RscXSliderH;
 class RscListBox;
+class RscMapControl;
+class RscStructuredText;
 
 // ============================================================================
 // DSC base classes — inherit BIS, override style only
@@ -168,5 +170,33 @@ class DSC_RscListBox : RscListBox {
     colorBackground[] = { 0.10, 0.13, 0.16, 0.95 };
     colorSelect[]     = COLOR_ACCENT;
     colorSelectBackground[] = { 0.20, 0.30, 0.35, 0.85 };
+    x = 0; y = 0; w = 0.3; h = 0.2;
+};
+
+// Map control — inherit from BIS RscMapControl so all required sub-classes
+// (Bird, Legend, Task, Customer, etc.) come from the engine. Override only
+// minimal visual properties.
+class DSC_RscMapControl : RscMapControl {
+    idc = -1;
+    x = 0; y = 0; w = 1; h = 1;
+    colorBackground[]   = { 0.969, 0.957, 0.949, 1.0 };
+    colorOutside[]      = { 0, 0, 0, 1 };
+    colorText[]         = { 0, 0, 0, 1 };
+    onMouseButtonClick  = "";
+    onMouseButtonDblClick = "";
+};
+
+class DSC_RscStructuredText : RscStructuredText {
+    idc = -1;
+    style = ST_LEFT;
+    colorBackground[] = COLOR_TRANSPARENT;
+    text = "";
+    size = 0.024;
+    class Attributes {
+        font = FONT_M;
+        color = "#D9EBF2";
+        align = "left";
+        shadow = 0;
+    };
     x = 0; y = 0; w = 0.3; h = 0.2;
 };

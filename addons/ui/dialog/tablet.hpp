@@ -38,7 +38,7 @@ class DSC_Tablet {
         movingEnable = 0;
         enableSimulation = 1;
         enableDisplay = 1;
-        onLoad = "uiNamespace setVariable ['DSC_TabletDisplay', _this select 0]; [_this select 0] call DSC_ui_fnc_panelMissionGen_init;";
+        onLoad = "uiNamespace setVariable ['DSC_TabletDisplay', _this select 0]; [_this select 0] call DSC_ui_fnc_panelMissionGen_init; [_this select 0, 'bft'] call DSC_ui_fnc_switchPanel;";
         onUnload = "uiNamespace setVariable ['DSC_TabletDisplay', displayNull];";
 
         class ControlsBackground {
@@ -84,21 +84,22 @@ class DSC_Tablet {
             };
 
             // ----------------------------------------------------------------
-            // Tab bar
+            // Tab bar — BFT first (default landing tab), Mission Debug last
             // ----------------------------------------------------------------
-            class TabMission : DSC_RscTabButton {
-                idc = DSC_TABLET_IDC_TAB_MISSION;
-                text = "MISSION GEN";
+            class TabBft : DSC_RscTabButton {
+                idc = DSC_TABLET_IDC_TAB_BFT;
+                text = "BFT";
                 x = EXPR(SCR_X + SCR_W * 0.36);
                 y = EXPR(SCR_Y + SCR_H * 0.015);
-                w = EXPR(SCR_W * 0.13);
+                w = EXPR(SCR_W * 0.07);
                 h = EXPR(ROW_H * 0.95);
-                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'mission'] call DSC_ui_fnc_switchPanel;";
+                colorBackground[] = COLOR_ACCENT;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'bft'] call DSC_ui_fnc_switchPanel;";
             };
             class TabSupports : DSC_RscTabButton {
                 idc = DSC_TABLET_IDC_TAB_SUPPORTS;
                 text = "SUPPORTS";
-                x = EXPR(SCR_X + SCR_W * 0.495);
+                x = EXPR(SCR_X + SCR_W * 0.435);
                 y = EXPR(SCR_Y + SCR_H * 0.015);
                 w = EXPR(SCR_W * 0.115);
                 h = EXPR(ROW_H * 0.95);
@@ -106,23 +107,12 @@ class DSC_Tablet {
                 colorText[] = COLOR_TEXT_DIM;
                 action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'supports'] call DSC_ui_fnc_switchPanel;";
             };
-            class TabBft : DSC_RscTabButton {
-                idc = DSC_TABLET_IDC_TAB_BFT;
-                text = "BFT";
-                x = EXPR(SCR_X + SCR_W * 0.615);
-                y = EXPR(SCR_Y + SCR_H * 0.015);
-                w = EXPR(SCR_W * 0.07);
-                h = EXPR(ROW_H * 0.95);
-                colorBackground[] = { 0.10, 0.13, 0.16, 0.4 };
-                colorText[] = COLOR_TEXT_DIM;
-                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'bft'] call DSC_ui_fnc_switchPanel;";
-            };
             class TabSquad : DSC_RscTabButton {
                 idc = DSC_TABLET_IDC_TAB_SQUAD;
                 text = "SQUAD";
-                x = EXPR(SCR_X + SCR_W * 0.690);
+                x = EXPR(SCR_X + SCR_W * 0.555);
                 y = EXPR(SCR_Y + SCR_H * 0.015);
-                w = EXPR(SCR_W * 0.09);
+                w = EXPR(SCR_W * 0.085);
                 h = EXPR(ROW_H * 0.95);
                 colorBackground[] = { 0.10, 0.13, 0.16, 0.4 };
                 colorText[] = COLOR_TEXT_DIM;
@@ -131,13 +121,24 @@ class DSC_Tablet {
             class TabIntel : DSC_RscTabButton {
                 idc = DSC_TABLET_IDC_TAB_INTEL;
                 text = "INTEL";
-                x = EXPR(SCR_X + SCR_W * 0.785);
+                x = EXPR(SCR_X + SCR_W * 0.645);
                 y = EXPR(SCR_Y + SCR_H * 0.015);
-                w = EXPR(SCR_W * 0.085);
+                w = EXPR(SCR_W * 0.075);
                 h = EXPR(ROW_H * 0.95);
                 colorBackground[] = { 0.10, 0.13, 0.16, 0.4 };
                 colorText[] = COLOR_TEXT_DIM;
                 action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'intel'] call DSC_ui_fnc_switchPanel;";
+            };
+            class TabMission : DSC_RscTabButton {
+                idc = DSC_TABLET_IDC_TAB_MISSION;
+                text = "MISSION DEBUG";
+                x = EXPR(SCR_X + SCR_W * 0.725);
+                y = EXPR(SCR_Y + SCR_H * 0.015);
+                w = EXPR(SCR_W * 0.155);
+                h = EXPR(ROW_H * 0.95);
+                colorBackground[] = { 0.10, 0.13, 0.16, 0.4 };
+                colorText[] = COLOR_TEXT_DIM;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'mission'] call DSC_ui_fnc_switchPanel;";
             };
 
             class CloseBtn : DSC_RscDangerButton {
@@ -159,6 +160,7 @@ class DSC_Tablet {
                 y = EXPR(SCR_Y + SCR_H * 0.085);
                 w = EXPR(SCR_W * 0.96);
                 h = EXPR(SCR_H * 0.905);
+                show = 0;
 
                 class Controls {
 
@@ -574,6 +576,386 @@ class DSC_Tablet {
                         action = "closeDialog 0;";
                     };
                 };
+            };
+
+            // ================================================================
+            // Blue Force Tracker — chrome (title / status / recenter) sit as
+            // top-level controls outside the map's rect, and the map lives in
+            // its own dedicated controls group sized to the empty middle.
+            // RscMapControl renders reliably as a controls-group child filling
+            // 0..1, and top-level chrome means nothing overlaps the map area.
+            // switchPanel toggles ctrlShow on the whole set together.
+            // ================================================================
+            class BftTitleLbl : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_TITLE;
+                style = ST_LEFT;
+                font = FONT_B;
+                sizeEx = 0.026;
+                text = "BLUE FORCE TRACKER";
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.090);
+                w = EXPR(SCR_W * 0.40);
+                h = EXPR(SCR_H * 0.045);
+                colorText[] = COLOR_ACCENT;
+                show = 0;
+            };
+
+            class BftStatusText : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_STATUS;
+                sizeEx = 0.020;
+                text = "Loading...";
+                x = EXPR(SCR_X + SCR_W * 0.40);
+                y = EXPR(SCR_Y + SCR_H * 0.095);
+                w = EXPR(SCR_W * 0.32);
+                h = EXPR(SCR_H * 0.040);
+                show = 0;
+            };
+
+            // Clutter filter — toggles between showing every track (ALL,
+            // default) and just commanded groups + squad + objective (MINE).
+            // Useful when the ambient world fills the map with garrisons /
+            // patrols and you want to manage your high command at a glance.
+            class BftFilterBtn : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_FILTER;
+                text = "ALL";
+                x = EXPR(SCR_X + SCR_W * 0.73);
+                y = EXPR(SCR_Y + SCR_H * 0.090);
+                w = EXPR(SCR_W * 0.12);
+                h = EXPR(SCR_H * 0.050);
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay')] call DSC_ui_fnc_panelBft_toggleFilter;";
+                show = 0;
+            };
+
+            class BftRecenterBtn : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_RECENTER;
+                text = "RECENTER";
+                x = EXPR(SCR_X + SCR_W * 0.86);
+                y = EXPR(SCR_Y + SCR_H * 0.090);
+                w = EXPR(SCR_W * 0.12);
+                h = EXPR(SCR_H * 0.050);
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay')] call DSC_ui_fnc_panelBft_init;";
+                show = 0;
+            };
+
+            // --- Map host (controls group dedicated to the map only) ---
+            // The group rect IS the map rect. Map child fills 0..1 of the group.
+            class BftPanel : DSC_RscControlsGroup {
+                idc = DSC_TABLET_IDC_BFT_PANEL;
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.150);
+                w = EXPR(SCR_W * 0.66);
+                h = EXPR(SCR_H * 0.795);
+                show = 0;
+
+                class Controls {
+                    class BftMap : DSC_RscMapControl {
+                        idc = DSC_TABLET_IDC_BFT_MAP;
+                        x = 0; y = 0; w = 1.0; h = 1.0;
+                    };
+                };
+            };
+
+            // --- Compact legend strip below the map (matches map width) ---
+            class BftLegendLbl : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_LEGEND;
+                sizeEx = 0.018;
+                text = "BLUE: NATO   GREEN: Partner   CYAN: ISR Drone   WHITE: Squad   YELLOW: Objective";
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.950);
+                w = EXPR(SCR_W * 0.66);
+                h = EXPR(SCR_H * 0.030);
+                show = 0;
+            };
+
+            // --- Track info card (BFT-2) ---
+            // 17 top-level sibling controls (BG + title + clear + 7 key + 7 val).
+            // Hosted directly under DSC_Tablet so coordinates are absolute
+            // safezone units and rendering is predictable — previous attempt
+            // using a controls-group host was silently clipping rows past
+            // the 4th. switchPanel.sqf toggles ctrlShow on the whole set.
+
+            // --- Track info card (BFT-2) ---
+            // Narrow right-side sidebar, flush to the dialog's right edge.
+            // The map's rendered terrain bleeds ~0.10 SCR_W past its allocated
+            // rect (RscMapControl renders on a higher layer than sibling
+            // RscText controls regardless of declaration order); pulling the
+            // sidebar well past 0.78 SCR_W keeps it clear of that bleed.
+            // Each row is a right-aligned key + left-aligned value pair so
+            // the column reads as a tight right-justified table.
+            //
+            // 17 top-level sibling controls (BG + title + clear + 7 key + 7 val).
+            // switchPanel.sqf toggles ctrlShow on the whole set when entering
+            // / leaving the BFT tab. populateInfo / clearSelection only
+            // overwrite the value labels — they don't show/hide controls.
+
+            #define BFT_IC_X      EXPR(SCR_X + SCR_W * 0.83)
+            #define BFT_IC_W      EXPR(SCR_W * 0.15)
+            #define BFT_IC_KEY_X  EXPR(SCR_X + SCR_W * 0.84)
+            #define BFT_IC_KEY_W  EXPR(SCR_W * 0.05)
+            #define BFT_IC_VAL_X  EXPR(SCR_X + SCR_W * 0.89)
+            #define BFT_IC_VAL_W  EXPR(SCR_W * 0.08)
+            #define BFT_IC_ROW_H  EXPR(SCR_H * 0.034)
+
+            class BftInfoBg : DSC_RscBackground {
+                idc = DSC_TABLET_IDC_BFT_INFO_BG;
+                x = BFT_IC_X;
+                y = EXPR(SCR_Y + SCR_H * 0.150);
+                w = BFT_IC_W;
+                h = EXPR(SCR_H * 0.795);
+                colorBackground[] = { 0.05, 0.07, 0.09, 0.92 };
+                show = 0;
+            };
+
+            class BftInfoTitle : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_TITLE;
+                style = ST_RIGHT;
+                font = FONT_B;
+                sizeEx = 0.022;
+                text = "TRACK INFO";
+                x = EXPR(SCR_X + SCR_W * 0.84);
+                y = EXPR(SCR_Y + SCR_H * 0.165);
+                w = EXPR(SCR_W * 0.10);
+                h = EXPR(SCR_H * 0.040);
+                colorText[] = COLOR_ACCENT;
+                show = 0;
+            };
+
+            class BftInfoClear : DSC_RscDangerButton {
+                idc = DSC_TABLET_IDC_BFT_INFO_CLEAR;
+                text = "X";
+                sizeEx = 0.020;
+                x = EXPR(SCR_X + SCR_W * 0.95);
+                y = EXPR(SCR_Y + SCR_H * 0.163);
+                w = EXPR(SCR_W * 0.025);
+                h = EXPR(SCR_H * 0.045);
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay')] call DSC_ui_fnc_panelBft_clearSelection;";
+                show = 0;
+            };
+
+            // -------- Row 1: Category --------
+            class BftInfoKeyCategory : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_CATEGORY;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Category";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.230);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValCategory : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_CATEGORY;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.230);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 2: Side --------
+            class BftInfoKeySide : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_SIDE;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Side";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.275);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValSide : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_SIDE;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.275);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 3: Faction --------
+            class BftInfoKeyFaction : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_FACTION;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Faction";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.320);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValFaction : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_FACTION;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.320);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 4: Strength --------
+            class BftInfoKeyStrength : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_STRENGTH;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Strength";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.365);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValStrength : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_STRENGTH;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.365);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 5: Vehicle --------
+            class BftInfoKeyVehicle : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_VEHICLE;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Vehicle";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.410);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValVehicle : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_VEHICLE;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.410);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 6: Distance (small visual separator before it) --------
+            class BftInfoKeyDist : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_DIST;
+                style = ST_RIGHT; sizeEx = 0.022; text = "Distance";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.475);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValDist : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_DIST;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.475);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // -------- Row 7: To Objective --------
+            class BftInfoKeyDistObj : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_INFO_KEY_DIST_OBJ;
+                style = ST_RIGHT; sizeEx = 0.022; text = "To Obj";
+                x = BFT_IC_KEY_X;
+                y = EXPR(SCR_Y + SCR_H * 0.520);
+                w = BFT_IC_KEY_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+            class BftInfoValDistObj : DSC_RscText {
+                idc = DSC_TABLET_IDC_BFT_INFO_VAL_DIST_OBJ;
+                style = ST_LEFT; sizeEx = 0.022; text = "—";
+                x = BFT_IC_VAL_X;
+                y = EXPR(SCR_Y + SCR_H * 0.520);
+                w = BFT_IC_VAL_W;
+                h = BFT_IC_ROW_H;
+                show = 0;
+            };
+
+            // ============================================================
+            // BFT-3 command buttons — Take Command / Move / QRF / Release.
+            // Stacked vertically below the info rows; full sidebar width.
+            // Enabled only when the selected track carries `commandable=true`
+            // (handled at populate / clearSelection time, not in config).
+            // ============================================================
+            #define BFT_CMD_X      EXPR(SCR_X + SCR_W * 0.84)
+            #define BFT_CMD_W      EXPR(SCR_W * 0.13)
+            #define BFT_CMD_H      EXPR(SCR_H * 0.042)
+
+            class BftCmdHeader : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_BFT_CMD_HEADER;
+                style = ST_RIGHT;
+                font = FONT_B;
+                sizeEx = 0.020;
+                text = "HIGH COMMAND";
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.585);
+                w = BFT_CMD_W;
+                h = EXPR(SCR_H * 0.030);
+                colorText[] = COLOR_ACCENT;
+                show = 0;
+            };
+
+            class BftCmdTake : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_CMD_TAKE;
+                text = "TAKE CMD";
+                sizeEx = 0.022;
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.625);
+                w = BFT_CMD_W;
+                h = BFT_CMD_H;
+                colorBackground[] = { 0.18, 0.45, 0.30, 0.85 };
+                colorBackgroundActive[] = { 0.25, 0.60, 0.40, 0.95 };
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'take'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
+            };
+
+            class BftCmdMoveHere : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_CMD_MOVE_HERE;
+                text = "MOVE HERE";
+                sizeEx = 0.022;
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.675);
+                w = BFT_CMD_W;
+                h = BFT_CMD_H;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'moveHere'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
+            };
+
+            class BftCmdMoveObj : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_CMD_MOVE_OBJ;
+                text = "MOVE TO OBJ";
+                sizeEx = 0.022;
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.725);
+                w = BFT_CMD_W;
+                h = BFT_CMD_H;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'moveObj'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
+            };
+
+            class BftCmdQrf : DSC_RscButton {
+                idc = DSC_TABLET_IDC_BFT_CMD_QRF;
+                text = "SET AS QRF";
+                sizeEx = 0.022;
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.775);
+                w = BFT_CMD_W;
+                h = BFT_CMD_H;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'qrf'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
+            };
+
+            class BftCmdRelease : DSC_RscDangerButton {
+                idc = DSC_TABLET_IDC_BFT_CMD_RELEASE;
+                text = "RELEASE";
+                sizeEx = 0.022;
+                x = BFT_CMD_X;
+                y = EXPR(SCR_Y + SCR_H * 0.825);
+                w = BFT_CMD_W;
+                h = BFT_CMD_H;
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'release'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
             };
 
             // ----------------------------------------------------------------

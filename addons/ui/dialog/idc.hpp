@@ -70,6 +70,50 @@
 #define DSC_TABLET_IDC_MGEN_ADV_AREA_PRES_LBL  9181
 #define DSC_TABLET_IDC_MGEN_ADV_GUARD_COV_LBL  9182
 
+// ============================================================================
+// Blue Force Tracker panel (Phase B, BFT-1)
+// ============================================================================
+#define DSC_TABLET_IDC_BFT_PANEL               9200
+#define DSC_TABLET_IDC_BFT_MAP                 9201
+#define DSC_TABLET_IDC_BFT_STATUS              9202
+#define DSC_TABLET_IDC_BFT_RECENTER            9203
+#define DSC_TABLET_IDC_BFT_LEGEND              9204
+#define DSC_TABLET_IDC_BFT_TITLE               9205
+#define DSC_TABLET_IDC_BFT_FILTER              9206
+
+// BFT info card (BFT-2: click-to-select)
+#define DSC_TABLET_IDC_BFT_INFO_GROUP          9210
+#define DSC_TABLET_IDC_BFT_INFO_BG             9211
+#define DSC_TABLET_IDC_BFT_INFO_TITLE          9212
+#define DSC_TABLET_IDC_BFT_INFO_BODY           9213
+#define DSC_TABLET_IDC_BFT_INFO_CLEAR          9214
+
+// BFT info card — value labels (one per field, filled by panelBft_populateInfo)
+#define DSC_TABLET_IDC_BFT_INFO_VAL_CATEGORY   9220
+#define DSC_TABLET_IDC_BFT_INFO_VAL_SIDE       9221
+#define DSC_TABLET_IDC_BFT_INFO_VAL_FACTION    9222
+#define DSC_TABLET_IDC_BFT_INFO_VAL_STRENGTH   9223
+#define DSC_TABLET_IDC_BFT_INFO_VAL_VEHICLE    9224
+#define DSC_TABLET_IDC_BFT_INFO_VAL_DIST       9225
+#define DSC_TABLET_IDC_BFT_INFO_VAL_DIST_OBJ   9226
+
+// BFT info card — key labels (one per field, static labels)
+#define DSC_TABLET_IDC_BFT_INFO_KEY_CATEGORY   9230
+#define DSC_TABLET_IDC_BFT_INFO_KEY_SIDE       9231
+#define DSC_TABLET_IDC_BFT_INFO_KEY_FACTION    9232
+#define DSC_TABLET_IDC_BFT_INFO_KEY_STRENGTH   9233
+#define DSC_TABLET_IDC_BFT_INFO_KEY_VEHICLE    9234
+#define DSC_TABLET_IDC_BFT_INFO_KEY_DIST       9235
+#define DSC_TABLET_IDC_BFT_INFO_KEY_DIST_OBJ   9236
+
+// BFT command buttons (BFT-3: high command)
+#define DSC_TABLET_IDC_BFT_CMD_HEADER          9240
+#define DSC_TABLET_IDC_BFT_CMD_TAKE            9241
+#define DSC_TABLET_IDC_BFT_CMD_MOVE_HERE       9242
+#define DSC_TABLET_IDC_BFT_CMD_MOVE_OBJ        9243
+#define DSC_TABLET_IDC_BFT_CMD_QRF             9244
+#define DSC_TABLET_IDC_BFT_CMD_RELEASE         9245
+
 // Debug HUD (always-on overlay)
 #define DSC_DEBUG_HUD_IDD                      9300
 #define DSC_DEBUG_HUD_IDC_FPS                  9301

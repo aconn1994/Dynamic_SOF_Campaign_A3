@@ -268,7 +268,7 @@ diag_log "DSC: ========== Determining Map Influence ==========";
 systemChat "Initializing influence map...";
 
 // Campaign profiles: "offensive" (opFor dominant), "defensive" (bluFor dominant), "contested" (mixed)
-private _influenceData = [_locations, "contested", _factionData] call DSC_core_fnc_initInfluence;
+private _influenceData = [_locations, "defensive", _factionData] call DSC_core_fnc_initInfluence;
 missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 
 systemChat "Influence map initialized!";
@@ -470,6 +470,17 @@ diag_log "DSC: ========== Initializing Presence Manager ==========";
 // vehicles deferred to Phase 2/3.
 diag_log "DSC: ========== Initializing Roving Manager ==========";
 [_influenceData, _factionData] call DSC_core_fnc_initRovingManager;
+
+// ============================================================================
+// STEP 4e: Blue Force Tracker Snapshot Aggregator
+// ============================================================================
+// Walks presence zones + roving records + UAV + current mission, filters to
+// friendly groups (sides resolved from factionProfileConfig bluFor /
+// bluForPartner), and broadcasts DSC_bftTracks for the Commander's Tablet
+// BFT panel to read. ~2.5s cadence, phase-offset from presence (8s) and
+// roving (8s, +4s) ticks.
+diag_log "DSC: ========== Initializing Blue Force Tracker ==========";
+[] spawn DSC_core_fnc_bftSnapshot;
 
 // ============================================================================
 // STEP 5: Mission Generation Loop
