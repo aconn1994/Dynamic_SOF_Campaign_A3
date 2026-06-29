@@ -631,7 +631,7 @@ private _currentMap = worldName;
 private _exclusions = _mapExclusions getOrDefault [_currentMap, []];
 
 if (_exclusions isNotEqualTo []) then {
-    diag_log format ["DSC: fnc_getStructureTypes - Map %1: %2 exclusion rules active", _currentMap, count _exclusions];
+    INFO_2("fnc_getStructureTypes - Map %1: %2 exclusion rules active",_currentMap,count _exclusions);
 };
 
 // ============================================================================

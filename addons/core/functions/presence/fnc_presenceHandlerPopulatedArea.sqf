@@ -17,6 +17,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _t0 = diag_tickTime;
 private _timings = createHashMap;
 private _stamp = {
@@ -63,8 +65,7 @@ private _civResult = [_pos, _civConfig] call DSC_core_fnc_setupCivilians;
 (_zone get "groups") append (_civResult getOrDefault ["groups", []]);
 
 if ((count _civClassMix) > 1) then {
-    diag_log format ["DSC: activatePresenceZone [%1] - civilian mix: %2 (primaryFn=%3, tags=%4)",
-        _id, _civClassMix, _primaryFn, _zoneTags];
+    TRACE_4("activatePresenceZone civilian mix",_id,_civClassMix,_primaryFn,_zoneTags);
 };
 
 // ============================================================================
@@ -185,8 +186,7 @@ if (_totalStructs > 0 && _milAllowed) then {
                 (_zone get "units")  append (_garrMilResult getOrDefault ["units", []]);
                 (_zone get "groups") append (_garrMilResult getOrDefault ["groups", []]);
 
-                diag_log format ["DSC: activatePresenceZone [%1] - mil garrison: %2 cluster(s) (role=%3 tier=%4 ctrl=%5)",
-                    _id, _milClusters, _garrRole, _sizeTier, _controlledBy];
+                LOG_5("activatePresenceZone [%1] - mil garrison: %2 cluster(s) (role=%3 tier=%4 ctrl=%5)",_id,_milClusters,_garrRole,_sizeTier,_controlledBy);
             };
         };
     };
@@ -260,8 +260,7 @@ if (_totalStructs > 0) then {
             (_zone get "units")  append (_irrResult getOrDefault ["units", []]);
             (_zone get "groups") append (_irrResult getOrDefault ["groups", []]);
 
-            diag_log format ["DSC: activatePresenceZone [%1] - irregular garrison: 1 cluster (role=%2 tier=%3 ctrl=%4)",
-                _id, _irrRole, _sizeTier, _controlledBy];
+            LOG_4("activatePresenceZone [%1] - irregular garrison: 1 cluster (role=%2 tier=%3 ctrl=%4)",_id,_irrRole,_sizeTier,_controlledBy);
         };
     };
 };
@@ -323,8 +322,8 @@ if (_controlledBy in ["opFor", "bluFor", "contested"] && {_influence >= 0.3}) th
         (_zone get "units")  append (_patrolResult getOrDefault ["units", []]);
         (_zone get "groups") append (_patrolResult getOrDefault ["groups", []]);
 
-        diag_log format ["DSC: activatePresenceZone [%1] - military overlay: %2 patrol units from role '%3' (%4)",
-            _id, count (_patrolResult getOrDefault ["units", []]), _overlayRole, _controlledBy];
+        private _overlayUnitCt = count (_patrolResult getOrDefault ["units", []]);
+        LOG_4("activatePresenceZone [%1] - military overlay: %2 patrol units from role '%3' (%4)",_id,_overlayUnitCt,_overlayRole,_controlledBy);
 
         if (_controlledBy == "contested") then {
             private _skirmishConfig = createHashMapFromArray [
@@ -359,8 +358,8 @@ if (_controlledBy == "neutral") then {
     (_zone get "groups") append (_irregularResult getOrDefault ["groups", []]);
 
     if ((_irregularResult getOrDefault ["units", []]) isNotEqualTo []) then {
-        diag_log format ["DSC: activatePresenceZone [%1] - irregular overlay: %2 patrol units (neutral town)",
-            _id, count (_irregularResult getOrDefault ["units", []])];
+        private _irrUnitCt = count (_irregularResult getOrDefault ["units", []]);
+        LOG_2("activatePresenceZone [%1] - irregular overlay: %2 patrol units (neutral town)",_id,_irrUnitCt);
     };
 };
 ["irregularOverlay"] call _stamp;
@@ -374,11 +373,12 @@ if (!isNull _curator) then {
 _zone set ["timings", _timings];
 ["populatedArea", _id, _timings, count (_zone get "units"), 0] call DSC_core_fnc_presenceLogTimings;
 
+#ifdef DEBUG_MODE_FULL
 (format ["DSC presence: ACTIVATED %1 — %2 civilians (ctrl=%3 inf=%4)",
     _zone get "name", count (_zone get "units"), _controlledBy, _influence toFixed 2
 ]) remoteExec ["systemChat", 0];
+#endif
 
-diag_log format ["DSC: activatePresenceZone [%1] - populatedArea: %2 civs (ctrl=%3 inf=%4 density=%5)",
-    _id, count (_zone get "units"), _controlledBy, _influence toFixed 2, _density toFixed 2];
+LOG_5("activatePresenceZone [%1] - populatedArea: %2 civs (ctrl=%3 inf=%4 density=%5)",_id,count (_zone get "units"),_controlledBy,_influence toFixed 2,_density toFixed 2);
 
 true

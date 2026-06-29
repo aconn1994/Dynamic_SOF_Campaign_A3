@@ -19,11 +19,11 @@ params [
 ];
 
 if (count _mission == 0) exitWith {
-    diag_log "DSC: Cleanup - No mission data provided";
+    ERROR("Cleanup - No mission data provided");
     false
 };
 
-diag_log "DSC: Mission cleanup starting...";
+INFO("Mission cleanup starting...");
 
 private _units = _mission getOrDefault ["units", []];
 private _vehicles = _mission getOrDefault ["vehicles", []];
@@ -88,7 +88,6 @@ missionNamespace setVariable ["DSC_currentMission", nil, true];
 east setFriend [independent, 0];
 independent setFriend [east, 0];
 
-diag_log format ["DSC: Cleanup complete - %1 units, %2 vehicles, %3 objects, %4 groups deleted",
-    count _units, count _vehicles, count _objects, count _groups];
+INFO_4("Cleanup complete - %1 units, %2 vehicles, %3 objects, %4 groups deleted",count _units,count _vehicles,count _objects,count _groups);
 
 true

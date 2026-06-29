@@ -1,5 +1,4 @@
 // AI
-PREP_SUB(ai,addCombatActivation);
 PREP_SUB(ai,applySkillProfile);
 PREP_SUB(ai,buildRoadRoute);
 PREP_SUB(ai,convergePatrols);

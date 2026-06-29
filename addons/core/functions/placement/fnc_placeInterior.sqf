@@ -54,7 +54,7 @@ private _count = _spec getOrDefault ["count", 1];
 private _zOffset = _spec getOrDefault ["zOffset", 0];
 
 if (_classname isEqualTo "") exitWith {
-    diag_log "DSC: placeInterior - empty classname";
+    ERROR("placeInterior - empty classname");
     []
 };
 
@@ -90,7 +90,7 @@ if (_candidates isEqualTo []) then {
 _candidates = _candidates select { (_x buildingPos -1) isNotEqualTo [] };
 
 if (_candidates isEqualTo []) exitWith {
-    diag_log format ["DSC: placeInterior - no building with positions for %1", _classname];
+    LOG_1("placeInterior - no building with positions for %1",_classname);
     []
 };
 
@@ -121,7 +121,6 @@ while { count _placed < _count && _attempts < _maxAttempts } do {
     _placed pushBack _obj;
 };
 
-diag_log format ["DSC: placeInterior - placed %1/%2 %3 across %4 candidate building(s)",
-    count _placed, _count, _classname, count _candidates];
+LOG_4("placeInterior - placed %1/%2 %3 across %4 candidate building(s)",count _placed,_count,_classname,count _candidates);
 
 _placed

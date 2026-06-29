@@ -29,7 +29,7 @@ params [
 ];
 
 if (_missionConfig isEqualTo createHashMap) exitWith {
-    diag_log "DSC: fnc_generateMission - No config provided";
+    ERROR("fnc_generateMission - No config provided");
     createHashMap
 };
 
@@ -39,7 +39,7 @@ private _locationName = _location get "name";
 private _targetFaction = _missionConfig get "targetFaction";
 private _areaFaction = _missionConfig get "areaFaction";
 
-diag_log format ["DSC: ========== Generating %1 Mission at %2 ==========", _missionType, _locationName];
+INFO_2("========== Generating %1 Mission at %2 ==========",_missionType,_locationName);
 
 // ============================================================================
 // Time/Weather Randomization (commented out for now)

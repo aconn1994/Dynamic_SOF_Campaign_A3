@@ -1,3 +1,4 @@
+#include "..\..\script_component.hpp"
 // Wait until Global Server variables are initialized
 waitUntil { missionNamespace getVariable ["initGlobalsComplete", false]; };
 
@@ -147,7 +148,7 @@ DSC_dynRespawnArmed = false;
 [] spawn {
     waitUntil { sleep 0.5; alive player && {(getPosATL player) distance2D [0, 0] > 100} };
     DSC_dynRespawnArmed = true;
-    diag_log "DSC: Dynamic respawn armed";
+    INFO("Dynamic respawn armed");
 };
 
 addMissionEventHandler ["EntityKilled", {

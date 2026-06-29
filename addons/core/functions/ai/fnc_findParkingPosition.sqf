@@ -29,7 +29,7 @@ params [
 ];
 
 if (_center isEqualTo []) exitWith {
-    diag_log "DSC: fnc_findParkingPosition - No center position provided";
+    ERROR("fnc_findParkingPosition - No center position provided");
     []
 };
 

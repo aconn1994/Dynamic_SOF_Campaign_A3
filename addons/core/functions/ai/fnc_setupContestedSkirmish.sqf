@@ -30,6 +30,8 @@ params [
     ["_config", createHashMap, [createHashMap]]
 ];
 
+#include "script_component.hpp"
+
 private _result = createHashMapFromArray [
     ["units", []],
     ["groups", []]
@@ -77,7 +79,7 @@ private _pickedRole = "";
 } forEach _candidateRoles;
 
 if (_pickedGroups isEqualTo []) exitWith {
-    diag_log "DSC: setupContestedSkirmish - no bluFor-side groups available";
+    WARNING("setupContestedSkirmish - no bluFor-side groups available");
     _result
 };
 
@@ -97,7 +99,6 @@ private _patrolResult = [_zonePos, _patrolPool, _pickedSide, _patrolConfig] call
 (_result get "units")  append (_patrolResult getOrDefault ["units", []]);
 (_result get "groups") append (_patrolResult getOrDefault ["groups", []]);
 
-diag_log format ["DSC: setupContestedSkirmish - %1 opposing patrol units (role '%2', side west, angle %3)",
-    count (_result get "units"), _pickedRole, _spawnAngle toFixed 0];
+LOG_3("setupContestedSkirmish - %1 opposing patrol units (role '%2', side west, angle %3)",count (_result get "units"),_pickedRole,_spawnAngle toFixed 0);
 
 _result

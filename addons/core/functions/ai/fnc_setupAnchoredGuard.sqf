@@ -50,11 +50,11 @@ params [
 private _result = createHashMapFromArray [["units", []], ["groups", []]];
 
 if (_anchorPos isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredGuard - no anchor position";
+    ERROR("setupAnchoredGuard - no anchor position");
     _result
 };
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredGuard - no group templates";
+    ERROR("setupAnchoredGuard - no group templates");
     _result
 };
 
@@ -90,7 +90,7 @@ private _unitPool = [];
 } forEach _groupTemplates;
 
 if (_unitPool isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredGuard - no unit classes extracted";
+    WARNING("setupAnchoredGuard - no unit classes extracted");
     _result
 };
 
@@ -142,7 +142,7 @@ for "_i" from 0 to (_count - 1) do {
 
 if ((units _group) isEqualTo []) exitWith {
     deleteGroup _group;
-    diag_log "DSC: setupAnchoredGuard - no units spawned, group dropped";
+    WARNING("setupAnchoredGuard - no units spawned, group dropped");
     _result
 };
 
@@ -159,11 +159,6 @@ _wp setWaypointCompletionRadius _radius;
 (_result get "groups") pushBack _group;
 _group enableDynamicSimulation true;
 
-// if (_combatActivation) then {
-//     [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-// };
-
-diag_log format ["DSC: setupAnchoredGuard - spawned %1 units (side=%2 skill=%3 r=%4)",
-    _spawned, _side, _skillProfile, _radius];
+LOG_4("setupAnchoredGuard - spawned %1 units (side=%2 skill=%3 r=%4)",_spawned,_side,_skillProfile,_radius);
 
 _result

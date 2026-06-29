@@ -36,7 +36,7 @@ params [
 ];
 
 if (isNull _group || isNull _vehicle || _patrolCenter isEqualTo []) exitWith {
-    diag_log "DSC: rovingGroundPatrolLoop - Invalid args, exiting";
+    ERROR("rovingGroundPatrolLoop - Invalid args, exiting");
 };
 
 private _fnc_shouldAbort = {

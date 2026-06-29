@@ -1,5 +1,5 @@
 // DSC - Dynamic SOF Campaign Main Server Functionality
-
+#include "..\..\script_component.hpp"
 /*
  * Function: DSC_core_fnc_initServer
  * Description:
@@ -177,7 +177,7 @@ private _rhsFactions = [];
 private _allAegisPresent = true;
 {
     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
-        diag_log format ["DSC: Aegis faction '%1' not found - falling back to vanilla", _x];
+        TRACE_1("Aegis faction not found - falling back to vanilla",_x);
         _allAegisPresent = false;
     };
 } forEach _aegisFactions;
@@ -185,22 +185,22 @@ private _allAegisPresent = true;
 private _allRhsPresent = true;
 {
     if !(isClass (configFile >> "CfgFactionClasses" >> _x)) then {
-        diag_log format ["DSC: RHS faction '%1' not found - falling back to vanilla", _x];
+        TRACE_1("RHS faction not found - falling back to vanilla",_x);
         _allRhsPresent = false;
     };
 } forEach _rhsFactions;
 
 private _selectedProfile = if (_allAegisPresent) then {
-    diag_log "DSC: All Aegis factions detected - using Aegis faction profile";
+    TRACE_1("All Aegis factions detected - using Aegis faction profile",_allAegisPresent);
     _factionProfileConfigAegis
 } else {
     if (_allRhsPresent) then {
-        diag_log "DSC: All RHS factions detected - using RHS faction profile";
-        _factionProfileConfigRhs
+        TRACE_1("All RHS factions detected - using Aegis faction profile",_allRhsPresent);
     } else {
-        diag_log "DSC: Using vanilla faction profile";
-        _factionProfileConfigVanilla
-    }
+        TRACE_1("No mod profiles present.  Falling back to vanilla factions.",null);
+    };
+
+    [_factionProfileConfigVanilla, _factionProfileConfigRhs] select (_allRhsPresent);
 };
 
 private _getTimeAsString = {
@@ -236,109 +236,47 @@ enableDynamicSimulationSystem true;
 "Vehicle"      setDynamicSimulationDistance 2000;
 "EmptyVehicle" setDynamicSimulationDistance 500;
 "Prop"         setDynamicSimulationDistance 300;
-diag_log "DSC: Dynamic simulation enabled (Group=1500, Vehicle=2000, Empty=500, Prop=300)";
+INFO("Dynamic simulation enabled (Group=1500, Vehicle=2000, Empty=500, Prop=300)");
 
 // ============================================================================
 // STEP 1: Scan World - One pass, all locations with structures + tags
 // ============================================================================
-diag_log "=============== DSC: Initializing Location Data =================";
-systemChat format ["DSC - %1 - Initializing location data...", call _getTimeAsString];
+INFO("=============== Initializing Location Data =================");
+INFO("Initializing location data...");
 
 private _locations = [] call DSC_core_fnc_scanLocations;
 missionNamespace setVariable ["DSC_locations", _locations, true];
 
-diag_log format ["DSC: World scan complete - %1 locations indexed", count _locations];
+TRACE_1("World scan complete - locations indexed: ",count _locations);
 
-systemChat format ["DSC - %1 - Location data has been initialized.", call _getTimeAsString];
+INFO("Location data has been initialized.");
 // ============================================================================
 // STEP 2: Faction Data - Extract groups + assets for all factions in profile
 // ============================================================================
-diag_log "=============== DSC: Initializing Faction Data =================";
-systemChat "Initializing faction data...";
+INFO("=============== Initializing Faction Data =================");
+INFO("Initializing faction data...");
 
 private _factionProfileConfig = missionNamespace getVariable ["factionProfileConfig", _factionProfileConfigVanilla];
 private _factionData = [_factionProfileConfig] call DSC_core_fnc_initFactionData;
 missionNamespace setVariable ["DSC_factionData", _factionData, true];
 
-systemChat "Faction Data has been initialized!";
+INFO("Faction data has been initialized.");
 // ============================================================================
 // STEP 3: Init Faction Influence over Map
 // ============================================================================
-diag_log "DSC: ========== Determining Map Influence ==========";
-systemChat "Initializing influence map...";
+INFO("=============== Determining Map Influence =================");
+INFO("Initializing map influence...");
 
 // Campaign profiles: "offensive" (opFor dominant), "defensive" (bluFor dominant), "contested" (mixed)
 private _influenceData = [_locations, "defensive", _factionData] call DSC_core_fnc_initInfluence;
 missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 
-systemChat "Influence map initialized!";
-
-// Debug: Influence markers
-// private _influenceMap = _influenceData get "influenceMap";
-// private _enrichedLocations = _influenceData get "locations";
-
-// {
-//     private _loc = _x;
-//     private _locId = _loc get "id";
-//     private _locPos = _loc get "position";
-//     private _locName = _loc get "name";
-//     private _locRadius = _loc get "radius";
-//     private _locInf = _influenceMap getOrDefault [_locId, createHashMap];
-
-//     if (_locInf isEqualTo createHashMap) then { continue };
-
-//     private _controlledBy = _locInf get "controlledBy";
-//     private _influence = _locInf get "influence";
-//     private _infType = _locInf get "type";
-//     private _faction = _locInf getOrDefault ["faction", ""];
-
-//     private _color = switch (_controlledBy) do {
-//         case "opFor":     { "ColorRed" };
-//         case "bluFor":    { "ColorBlue" };
-//         case "contested": { "ColorYellow" };
-//         default           { "ColorWhite" };
-//     };
-
-//     // Area marker — size and opacity scale with influence type and strength
-//     private _areaRadius = switch (_infType) do {
-//         case "base":          { (_locRadius max 200) + 300 };
-//         case "outpost":       { (_locRadius max 150) + 200 };
-//         case "camp":          { (_locRadius max 75) + 100 };
-//         case "populatedArea": { (_locRadius max 150) + 200 };
-//         default               { (_locRadius max 50) + 100 };
-//     };
-
-//     private _areaName = format ["dsc_inf_area_%1", _locId];
-//     private _areaMarker = createMarkerLocal [_areaName, _locPos];
-//     _areaMarker setMarkerShapeLocal "ELLIPSE";
-//     _areaMarker setMarkerSizeLocal [_areaRadius, _areaRadius];
-//     _areaMarker setMarkerColorLocal _color;
-//     _areaMarker setMarkerAlphaLocal (0.1 + (_influence * 0.25));
-
-//     // Point marker — icon distinguishes type
-//     private _markerIcon = switch (_infType) do {
-//         case "base":          { "hd_flag" };
-//         case "outpost":       { "mil_triangle" };
-//         case "camp":          { "mil_dot" };
-//         case "populatedArea": { "loc_Fortress" };
-//         default               { "mil_dot" };
-//     };
-
-//     private _factionLabel = ["", format [" (%1)", _faction]] select (_faction != "");
-//     private _markerName = format ["dsc_inf_point_%1", _locId];
-//     private _pointMarker = createMarkerLocal [_markerName, _locPos];
-//     _pointMarker setMarkerTypeLocal _markerIcon;
-//     _pointMarker setMarkerColorLocal _color;
-//     _pointMarker setMarkerTextLocal format ["%1 [%2 %3]%4", _locName, _controlledBy, _influence toFixed 1, _factionLabel];
-
-// } forEach _enrichedLocations;
-
-// diag_log "DSC: Influence debug markers created";
+INFO("Map influence has been initialized.");
 
 // ============================================================================
 // STEP 4: Mark Military Installations on Player Maps
 // ============================================================================
-diag_log "DSC: ========== Marking Military Installations ==========";
+INFO("========== Marking Military Installations ==========");
 
 private _influenceMap = _influenceData get "influenceMap";
 private _enrichedLocations = _influenceData get "locations";
@@ -394,7 +332,7 @@ private _baseMarkerData = [];
 
     _baseMarkerData pushBack [_locPos, _locName, _flagTexture, _color];
 
-    // Danger zone area marker (global, all players)
+    // Danger zone area marker (global, all players) — gameplay UI, not debug
     private _zoneName = format ["dsc_base_zone_%1", _locId];
     private _zoneMarker = createMarker [_zoneName, _locPos];
     _zoneMarker setMarkerShapeLocal "ELLIPSE";
@@ -403,7 +341,7 @@ private _baseMarkerData = [];
     _zoneMarker setMarkerAlphaLocal 0.15;
     _zoneMarker setMarkerBrush "SolidBorder";
 
-    diag_log format ["DSC: Marked base '%1' - %2 / %3 (flag: %4)", _locName, _controlledBy, _faction, _flagTexture];
+    TRACE_4("Marked base",_locName,_controlledBy,_faction,_flagTexture);
 } forEach _bases;
 
 // Build outpost marker data for client-side rendering
@@ -431,25 +369,30 @@ private _outpostMarkerData = [];
 
     _outpostMarkerData pushBack [_locPos, _locName, _flagTexture, _color];
 
-    diag_log format ["DSC: Marked outpost '%1' - %2 / %3", _locName, _controlledBy, _faction];
+    TRACE_3("Marked outpost",_locName,_controlledBy,_faction);
 } forEach _outposts;
 
 // Publish marker data for client-side map rendering
 missionNamespace setVariable ["DSC_baseMarkerData", _baseMarkerData, true];
 missionNamespace setVariable ["DSC_outpostMarkerData", _outpostMarkerData, true];
 
-diag_log format ["DSC: Published %1 bases and %2 outposts for map rendering", count _baseMarkerData, count _outpostMarkerData];
+INFO_2("Published %1 bases and %2 outposts for map rendering",count _baseMarkerData,count _outpostMarkerData);
 
 // ============================================================================
 // STEP 4b: Initialize Military Bases (guards, vehicles, dynamic sim)
 // ============================================================================
-diag_log "DSC: ========== Initializing Military Bases ==========";
+INFO("========== Initializing Military Bases ==========");
+#ifdef DEBUG_MODE_FULL
 systemChat format ["DSC - %1 - Initializing military bases...", call _getTimeAsString];
+#endif
 
 private _baseRegistry = [_influenceData, _factionData] call DSC_core_fnc_initBases;
 missionNamespace setVariable ["DSC_baseRegistry", _baseRegistry, true];
 
+INFO_1("Military bases initialized (%1 bases)",count _baseRegistry);
+#ifdef DEBUG_MODE_FULL
 systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _getTimeAsString, count _baseRegistry];
+#endif
 
 // ============================================================================
 // STEP 4c: Presence Manager (world population around the player)
@@ -458,7 +401,7 @@ systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _ge
 // influence data and spawns a 20s tick loop driving a per-zone state machine.
 // Sprint 1 is log-only — no spawning yet. Player main base is excluded; it is
 // owned by fnc_initBases for the whole session.
-diag_log "DSC: ========== Initializing Presence Manager ==========";
+INFO("========== Initializing Presence Manager ==========");
 [_influenceData] call DSC_core_fnc_initPresenceManager;
 
 // ============================================================================
@@ -468,7 +411,7 @@ diag_log "DSC: ========== Initializing Presence Manager ==========";
 // Phase-offset 4s from presence so spawn decisions alternate on the scheduler.
 // Phase 1 ships air-only (rotary + fixed-wing); ground patrols and civilian
 // vehicles deferred to Phase 2/3.
-diag_log "DSC: ========== Initializing Roving Manager ==========";
+INFO("========== Initializing Roving Manager ==========");
 [_influenceData, _factionData] call DSC_core_fnc_initRovingManager;
 
 // ============================================================================
@@ -479,7 +422,7 @@ diag_log "DSC: ========== Initializing Roving Manager ==========";
 // bluForPartner), and broadcasts DSC_bftTracks for the Commander's Tablet
 // BFT panel to read. ~2.5s cadence, phase-offset from presence (8s) and
 // roving (8s, +4s) ticks.
-diag_log "DSC: ========== Initializing Blue Force Tracker ==========";
+INFO("========== Initializing Blue Force Tracker ==========");
 [] spawn DSC_core_fnc_bftSnapshot;
 
 // ============================================================================
@@ -508,7 +451,7 @@ if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
     params ["_factionData", "_influenceData"];
 
 while { true } do {
-    diag_log "DSC: ========== Starting Mission Generation ==========";
+    INFO("========== Starting Mission Generation ==========");
 
     // --- Select Mission (consume queue if non-empty) ---
     private _queue = missionNamespace getVariable ["DSC_missionQueue", []];
@@ -516,13 +459,13 @@ while { true } do {
     if (count _queue > 0) then {
         _template = _queue deleteAt 0;
         missionNamespace setVariable ["DSC_missionQueue", _queue, true];
-        diag_log format ["DSC: Mission loop consumed queued template: %1", _template];
+        TRACE_1("Mission loop consumed queued template",_template);
     };
 
     private _missionConfig = [_influenceData, _factionData, _template] call DSC_core_fnc_selectMission;
 
     if (_missionConfig isEqualTo createHashMap) then {
-        diag_log "DSC: Mission selection failed, retrying in 30s";
+        WARNING("Mission selection failed, retrying in 30s");
         sleep 30;
         continue;
     };
@@ -531,7 +474,7 @@ while { true } do {
     private _missionData = [_missionConfig] call DSC_core_fnc_generateMission;
 
     if (_missionData isEqualTo createHashMap) then {
-        diag_log "DSC: Mission generation failed, retrying in 10s";
+        WARNING("Mission generation failed, retrying in 10s");
         sleep 10;
         continue;
     };
@@ -545,7 +488,7 @@ while { true } do {
     missionNamespace setVariable ["missionInProgress", true, true];
     missionNamespace setVariable ["missionState", "ACTIVE", true];
 
-    diag_log format ["DSC: Mission ACTIVE - %1 at %2", _missionConfig get "type", _locationName];
+    INFO_2("Mission ACTIVE - %1 at %2",_missionConfig get "type",_locationName);
 
     // Wait for debrief (triggered by player at flagpole) OR debug abort
     waitUntil {
@@ -560,8 +503,10 @@ while { true } do {
     missionNamespace setVariable ["missionState", "DEBRIEF", true];
 
     if (_aborted) then {
+        INFO("Mission aborted by admin (tablet) - skipping scoring");
+        #ifdef DEBUG_MODE_NORMAL
         systemChat "DSC: Mission aborted by admin (tablet) - skipping scoring";
-        diag_log "DSC: Mission aborted by admin (tablet) - skipping scoring";
+        #endif
         [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
     };
 
@@ -581,14 +526,17 @@ while { true } do {
         if (_success) then {
             [_taskId, "SUCCEEDED"] call BIS_fnc_taskSetState;
             hint format ["Mission SUCCESS\n%1\n%2", _locationName, _outcomeMsg];
+            INFO_3("Mission SUCCESS - %1 - killed: %2, duration: %3s",_outcomeMsg,_outcome get "enemiesKilled",_outcome get "duration");
+            #ifdef DEBUG_MODE_NORMAL
             systemChat format ["DSC: Mission SUCCESS - %1 (%2)", _locationName, _outcomeMsg];
-            diag_log format ["DSC: Mission SUCCESS - %1 - killed: %2, duration: %3s",
-                _outcomeMsg, _outcome get "enemiesKilled", _outcome get "duration"];
+            #endif
         } else {
             [_taskId, "CANCELED"] call BIS_fnc_taskSetState;
             hint format ["Mission INCOMPLETE\n%1\n%2", _locationName, _outcomeMsg];
+            INFO_1("Mission INCOMPLETE - %1",_outcomeMsg);
+            #ifdef DEBUG_MODE_NORMAL
             systemChat format ["DSC: Mission INCOMPLETE - %1 (%2)", _locationName, _outcomeMsg];
-            diag_log format ["DSC: Mission INCOMPLETE - %1", _outcomeMsg];
+            #endif
         };
 
         // --- Update Influence ---
@@ -610,7 +558,7 @@ while { true } do {
     missionNamespace setVariable ["missionState", "IDLE", true];
     missionNamespace setVariable ["DSC_missionAbortRequested", false, true];
 
-    diag_log "DSC: Waiting before next mission...";
+    LOG("Waiting before next mission...");
     sleep 5;
 };
 

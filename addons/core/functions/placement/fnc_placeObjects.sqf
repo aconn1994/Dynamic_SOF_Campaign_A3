@@ -63,7 +63,7 @@ if (_archetype isEqualTo createHashMap && _archetypeName != "") then {
 };
 
 if (_archetype isEqualTo createHashMap) exitWith {
-    diag_log format ["DSC: placeObjects - unknown archetype '%1'", _archetypeName];
+    WARNING_1("placeObjects - unknown archetype '%1'",_archetypeName);
     createHashMapFromArray [
         ["objects", []],
         ["archetype", _archetypeName],
@@ -126,7 +126,7 @@ private _objects = switch (_placement) do {
         [_strategySpec, _location, _ao, _strategyConfig] call DSC_core_fnc_placeOutdoorPile
     };
     default {
-        diag_log format ["DSC: placeObjects - unknown placement strategy '%1' for archetype '%2'", _placement, _archetypeName];
+        WARNING_2("placeObjects - unknown placement strategy '%1' for archetype '%2'",_placement,_archetypeName);
         []
     };
 };

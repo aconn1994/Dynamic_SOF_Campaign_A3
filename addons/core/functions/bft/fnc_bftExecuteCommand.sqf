@@ -48,7 +48,7 @@ params [
 
 private _grp = groupFromNetId _netId;
 if (isNull _grp) exitWith {
-    diag_log format ["DSC: bftExecuteCommand - unknown netId '%1' (action=%2) from %3 [%4]", _netId, _action, _name, _uid];
+    WARNING_4("bftExecuteCommand - unknown netId '%1' (action=%2) from %3 [%4]",_netId,_action,_name,_uid);
 };
 
 // ----------------------------------------------------------------------------
@@ -144,7 +144,7 @@ switch (_action) do {
         private _iconId = _grp addGroupIcon [_iconClass, [0, 0]];
         _grp setVariable ["DSC_bftIconId", _iconId, true];
 
-        diag_log format ["DSC: bftExecuteCommand - %1 took %2 [%3] icon=%4 (%5)", _name, groupId _grp, _netId, _iconId, _iconClass];
+        LOG_5("bftExecuteCommand - %1 took %2 [%3] icon=%4 (%5)",_name,groupId _grp,_netId,_iconId,_iconClass);
     };
 
     case "moveHere": {
@@ -154,7 +154,7 @@ switch (_action) do {
         [_grp] call _clearWaypoints;
         _grp move _pos;
         _grp setVariable ["DSC_bftRole", "moving", true];
-        diag_log format ["DSC: bftExecuteCommand - %1 ordered %2 to move to %3", _name, groupId _grp, _pos];
+        LOG_3("bftExecuteCommand - %1 ordered %2 to move to %3",_name,groupId _grp,_pos);
     };
 
     case "moveObj": {
@@ -164,7 +164,7 @@ switch (_action) do {
         [_grp] call _clearWaypoints;
         _grp move _pos;
         _grp setVariable ["DSC_bftRole", "moving_obj", true];
-        diag_log format ["DSC: bftExecuteCommand - %1 ordered %2 to objective %3", _name, groupId _grp, _pos];
+        LOG_3("bftExecuteCommand - %1 ordered %2 to objective %3",_name,groupId _grp,_pos);
     };
 
     case "qrf": {
@@ -194,8 +194,7 @@ switch (_action) do {
             };
         };
 
-        diag_log format ["DSC: bftExecuteCommand - %1 staged %2 as QRF at %3 (obj=%4)",
-            _name, groupId _grp, _stagingPos, _pos];
+        LOG_4("bftExecuteCommand - %1 staged %2 as QRF at %3 (obj=%4)",_name,groupId _grp,_stagingPos,_pos);
     };
 
     case "release": {
@@ -215,10 +214,10 @@ switch (_action) do {
         // Group stays in DSC_bftCommandedGroups so it remains visible on the
         // BFT and the player can re-take it. It just no longer carries the
         // protection flag.
-        diag_log format ["DSC: bftExecuteCommand - %1 released %2", _name, groupId _grp];
+        LOG_2("bftExecuteCommand - %1 released %2",_name,groupId _grp);
     };
 
     default {
-        diag_log format ["DSC: bftExecuteCommand - unknown action '%1' from %2", _action, _name];
+        WARNING_2("bftExecuteCommand - unknown action '%1' from %2",_action,_name);
     };
 };

@@ -33,7 +33,7 @@ params [
 ];
 
 if (_profileConfig isEqualTo createHashMap) exitWith {
-    diag_log "DSC: fnc_initFactionData - No profile config provided";
+    ERROR("fnc_initFactionData - No profile config provided");
     createHashMap
 };
 
@@ -73,7 +73,8 @@ private _extractManPool = {
         // Validate faction exists in loaded configs
         private _factionCfg = configFile >> "CfgFactionClasses" >> _faction;
         if (!isClass _factionCfg) then {
-            diag_log format ["DSC: fnc_initFactionData - WARNING: Faction '%1' not found (mod not loaded?), skipping", _faction];
+            WARNING("Faction not found (mod not loaded?), skipping");
+            TRACE_1("Faction not found: ",_faction);
             continue;
         };
 
@@ -86,20 +87,20 @@ private _extractManPool = {
             private _classifiedGroups = [_rawGroups] call DSC_core_fnc_classifyGroups;
             _roleGroups set [_faction, _classifiedGroups];
 
-            diag_log format ["DSC: initFactionData - %1/%2: %3 groups classified", _role, _faction, count _classifiedGroups];
+            TRACE_3("ROLE | FACTION | Groups Count: ",_role,_faction,count _classifiedGroups);
 
             // Assets
             private _assets = [_faction] call DSC_core_fnc_extractAssets;
             _roleAssets set [_faction, _assets];
 
-            diag_log format ["DSC: initFactionData - %1/%2: assets extracted", _role, _faction];
+            TRACE_2("Assets Extracted - ROLE | FACTION: ",_role,_faction);
         };
 
         // Cache flat man pool for non-combat roles (civilians, environmentalActors)
         if (_role in _noncombatRoles) then {
             private _menForFaction = [_faction] call _extractManPool;
             { _roleManPool pushBackUnique _x } forEach _menForFaction;
-            diag_log format ["DSC: initFactionData - %1/%2: %3 man classes cached", _role, _faction, count _menForFaction];
+            TRACE_3("ROLE | FACTION | Units for Faction Count: ",_role,_faction,count _menForFaction);
         };
     } forEach _factionList;
 
@@ -113,7 +114,7 @@ private _extractManPool = {
 
     _result set [_role, _roleData];
 
-    diag_log format ["DSC: initFactionData - Role '%1': %2/%3 factions valid", _role, count _validFactions, count _factionList];
+    TRACE_3("ROLE | VALID FACTION COUNT | FACTION LIST: ",_role,count _validFactions,count _factionList);
 
 } forEach keys _profileConfig;
 
@@ -128,6 +129,6 @@ private _totalGroups = 0;
     } forEach (_roleData get "groups");
 } forEach _result;
 
-diag_log format ["DSC: initFactionData complete - %1 factions, %2 total group sets across all roles", _totalFactions, _totalGroups];
+TRACE_2("Faction Init Complete - TOTAL FACTION | TOTAL GROUPS",_totalFactions,_totalGroups);
 
 _result

@@ -52,7 +52,7 @@ private _playerPos = getPosASL _player;
 // ============================================================================
 private _allHotspots = _hotspots getOrDefault ["all", []];
 if (_allHotspots isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnBoat - No hotspots registered";
+    WARNING("rovingSpawnBoat - No hotspots registered");
     _empty
 };
 private _sortedHotspots = [_allHotspots, [], { (_x get "position") distance2D _playerPos }, "ASCEND"] call BIS_fnc_sortBy;
@@ -99,7 +99,7 @@ private _boatPool = [];
 } forEach _assetsByFaction;
 
 if (_boatPool isEqualTo []) exitWith {
-    diag_log format ["DSC: rovingSpawnBoat - No boat assets in %1 pool", _roleKey];
+    LOG_1("rovingSpawnBoat - No boat assets in %1 pool",_roleKey);
     _empty
 };
 
@@ -110,7 +110,7 @@ private _boatClass = selectRandom _boatPool;
 // ============================================================================
 private _vehicle = createVehicle [_boatClass, _spawnPos, [], 0, "NONE"];
 if (isNull _vehicle) exitWith {
-    diag_log format ["DSC: rovingSpawnBoat - Failed to createVehicle %1 at %2", _boatClass, _spawnPos];
+    ERROR_2("rovingSpawnBoat - Failed to createVehicle %1 at %2",_boatClass,_spawnPos);
     _empty
 };
 
@@ -120,7 +120,7 @@ _vehicle allowDamage true;
 private _group = createVehicleCrew _vehicle;
 if (isNull _group) exitWith {
     deleteVehicle _vehicle;
-    diag_log format ["DSC: rovingSpawnBoat - createVehicleCrew failed for %1", _boatClass];
+    ERROR_1("rovingSpawnBoat - createVehicleCrew failed for %1",_boatClass);
     _empty
 };
 
@@ -204,9 +204,9 @@ private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 
 if (!isNull _curator) then {
     private _zeusEntities = [_vehicle] + (units _group);
     _curator addCuratorEditableObjects [_zeusEntities, true];
-    diag_log format ["DSC: rovingSpawnBoat - added %1 entities to Zeus", count _zeusEntities];
+    LOG_1("rovingSpawnBoat - added %1 entities to Zeus",count _zeusEntities);
 } else {
-    diag_log "DSC: rovingSpawnBoat - no curator available, skipping Zeus add";
+    LOG("rovingSpawnBoat - no curator available, skipping Zeus add");
 };
 
 // Stats
@@ -214,8 +214,6 @@ private _stats = missionNamespace getVariable ["DSC_rovingStats", createHashMap]
 _stats set ["spawned", (_stats getOrDefault ["spawned", 0]) + 1];
 _stats set ["boatSpawned", (_stats getOrDefault ["boatSpawned", 0]) + 1];
 
-diag_log format ["DSC: roving spawned [boat] %1 src=%2/%3 spawn=%4m waypoints=%5 sideKey=%6",
-    typeOf _vehicle, _origin get "type", _origin get "id",
-    round (_spawnPos distance2D _playerPos), count _waterPoints, _sideKey];
+LOG_6("roving spawned [boat] %1 src=%2/%3 spawn=%4m waypoints=%5 sideKey=%6",typeOf _vehicle,_origin get "type",_origin get "id",round (_spawnPos distance2D _playerPos),count _waterPoints,_sideKey);
 
 _record

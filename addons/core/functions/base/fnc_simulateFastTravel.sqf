@@ -56,4 +56,4 @@ sleep 4;
 titleText ["", "BLACK IN", _fadeTime];
 sleep _fadeTime;
 
-diag_log format ["DSC: Fast travel complete - vehicle at %1, heading to %2", _approachPos, _destinationPos];
+LOG_2("Fast travel complete - vehicle at %1, heading to %2",_approachPos,_destinationPos);

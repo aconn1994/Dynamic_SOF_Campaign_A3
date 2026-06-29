@@ -21,6 +21,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _id         = _zone get "id";
 private _pos        = _zone get "position";
 private _radius     = _zone getOrDefault ["radius", 100];
@@ -85,7 +87,6 @@ if (!isNull _curator && {(_zone get "units") isNotEqualTo []}) then {
     _curator addCuratorEditableObjects [_zone get "units", true];
 };
 
-diag_log format ["DSC: activatePresenceZone [%1] - agriculturalSite: %2u (ctrl=%3)",
-    _id, count (_zone get "units"), _ctrlControl];
+LOG_3("activatePresenceZone [%1] - agriculturalSite: %2u (ctrl=%3)",_id,count (_zone get "units"),_ctrlControl);
 
 ((_zone get "units") isNotEqualTo [])

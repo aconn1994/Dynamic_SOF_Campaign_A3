@@ -5,7 +5,7 @@ class CfgPatches {
         name = COMPONENT_NAME;
         units[] = {};
         weapons[] = {};
-        requiredAddons[] = {};
+        requiredAddons[] = {"cba_main"};
         author = AUTHOR;
         authorUrl = "";
     };

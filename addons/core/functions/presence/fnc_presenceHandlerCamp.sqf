@@ -17,6 +17,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _controlledBy = _zone get "controlledBy";
 
 // Neutral camp -> armed civilians only. Curator + timing logging is done
@@ -48,8 +50,7 @@ if (_controlledBy == "neutral") exitWith {
     _zone set ["timings", _timings];
     ["camp", _id, _timings, count (_zone get "units"), 0] call DSC_core_fnc_presenceLogTimings;
 
-    diag_log format ["DSC: activatePresenceZone [%1] - neutral camp: %2 irregular units",
-        _id, count (_zone get "units")];
+    LOG_2("activatePresenceZone [%1] - neutral camp: %2 irregular units",_id,count (_zone get "units"));
 
     (count (_zone get "units")) > 0
 };

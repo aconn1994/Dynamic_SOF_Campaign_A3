@@ -43,7 +43,7 @@ params [
 ];
 
 if (_locations isEqualTo []) exitWith {
-    diag_log "DSC: fnc_initInfluence - No locations provided";
+    ERROR("fnc_initInfluence - No locations provided");
     createHashMap
 };
 
@@ -52,7 +52,7 @@ if (_locations isEqualTo []) exitWith {
 // ============================================================================
 private _enrichedLocations = _locations select { (_x get "buildingCount") >= 1 };
 
-diag_log format ["DSC: initInfluence - %1 locations with structures", count _enrichedLocations];
+INFO_1("initInfluence - %1 locations with structures",count _enrichedLocations);
 
 // ============================================================================
 // STAGE 1: Classify locations into strategic tiers
@@ -85,8 +85,7 @@ private _missionSites = [];
     };
 } forEach _enrichedLocations;
 
-diag_log format ["DSC: initInfluence - Bases: %1, Outposts: %2, Camps: %3, Populated: %4, MissionSites: %5",
-    count _bases, count _outposts, count _camps, count _populatedAreas, count _missionSites];
+INFO_5("initInfluence - Bases: %1, Outposts: %2, Camps: %3, Populated: %4, MissionSites: %5",count _bases,count _outposts,count _camps,count _populatedAreas,count _missionSites);
 
 // ============================================================================
 // STAGE 2: Assign control to bases (occupation zones)
@@ -104,7 +103,7 @@ private _safeZoneRadius = 5000;
 if (_playerMainBase != "") then {
     if ((markerShape _playerMainBase) != "") then {
         _playerBasePos = getMarkerPos _playerMainBase;
-        diag_log format ["DSC: initInfluence - Player main base at %1, safe zone %2m", _playerBasePos, _safeZoneRadius];
+        INFO_2("initInfluence - Player main base at %1, safe zone %2m",_playerBasePos,_safeZoneRadius);
     };
 };
 
@@ -182,7 +181,7 @@ private _bluForControlChance = switch (_campaignProfile) do {
     ]];
 
     private _safeLabel = ["", " (safe zone)"] select _inSafeZone;
-    diag_log format ["DSC: initInfluence - Base '%1': %2 / %3 (influence: %4)%5", _loc get "name", _controlledBy, _assignedFaction, _influence toFixed 2, _safeLabel];
+    LOG_5("initInfluence - Base '%1': %2 / %3 (influence: %4)%5",_loc get "name",_controlledBy,_assignedFaction,_influence toFixed 2,_safeLabel);
 } forEach _bases;
 
 // ============================================================================
@@ -247,9 +246,8 @@ private _outpostInfluenceRadius = 4000;
         ["faction", _assignedFaction]
     ]];
 
-    diag_log format ["DSC: initInfluence - Outpost '%1': %2 / %3 (influence: %4, nearBase: %5)",
-        _op get "name", _controlledBy, _assignedFaction, _influence toFixed 2,
-        ["none", "yes"] select (_nearestBaseId != "")];
+    private _nbLabel = ["none", "yes"] select (_nearestBaseId != "");
+    LOG_5("initInfluence - Outpost '%1': %2 / %3 (influence: %4, nearBase: %5)",_op get "name",_controlledBy,_assignedFaction,_influence toFixed 2,_nbLabel);
 } forEach _outposts;
 
 // ============================================================================
@@ -292,7 +290,7 @@ private _campOccupyChance = switch (_campaignProfile) do {
         ["faction", _assignedFaction]
     ]];
 
-    diag_log format ["DSC: initInfluence - Camp '%1': %2 (influence: %3)", _camp get "name", _controlledBy, _influence toFixed 2];
+    LOG_3("initInfluence - Camp '%1': %2 (influence: %3)",_camp get "name",_controlledBy,_influence toFixed 2);
 } forEach _camps;
 
 // Force locations inside player base markers to bluFor
@@ -312,7 +310,7 @@ private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 }
             ["type", _influenceMap getOrDefault [_locId, createHashMap] getOrDefault ["type", "base"]],
             ["faction", ""]
         ]];
-        diag_log format ["DSC: initInfluence - Player base override: '%1' set to bluFor (1.0)", _loc get "name"];
+        LOG_1("initInfluence - Player base override: '%1' set to bluFor (1.0)",_loc get "name");
     };
 } forEach _enrichedLocations;
 
@@ -434,8 +432,7 @@ private _neutralCount = 0;
     };
 } forEach _influenceMap;
 
-diag_log format ["DSC: initInfluence complete - OpFor: %1, BluFor: %2, Contested: %3, Neutral: %4",
-    _opForCount, _bluForCount, _contestedCount, _neutralCount];
+INFO_4("initInfluence complete - OpFor: %1, BluFor: %2, Contested: %3, Neutral: %4",_opForCount,_bluForCount,_contestedCount,_neutralCount);
 
 createHashMapFromArray [
     ["bases", _bases],

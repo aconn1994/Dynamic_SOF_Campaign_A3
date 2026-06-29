@@ -36,7 +36,7 @@ params [
 ];
 
 if (isNull _object) exitWith {
-    diag_log "DSC: addInteractionHandler - null object";
+    ERROR("addInteractionHandler - null object");
     -1
 };
 
@@ -79,7 +79,7 @@ private _id = _object addAction [
         };
 
         systemChat format ["Intel recovered: %1", _resultKey];
-        diag_log format ["DSC: Interaction fired - %1 on %2", _resultKey, typeOf _target];
+        LOG_2("Interaction fired - %1 on %2",_resultKey,typeOf _target);
 
         if (_remove) then {
             _target removeAction _actionId;

@@ -71,7 +71,7 @@ _result set ["traits", []];
 // Get config
 private _cfg = configFile >> "CfgVehicles" >> _classname;
 if (!isClass _cfg) exitWith {
-    diag_log format ["DSC: fnc_classifyUnit - Class '%1' not found in CfgVehicles", _classname];
+    TRACE_1("Class not found in CfgVehicles",_classname);
     _result
 };
 

@@ -24,6 +24,8 @@
 
 params ["_zoneType", "_zoneId", "_timings", "_units", "_vehicles"];
 
+#include "..\..\script_component.hpp"
+
 private _log = missionNamespace getVariable ["DSC_presenceTimings", []];
 private _totals = missionNamespace getVariable ["DSC_presenceTimingTotals", createHashMap];
 
@@ -69,6 +71,4 @@ private _parts = [];
     };
 } forEach _ordered;
 
-diag_log format ["DSC: presence timing [%1/%2] total=%3ms u=%4 v=%5 | %6",
-    _zoneType, _zoneId, _totalMs toFixed 1, _units, _vehicles, _parts joinString " "
-];
+LOG_6("presence timing [%1/%2] total=%3ms u=%4 v=%5 | %6",_zoneType,_zoneId,_totalMs toFixed 1,_units,_vehicles,_parts joinString " ");

@@ -124,7 +124,7 @@ private _globalSlot = 0;
     };
 
     if (_archetype isEqualTo createHashMap) then {
-        diag_log format ["DSC: generateRaidMission - skipping unknown entity archetype '%1'", _archetypeName];
+        WARNING_1("generateRaidMission - skipping unknown entity archetype '%1'",_archetypeName);
         continue;
     };
 
@@ -140,7 +140,7 @@ private _globalSlot = 0;
     ] call DSC_core_fnc_resolveEntityClass;
 
     if (_unitClass isEqualTo "") then {
-        diag_log format ["DSC: generateRaidMission - no class resolved for archetype '%1'", _archetypeName];
+        WARNING_1("generateRaidMission - no class resolved for archetype '%1'",_archetypeName);
         continue;
     };
 
@@ -196,7 +196,7 @@ private _globalSlot = 0;
             };
             // Future: ON_TABLE, IN_VEHICLE
             default {
-                diag_log format ["DSC: generateRaidMission - placement '%1' not implemented for archetype '%2', skipping", _placementKey, _archetypeName];
+                WARNING_2("generateRaidMission - placement '%1' not implemented for archetype '%2', skipping",_placementKey,_archetypeName);
             };
         };
 
@@ -235,9 +235,6 @@ private _globalSlot = 0;
                 _entGroup setBehaviour "SAFE";
                 _entGroup setCombatMode "GREEN";
                 _entGroup enableAttack false;
-                // if (_behavior != "captive") then {
-                //     [_entGroup] call DSC_core_fnc_addCombatActivation;
-                // };
                 if (!(_entGroup in _aoGroups)) then { _aoGroups pushBack _entGroup };
             };
         };
@@ -295,7 +292,7 @@ private _missionMarkers = switch (_markerStyle) do {
     };
     case "none": { [] };
     default {
-        diag_log format ["DSC: generateRaidMission - unknown markerStyle '%1', falling back to compound", _markerStyle];
+        WARNING_1("generateRaidMission - unknown markerStyle '%1', falling back to compound",_markerStyle);
         [_ao getOrDefault ["garrisonClusters", []], _location] call DSC_core_fnc_drawCompoundMarkers
     };
 };
@@ -361,7 +358,6 @@ private _mission = createHashMapFromArray [
 
 missionNamespace setVariable ["DSC_currentMission", _mission, true];
 
-diag_log format ["DSC: Raid mission generated [%1] at %2 - %3 entities, %4 objects, %5 groups, %6 units",
-    _completionTypeName, _locationName, count _placedEntities, count _placedObjects, count _aoGroups, count _aoUnits];
+INFO_6("Raid mission generated [%1] at %2 - %3 entities, %4 objects, %5 groups, %6 units",_completionTypeName,_locationName,count _placedEntities,count _placedObjects,count _aoGroups,count _aoUnits);
 
 _mission

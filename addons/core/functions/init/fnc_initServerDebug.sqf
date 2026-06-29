@@ -27,7 +27,7 @@
 
 if (!isServer) exitWith {};
 
-diag_log "DSC: ========== Initializing Server Debug Layer ==========";
+INFO("========== Initializing Server Debug Layer ==========");
 
 // ----------------------------------------------------------------------------
 // Globals (idempotent — fnc_initServer also defends these)
@@ -50,15 +50,14 @@ if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
     ];
 
     if (_template isEqualTo createHashMap) exitWith {
-        diag_log format ["DSC: tablet queue rejected (empty template) from %1 [%2]", _name, _uid];
+        WARNING_2("tablet queue rejected (empty template) from %1 [%2]",_name,_uid);
     };
 
     private _queue = missionNamespace getVariable ["DSC_missionQueue", []];
     _queue pushBack _template;
     missionNamespace setVariable ["DSC_missionQueue", _queue, true];
 
-    diag_log format ["DSC: tablet queued mission from %1 [%2] - queue size %3 - template %4",
-        _name, _uid, count _queue, _template];
+    LOG_4("tablet queued mission from %1 [%2] - queue size %3 - template %4",_name,_uid,count _queue,_template);
 }] call CBA_fnc_addEventHandler;
 
 // ----------------------------------------------------------------------------
@@ -71,11 +70,11 @@ if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
     ];
 
     if (!(missionNamespace getVariable ["missionInProgress", false])) exitWith {
-        diag_log format ["DSC: tablet abort ignored (no active mission) from %1 [%2]", _name, _uid];
+        WARNING_2("tablet abort ignored (no active mission) from %1 [%2]",_name,_uid);
     };
 
     missionNamespace setVariable ["DSC_missionAbortRequested", true, true];
-    diag_log format ["DSC: tablet abort requested from %1 [%2]", _name, _uid];
+    INFO_2("tablet abort requested from %1 [%2]",_name,_uid);
 }] call CBA_fnc_addEventHandler;
 
-diag_log "DSC: Server debug layer initialized (tablet events registered)";
+INFO("Server debug layer initialized (tablet events registered)");

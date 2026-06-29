@@ -41,7 +41,7 @@ if (!_hasACEMedical) then {
 };
 
 [format ["%1 is down!", name _player]] remoteExec ["systemChat", 0];
-diag_log format ["DSC: Player %1 is incapacitated (ACE: %2)", name _player, _hasACEMedical];
+INFO_2("Player %1 is incapacitated (ACE: %2)",name _player,_hasACEMedical);
 
 // ============================================================================
 // Find medic
@@ -49,7 +49,7 @@ diag_log format ["DSC: Player %1 is incapacitated (ACE: %2)", name _player, _has
 private _medic = _player getVariable ["DSC_assignedMedic", objNull];
 
 if (isNull _medic || !alive _medic) then {
-    diag_log "DSC: No medic available - respawning at base after timeout";
+    LOG("No medic available - respawning at base after timeout");
     ["No medic available.\nRespawning at base in 15 seconds..."] remoteExec ["hint", _player];
     
     sleep 15;
@@ -84,7 +84,7 @@ if (isNull _medic || !alive _medic) then {
     };
     
     if (!alive _medic || time > _timeout) exitWith {
-        diag_log "DSC: Medic failed to reach player - respawning at base";
+        INFO("Medic failed to reach player - respawning at base");
         ["Medic could not reach you.\nRespawning at base..."] remoteExec ["hint", _player];
         
         sleep 3;
@@ -104,7 +104,7 @@ if (isNull _medic || !alive _medic) then {
     // ============================================================================
     // Medic performs revive
     // ============================================================================
-    diag_log "DSC: Medic arrived - performing revive";
+    LOG("Medic arrived - performing revive");
     
     [_medic] remoteExec ["doStop", _medicOwner];
     [_medic, _medic getDir _player] remoteExec ["setDir", _medicOwner];
@@ -134,5 +134,5 @@ if (isNull _medic || !alive _medic) then {
     [format ["%1 has been revived!", name _player]] remoteExec ["systemChat", 0];
     ["You have been revived."] remoteExec ["hint", _player];
     
-    diag_log format ["DSC: Player %1 revived by medic", name _player];
+    INFO_1("Player %1 revived by medic",name _player);
 };

@@ -76,10 +76,10 @@ if (missionNamespace getVariable ["DSC_hasACEMedical", false]) then {
         "ACE_personalAidKit"
     ];
     
-    diag_log "DSC: ACE Medical traits and supplies set on medic";
+    LOG("ACE Medical traits and supplies set on medic");
 };
 
-diag_log format ["DSC: Medic recruited for %1 at %2", name _player, _spawnPos];
+LOG_2("Medic recruited for %1 at %2",name _player,_spawnPos);
 systemChat format ["Combat Medic assigned to %1.", name _player];
 hint "Combat Medic recruited and assigned to your squad.";
 

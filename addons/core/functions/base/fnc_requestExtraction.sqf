@@ -253,4 +253,4 @@ deleteMarker "dsc_extraction_dest";
 
 _caller setVariable ["DSC_extractionInProgress", false, true];
 
-diag_log "DSC: Extraction complete - helicopter despawned";
+INFO("Extraction complete - helicopter despawned");

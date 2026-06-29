@@ -34,15 +34,15 @@ private _safeDist = 400;
 // (e.g. the respawnOnStart fake death at mission init). Bail rather than
 // create a malformed marker that breaks respawn-template selection.
 if (!(_deathPos isEqualType []) || {count _deathPos < 2}) exitWith {
-    diag_log "DSC: placeDynamicRespawn skipped - invalid death position";
+    WARNING("placeDynamicRespawn skipped - invalid death position");
 };
 if (!((_deathPos select 0) isEqualType 0) || {!((_deathPos select 1) isEqualType 0)}) exitWith {
-    diag_log "DSC: placeDynamicRespawn skipped - non-numeric death position";
+    WARNING("placeDynamicRespawn skipped - non-numeric death position");
 };
 // Reject the map-origin position the engine reports during the respawnOnStart
 // fake death — placing the marker there spawns the player at [0,0,0].
 if (_deathPos distance2D [0, 0] < 50) exitWith {
-    diag_log "DSC: placeDynamicRespawn skipped - death position at map origin";
+    WARNING("placeDynamicRespawn skipped - death position at map origin");
 };
 
 // Bias the respawn direction away from the nearest living enemy
@@ -66,7 +66,7 @@ if ((_safePos select 0) isEqualType 0 && {(_safePos select 1) isEqualType 0}) th
     _candidate = [_safePos select 0, _safePos select 1, 0];
 };
 if (!((_candidate select 0) isEqualType 0) || {!((_candidate select 1) isEqualType 0)}) exitWith {
-    diag_log "DSC: placeDynamicRespawn skipped - could not resolve a valid position";
+    WARNING("placeDynamicRespawn skipped - could not resolve a valid position");
 };
 
 private _markerName = "respawn_west_dynamic";
@@ -75,7 +75,4 @@ private _m = createMarker [_markerName, _candidate];
 _m setMarkerTypeLocal "Empty";
 _m setMarkerAlpha 0;
 
-diag_log format [
-    "DSC: Dynamic respawn marker placed at %1 (%2m from death, dir %3)",
-    _candidate, _safeDist, round _dir
-];
+LOG_3("Dynamic respawn marker placed at %1 (%2m from death, dir %3)",_candidate,_safeDist,round _dir);

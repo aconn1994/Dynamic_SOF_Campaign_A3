@@ -44,11 +44,11 @@ params [
 private _result = createHashMapFromArray [["units", []], ["groups", []]];
 
 if (_anchorPos isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredPatrol - no anchor position";
+    ERROR("setupAnchoredPatrol - no anchor position");
     _result
 };
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredPatrol - no group templates";
+    ERROR("setupAnchoredPatrol - no group templates");
     _result
 };
 
@@ -84,7 +84,7 @@ private _unitPool = [];
 } forEach _groupTemplates;
 
 if (_unitPool isEqualTo []) exitWith {
-    diag_log "DSC: setupAnchoredPatrol - no unit classes extracted";
+    WARNING("setupAnchoredPatrol - no unit classes extracted");
     _result
 };
 
@@ -99,7 +99,7 @@ if (surfaceIsWater _spawnPos) then {
     _spawnPos = [_anchorPos, 0, _spawnOffset + 50, 5, 0, 20, 0] call BIS_fnc_findSafePos;
 };
 if (surfaceIsWater _spawnPos) exitWith {
-    diag_log format ["DSC: setupAnchoredPatrol - no land near %1, skipping", _anchorPos];
+    WARNING_1("setupAnchoredPatrol - no land near %1, skipping",_anchorPos);
     _result
 };
 
@@ -141,11 +141,6 @@ if ((units _group) isEqualTo []) exitWith {
 (_result get "groups") pushBack _group;
 _group enableDynamicSimulation true;
 
-// if (_combatActivation) then {
-//     [_group, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-// };
-
-diag_log format ["DSC: setupAnchoredPatrol - spawned %1 units patrolling r=%2 (side=%3 skill=%4)",
-    _spawned, _patrolRadius, _side, _skillProfile];
+LOG_4("setupAnchoredPatrol - spawned %1 units patrolling r=%2 (side=%3 skill=%4)",_spawned,_patrolRadius,_side,_skillProfile);
 
 _result

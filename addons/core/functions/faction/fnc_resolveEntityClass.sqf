@@ -156,7 +156,7 @@ switch (_resolverKey) do {
     };
 
     default {
-        diag_log format ["DSC: resolveEntityClass - unknown resolver '%1'", _resolverKey];
+        WARNING_1("resolveEntityClass - unknown resolver '%1'",_resolverKey);
         _fallback
     };
 }

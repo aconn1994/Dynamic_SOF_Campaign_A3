@@ -114,7 +114,7 @@ private _kept = [];
         if (!isNull _vehicle) then { deleteVehicle _vehicle };
         if (!isNull _group) then { deleteGroup _group };
         _killed = _killed + 1;
-        diag_log format ["DSC: roving despawned [%1/%2] %3", _type, _record get "id", _reason];
+        LOG_3("roving despawned [%1/%2] %3",_type,_record get "id",_reason);
 
         // Stats
         private _stats = missionNamespace getVariable ["DSC_rovingStats", createHashMap];

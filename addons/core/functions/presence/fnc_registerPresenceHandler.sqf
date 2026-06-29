@@ -26,9 +26,11 @@
 
 params [["_config", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _type = _config getOrDefault ["type", ""];
 if (_type == "") exitWith {
-    diag_log "DSC: registerPresenceHandler - missing 'type' key, rejected";
+    ERROR("registerPresenceHandler - missing 'type' key, rejected");
     false
 };
 
@@ -36,13 +38,11 @@ private _registry = missionNamespace getVariable ["DSC_presenceHandlers", create
 _registry set [_type, _config];
 missionNamespace setVariable ["DSC_presenceHandlers", _registry, true];
 
-diag_log format ["DSC: registerPresenceHandler - '%1' (actR=%2 depR=%3 grace=%4 budgetU=%5 budgetV=%6)",
-    _type,
-    _config getOrDefault ["activateRadius", "?"],
-    _config getOrDefault ["despawnRadius",  "?"],
-    _config getOrDefault ["despawnGrace",   "?"],
-    _config getOrDefault ["budgetUnits",    "?"],
-    _config getOrDefault ["budgetVehicles", "?"]
-];
+private _actR = _config getOrDefault ["activateRadius", "?"];
+private _depR = _config getOrDefault ["despawnRadius", "?"];
+private _grace = _config getOrDefault ["despawnGrace", "?"];
+private _budU = _config getOrDefault ["budgetUnits", "?"];
+private _budV = _config getOrDefault ["budgetVehicles", "?"];
+LOG_6("registerPresenceHandler - '%1' (actR=%2 depR=%3 grace=%4 budgetU=%5 budgetV=%6)",_type,_actR,_depR,_grace,_budU,_budV);
 
 true

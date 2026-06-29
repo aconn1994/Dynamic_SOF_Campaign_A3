@@ -51,7 +51,7 @@ private _empty = createHashMapFromArray [
 
 if (_locationPos isEqualTo []) exitWith { _empty };
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: setupLightMilitaryGarrison - no group templates";
+    WARNING("setupLightMilitaryGarrison - no group templates");
     _empty
 };
 
@@ -94,8 +94,7 @@ if (_anchorOverride >= 0) then {
 };
 
 if (!_forceSpawn && { random 1 > _spawnChance }) exitWith {
-    diag_log format ["DSC: setupLightMilitaryGarrison - skip (tier=%1 chance=%2)",
-        _sizeTier, _spawnChance toFixed 2];
+    LOG_2("setupLightMilitaryGarrison - skip (tier=%1 chance=%2)",_sizeTier,_spawnChance toFixed 2);
     _empty
 };
 
@@ -120,7 +119,7 @@ private _garrisonConfig = createHashMapFromArray [
 
 private _result = [_locationPos, _groupTemplates, _side, _garrisonConfig] call DSC_core_fnc_setupGarrison;
 
-diag_log format ["DSC: setupLightMilitaryGarrison - %1 indoor mil at %2 (side=%3 tier=%4)",
-    count (_result getOrDefault ["units", []]), _locationPos, _side, _sizeTier];
+private _milCt = count (_result getOrDefault ["units", []]);
+LOG_4("setupLightMilitaryGarrison - %1 indoor mil at %2 (side=%3 tier=%4)",_milCt,_locationPos,_side,_sizeTier);
 
 _result

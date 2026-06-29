@@ -22,6 +22,8 @@ params [
     ["_factionData", createHashMap, [createHashMap]]
 ];
 
+#include "..\..\script_component.hpp"
+
 private _baseRegistry = createHashMap;
 
 private _influenceMap = _influenceData getOrDefault ["influenceMap", createHashMap];
@@ -92,7 +94,7 @@ private _mergeAssets = {
 // ============================================================================
 // PHASE 1: Player Base(s)
 // ============================================================================
-diag_log "DSC: fnc_initBases - Setting up player base(s)";
+INFO("fnc_initBases - Setting up player base(s)");
 
 // Find the active player base marker (set in initServer Step 0)
 private _playerMainBase = missionNamespace getVariable ["playerMainBase", ""];
@@ -106,18 +108,18 @@ if (_playerMainBase != "") then {
     if ((getMarkerPos _playerMainBase) isNotEqualTo [0,0,0]) then {
         _rootMarkers pushBack _playerMainBase;
     } else {
-        diag_log format ["DSC: fnc_initBases - WARNING: playerMainBase '%1' marker not found", _playerMainBase];
+        WARNING_1("fnc_initBases - playerMainBase '%1' marker not found",_playerMainBase);
     };
 };
 
-diag_log format ["DSC: fnc_initBases - Found %1 player base root marker(s): %2", count _rootMarkers, _rootMarkers];
+TRACE_2("fnc_initBases - Found player base root markers",count _rootMarkers,_rootMarkers);
 
 // Get bluFor faction data — pool assets from ALL bluFor factions
 private _bluForData = "bluFor" call _getRoleData;
 _bluForData params ["_bluForSide", "_bluForFaction", "_bluForFactions"];
 
 private _bluForAssets = ["bluFor", _bluForFactions] call _mergeAssets;
-diag_log format ["DSC: fnc_initBases - Pooled bluFor assets from %1 factions", count _bluForFactions];
+TRACE_1("fnc_initBases - Pooled bluFor assets from N factions",count _bluForFactions);
 
 // Guard faction: prefer conventional (2nd faction) over SOF (1st) for base guards
 private _bluForGuardFaction = if (count _bluForFactions > 1) then { _bluForFactions select 1 } else { _bluForFaction };
@@ -127,7 +129,7 @@ private _bluForGuardFaction = if (count _bluForFactions > 1) then { _bluForFacti
     private _markerPos = getMarkerPos _marker;
 
     if (_markerPos isEqualTo [0,0,0]) then {
-        diag_log format ["DSC: fnc_initBases - WARNING: marker '%1' has no position, skipping", _marker];
+        WARNING_1("fnc_initBases - marker '%1' has no position, skipping",_marker);
         continue;
     };
 
@@ -161,7 +163,7 @@ private _bluForGuardFaction = if (count _bluForFactions > 1) then { _bluForFacti
         };
     } forEach _allPlayerBaseMarkers;
 
-    diag_log format ["DSC: fnc_initBases - Player base '%1' initialized", _marker];
+    INFO_1("fnc_initBases - Player base '%1' initialized",_marker);
 } forEach _rootMarkers;
 
 // ============================================================================
@@ -275,8 +277,6 @@ private _playerCount = { (_x get "type") == "playerBase" } count _regValues;
 private _bluForCount = { (_x get "type") == "bluFor" } count _regValues;
 private _opForCount = { (_x get "type") == "opFor" } count _regValues;
 
-diag_log format ["DSC: fnc_initBases - Complete: %1 total bases (%2 player, %3 bluFor, %4 opFor)",
-    count _baseRegistry, _playerCount, _bluForCount, _opForCount
-];
+INFO_4("fnc_initBases - Complete: %1 total bases (%2 player, %3 bluFor, %4 opFor)",count _baseRegistry,_playerCount,_bluForCount,_opForCount);
 
 _baseRegistry

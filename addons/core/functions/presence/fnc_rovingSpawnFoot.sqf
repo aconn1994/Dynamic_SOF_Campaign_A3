@@ -50,7 +50,7 @@ private _playerPos = getPosASL _player;
 // ============================================================================
 private _nonAirbase = (_hotspots getOrDefault ["all", []]) select { (_x get "type") != "airbase" };
 if (_nonAirbase isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnFoot - No non-airbase hotspots registered";
+    WARNING("rovingSpawnFoot - No non-airbase hotspots registered");
     _empty
 };
 private _sortedHotspots = [_nonAirbase, [], { (_x get "position") distance2D _playerPos }, "ASCEND"] call BIS_fnc_sortBy;
@@ -79,7 +79,7 @@ for "_attempt" from 0 to (_spawnAttempts - 1) do {
 };
 
 if (_spawnPos isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnFoot - No safe position found in 600-1500m ring around player";
+    LOG("rovingSpawnFoot - No safe position found in 600-1500m ring around player");
     _empty
 };
 
@@ -102,7 +102,7 @@ private _groupPool = [];
 } forEach _groupsByFaction;
 
 if (_groupPool isEqualTo []) exitWith {
-    diag_log format ["DSC: rovingSpawnFoot - No FOOT PATROL groups in %1 pool", _roleKey];
+    LOG_1("rovingSpawnFoot - No FOOT PATROL groups in %1 pool",_roleKey);
     _empty
 };
 
@@ -115,7 +115,7 @@ private _groupConfig = configFile >> "CfgGroups";
 { _groupConfig = _groupConfig >> _x } forEach _pathParts;
 
 if (!isClass _groupConfig) exitWith {
-    diag_log format ["DSC: rovingSpawnFoot - Invalid CfgGroups path: %1", _groupPath];
+    ERROR_1("rovingSpawnFoot - Invalid CfgGroups path: %1",_groupPath);
     _empty
 };
 
@@ -124,7 +124,7 @@ if (!isClass _groupConfig) exitWith {
 // ============================================================================
 private _group = [_spawnPos, _side, _groupPath] call DSC_core_fnc_spawnGroupYielding;
 if (isNull _group || {(units _group) isEqualTo []}) exitWith {
-    diag_log format ["DSC: rovingSpawnFoot - spawnGroupYielding failed for %1", _groupName];
+    ERROR_1("rovingSpawnFoot - spawnGroupYielding failed for %1",_groupName);
     _empty
 };
 
@@ -180,9 +180,9 @@ private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 
 if (!isNull _curator) then {
     private _zeusEntities = units _group;
     _curator addCuratorEditableObjects [_zeusEntities, true];
-    diag_log format ["DSC: rovingSpawnFoot - added %1 entities to Zeus", count _zeusEntities];
+    LOG_1("rovingSpawnFoot - added %1 entities to Zeus",count _zeusEntities);
 } else {
-    diag_log "DSC: rovingSpawnFoot - no curator available, skipping Zeus add";
+    LOG("rovingSpawnFoot - no curator available, skipping Zeus add");
 };
 
 // Stats
@@ -190,8 +190,6 @@ private _stats = missionNamespace getVariable ["DSC_rovingStats", createHashMap]
 _stats set ["spawned", (_stats getOrDefault ["spawned", 0]) + 1];
 _stats set ["footSpawned", (_stats getOrDefault ["footSpawned", 0]) + 1];
 
-diag_log format ["DSC: roving spawned [foot] %1 src=%2/%3 spawn=%4m units=%5 sideKey=%6",
-    _groupName, _origin get "type", _origin get "id",
-    round (_spawnPos distance2D _playerPos), count (units _group), _sideKey];
+LOG_6("roving spawned [foot] %1 src=%2/%3 spawn=%4m units=%5 sideKey=%6",_groupName,_origin get "type",_origin get "id",round (_spawnPos distance2D _playerPos),count (units _group),_sideKey);
 
 _record

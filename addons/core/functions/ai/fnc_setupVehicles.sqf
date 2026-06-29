@@ -43,7 +43,7 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupVehicles - No location position provided";
+    ERROR("fnc_setupVehicles - No location position provided");
     _result
 };
 
@@ -67,7 +67,7 @@ private _unarmedPool = (_cars getOrDefault ["unarmed", []]) + _trucks;
 private _armedPool = (_cars getOrDefault ["armed", []]) + (_cars getOrDefault ["mrap", []]);
 
 if (_unarmedPool isEqualTo [] && _armedPool isEqualTo []) exitWith {
-    diag_log format ["DSC: fnc_setupVehicles - No vehicles available for faction %1", _faction];
+    WARNING_1("fnc_setupVehicles - No vehicles available for faction %1",_faction);
     _result
 };
 
@@ -116,7 +116,7 @@ private _clusters = [];
 // Sort by size descending — park at the larger clusters
 _clusters = [_clusters, [], { -(count _x) }, "ASCEND"] call BIS_fnc_sortBy;
 
-diag_log format ["DSC: fnc_setupVehicles - %1 clusters, targeting %2 vehicles", count _clusters, _targetCount];
+LOG_2("fnc_setupVehicles - %1 clusters, targeting %2 vehicles",count _clusters,_targetCount);
 
 // ============================================================================
 // Spawn vehicles at clusters
@@ -187,12 +187,12 @@ private _vehiclesSpawned = 0;
                 _gunner moveInGunner _vehicle;
                 (_result get "units") pushBack _gunner;
 
-                diag_log format ["DSC: fnc_setupVehicles - Armed %1 at %2 (gunner: %3)", _vehicleClass, _parkPos, _lookoutClass];
+                LOG_3("fnc_setupVehicles - Armed %1 at %2 (gunner: %3)",_vehicleClass,_parkPos,_lookoutClass);
             } else {
-                diag_log format ["DSC: fnc_setupVehicles - Armed %1 at %2 (no gunner turret)", _vehicleClass, _parkPos];
+                LOG_2("fnc_setupVehicles - Armed %1 at %2 (no gunner turret)",_vehicleClass,_parkPos);
             };
         } else {
-            diag_log format ["DSC: fnc_setupVehicles - Parked %1 at %2", _vehicleClass, _parkPos];
+            LOG_2("fnc_setupVehicles - Parked %1 at %2",_vehicleClass,_parkPos);
         };
 
         _vehiclesSpawned = _vehiclesSpawned + 1;
@@ -207,7 +207,6 @@ private _vehiclesSpawned = 0;
 if (units _crewGroup isNotEqualTo []) then {
     (_result get "groups") pushBack _crewGroup;
     _crewGroup enableDynamicSimulation true;
-    // [_crewGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _crewGroup;
 };
@@ -217,6 +216,6 @@ if (units _crewGroup isNotEqualTo []) then {
 // freezes the empty ones when no player is near.
 { _x enableDynamicSimulation true } forEach (_result get "vehicles");
 
-diag_log format ["DSC: fnc_setupVehicles - Spawned %1 vehicles (%2 with crew)", _vehiclesSpawned, count (_result get "units")];
+LOG_2("fnc_setupVehicles - Spawned %1 vehicles (%2 with crew)",_vehiclesSpawned,count (_result get "units"));
 
 _result

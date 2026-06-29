@@ -238,6 +238,6 @@ private _taskId = "DSC_currentTask";
 
 [true, _taskId, [_description, _title, ""], objNull, "AUTOASSIGNED", 1, true, _taskIcon] call BIS_fnc_taskCreate;
 
-diag_log format ["DSC: Mission briefing created - %1", _title];
+INFO_1("Mission briefing created - %1",_title);
 
 _taskId

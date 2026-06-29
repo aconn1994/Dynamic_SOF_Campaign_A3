@@ -31,6 +31,8 @@ params [
     ["_config", createHashMap, [createHashMap]]
 ];
 
+#include "script_component.hpp"
+
 private _result = createHashMapFromArray [
     ["units", []],
     ["vehicles", []],
@@ -48,7 +50,7 @@ private _statics = _assets getOrDefault ["staticWeapons", createHashMap];
 private _mortars = _statics getOrDefault ["mortar", []];
 
 if (_mortars isEqualTo []) exitWith {
-    diag_log format ["DSC: setupMortarEmplacement - no mortars for faction %1", _faction];
+    WARNING_1("setupMortarEmplacement - no mortars for faction %1",_faction);
     _result
 };
 
@@ -97,7 +99,7 @@ for "_i" from 0 to (_count - 1) do {
     (_result get "vehicles") pushBack _mortar;
     (_result get "units")    pushBack _gunner;
 
-    diag_log format ["DSC: setupMortarEmplacement - %1 placed at %2", _mortarClass, _pos];
+    LOG_2("setupMortarEmplacement - %1 placed at %2",_mortarClass,_pos);
     uiSleep 0.2;
 };
 
@@ -105,7 +107,6 @@ if ((units _group) isNotEqualTo []) then {
     (_result get "groups") pushBack _group;
     _group enableDynamicSimulation true;
     { _x enableDynamicSimulation true } forEach (_result get "vehicles");
-    // [_group] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _group;
 };

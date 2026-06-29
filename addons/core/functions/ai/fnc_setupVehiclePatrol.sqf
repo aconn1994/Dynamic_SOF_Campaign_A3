@@ -39,7 +39,7 @@ params [
 private _emptyResult = createHashMapFromArray [["group", grpNull], ["vehicle", objNull], ["units", []], ["scriptHandle", scriptNull]];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupVehiclePatrol - No location position provided";
+    ERROR("fnc_setupVehiclePatrol - No location position provided");
     _emptyResult
 };
 
@@ -77,7 +77,7 @@ if (_nearRoads isNotEqualTo []) then {
 private _spawnedGroup = [_spawnPos, _side, _groupConfig] call BIS_fnc_spawnGroup;
 
 if (isNull _spawnedGroup) exitWith {
-    diag_log format ["DSC: fnc_setupVehiclePatrol - Failed to spawn group %1", _groupName];
+    ERROR_1("fnc_setupVehiclePatrol - Failed to spawn group %1",_groupName);
     _emptyResult
 };
 
@@ -96,7 +96,7 @@ private _dismounts = [];
 } forEach units _spawnedGroup;
 
 if (isNull _vehicle) exitWith {
-    diag_log format ["DSC: fnc_setupVehiclePatrol - Group %1 has no vehicle, aborting", _groupName];
+    ERROR_1("fnc_setupVehiclePatrol - Group %1 has no vehicle, aborting",_groupName);
     { deleteVehicle _x } forEach units _spawnedGroup;
     deleteGroup _spawnedGroup;
     _emptyResult
@@ -140,8 +140,7 @@ _spawnedGroup setVariable ["DSC_vehPatrol_center", _locationPos];
 _spawnedGroup enableDynamicSimulation true;
 _vehicle enableDynamicSimulation true;
 
-diag_log format ["DSC: fnc_setupVehiclePatrol - Spawned %1: vehicle %2, crew %3, dismounts %4 (all mounted)",
-    _groupName, typeOf _vehicle, count _crew, count _dismounts];
+LOG_4("fnc_setupVehiclePatrol - Spawned %1: vehicle %2, crew %3, dismounts %4 (all mounted)",_groupName,typeOf _vehicle,count _crew,count _dismounts);
 
 // ============================================================================
 // Start patrol loop

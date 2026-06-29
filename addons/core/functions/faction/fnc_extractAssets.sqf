@@ -31,7 +31,7 @@ params [
 ];
 
 if (_faction == "") exitWith {
-    diag_log "DSC: fnc_extractAssets - No faction provided";
+    ERROR("fnc_extractAssets - No faction provided");
     createHashMap
 };
 
@@ -195,13 +195,6 @@ private _result = createHashMapFromArray [
     ["drones", _drones]
 ];
 
-diag_log format ["DSC: Extracted assets for %1 - statics: %2, cars: %3, trucks: %4, apcs: %5, tanks: %6, helis: %7, planes: %8",
-    _faction,
-    (count (_staticWeapons get "HMG")) + (count (_staticWeapons get "GMG")) + (count (_staticWeapons get "AT")) + (count (_staticWeapons get "AA")) + (count (_staticWeapons get "mortar")),
-    (count (_cars get "unarmed")) + (count (_cars get "armed")) + (count (_cars get "mrap")),
-    count _trucks, count _apcs, count _tanks,
-    (count (_helicopters get "attack")) + (count (_helicopters get "transport")),
-    (count (_planes get "attack")) + (count (_planes get "transport"))
-];
+INFO_8("Extracted assets for %1 - statics: %2, cars: %3, trucks: %4, apcs: %5, tanks: %6, helis: %7, planes: %8",_faction,(count (_staticWeapons get "HMG")) + (count (_staticWeapons get "GMG")) + (count (_staticWeapons get "AT")) + (count (_staticWeapons get "AA")) + (count (_staticWeapons get "mortar")),(count (_cars get "unarmed")) + (count (_cars get "armed")) + (count (_cars get "mrap")),count _trucks,count _apcs,count _tanks,(count (_helicopters get "attack")) + (count (_helicopters get "transport")),(count (_planes get "attack")) + (count (_planes get "transport")));
 
 _result

@@ -21,7 +21,7 @@ params ["_group", "_center", "_patrolRadius", "_dismountRadius", "_dismountDurat
 private _vehicle = _group getVariable ["DSC_vehPatrol_vehicle", objNull];
 
 if (isNull _vehicle || { isNull _group }) exitWith {
-    diag_log "DSC: vehiclePatrolLoop - Invalid group or vehicle, exiting";
+    ERROR("vehiclePatrolLoop - Invalid group or vehicle, exiting");
 };
 
 // Combat interrupt: release all AI on contact
@@ -33,7 +33,7 @@ if (isNull _vehicle || { isNull _group }) exitWith {
         _grp setVariable ["DSC_vehPatrol_combat", true];
         _grp setBehaviour "COMBAT";
         _grp setCombatMode "RED";
-        diag_log format ["DSC: vehiclePatrolLoop - Combat triggered for %1", _grp];
+        LOG_1("vehiclePatrolLoop - Combat triggered for %1",_grp);
     }];
 } forEach units _group;
 
@@ -45,7 +45,7 @@ private _fnc_shouldAbort = {
     || { {alive _x} count units _group == 0 }
 };
 
-diag_log format ["DSC: vehiclePatrolLoop - Starting for %1", _group];
+LOG_1("vehiclePatrolLoop - Starting for %1",_group);
 
 while { !(call _fnc_shouldAbort) } do {
 
@@ -55,7 +55,7 @@ while { !(call _fnc_shouldAbort) } do {
     private _route = [getPos _vehicle, _legDist, _routeDir] call DSC_core_fnc_buildRoadRoute;
 
     if (_route isEqualTo []) then {
-        diag_log "DSC: vehiclePatrolLoop - No road route found, retrying";
+        LOG("vehiclePatrolLoop - No road route found, retrying");
         sleep 10;
         continue;
     };
@@ -73,7 +73,7 @@ while { !(call _fnc_shouldAbort) } do {
     _wp setWaypointBehaviour "SAFE";
     _wp setWaypointCompletionRadius 30;
 
-    diag_log format ["DSC: vehiclePatrolLoop - Driving to point %1m away", round (_vehicle distance2D _destination)];
+    LOG_1("vehiclePatrolLoop - Driving to point %1m away",round (_vehicle distance2D _destination));
 
     // Wait for arrival
     waitUntil {
@@ -84,7 +84,7 @@ while { !(call _fnc_shouldAbort) } do {
     if (call _fnc_shouldAbort) then { continue };
 
     // Hold position for ~2 minutes
-    diag_log format ["DSC: vehiclePatrolLoop - Holding at %1", getPos _vehicle];
+    LOG_1("vehiclePatrolLoop - Holding at %1",getPos _vehicle);
     private _holdTime = 100 + random 40;
     private _holdEnd = time + _holdTime;
 
@@ -95,7 +95,7 @@ while { !(call _fnc_shouldAbort) } do {
 
     if (call _fnc_shouldAbort) then { continue };
 
-    diag_log "DSC: vehiclePatrolLoop - Hold complete, moving to next point";
+    LOG("vehiclePatrolLoop - Hold complete, moving to next point");
 };
 
 // Release AI on exit
@@ -105,7 +105,7 @@ if (_group getVariable ["DSC_vehPatrol_qrf", false]) then { _exitReason = "qrf" 
 if (!alive _vehicle) then { _exitReason = "vehicle destroyed" };
 if (isNull _group || { {alive _x} count units _group == 0 }) then { _exitReason = "group dead" };
 
-diag_log format ["DSC: vehiclePatrolLoop - Ended for %1 (reason: %2)", _group, _exitReason];
+LOG_2("vehiclePatrolLoop - Ended for %1 (reason: %2)",_group,_exitReason);
 
 // ======================================================================
 // FUTURE: Dismount/Remount Cycle

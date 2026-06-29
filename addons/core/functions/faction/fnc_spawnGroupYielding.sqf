@@ -37,11 +37,13 @@ params [
     ["_config", createHashMap, [createHashMap]]
 ];
 
+#include "script_component.hpp"
+
 private _yieldPerUnit = _config getOrDefault ["yieldPerUnit", 0.1];
 private _scatter      = _config getOrDefault ["scatter", 5];
 
 if (_spawnPos isEqualTo []) exitWith {
-    diag_log "DSC: spawnGroupYielding - no spawn position";
+    ERROR("spawnGroupYielding - no spawn position");
     grpNull
 };
 
@@ -53,7 +55,7 @@ if (_groupRef isEqualType "") then {
 };
 
 if (isNull _groupCfg || {!isClass _groupCfg}) exitWith {
-    diag_log format ["DSC: spawnGroupYielding - invalid groupRef: %1", _groupRef];
+    ERROR_1("spawnGroupYielding - invalid groupRef: %1",_groupRef);
     grpNull
 };
 
@@ -72,7 +74,7 @@ private _unitEntries = [];
 } forEach configProperties [_groupCfg, "isClass _x"];
 
 if (_unitEntries isEqualTo []) exitWith {
-    diag_log format ["DSC: spawnGroupYielding - no unit entries in %1", configName _groupCfg];
+    ERROR_1("spawnGroupYielding - no unit entries in %1",configName _groupCfg);
     grpNull
 };
 

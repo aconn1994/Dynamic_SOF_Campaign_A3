@@ -44,7 +44,7 @@ private _autoRelease = {
         _g removeGroupIcon _iconId;
         _g setVariable ["DSC_bftIconId", -1, true];
     };
-    diag_log format ["DSC: bftQrfReact - auto-released %1 (mission ended or group cleared)", groupId _g];
+    LOG_1("bftQrfReact - auto-released %1 (mission ended or group cleared)",groupId _g);
 };
 
 private _enemySides = [east, resistance];  // anything OPFOR-side counts as a trigger
@@ -55,13 +55,13 @@ while {true} do {
     // Group still exists and alive?
     if (isNull _grp) exitWith {};
     if (((units _grp) findIf {alive _x}) < 0) exitWith {
-        diag_log format ["DSC: bftQrfReact - group %1 wiped out, exiting loop", groupId _grp];
+        LOG_1("bftQrfReact - group %1 wiped out, exiting loop",groupId _grp);
     };
 
     // Player still wants this as QRF? (RELEASE / re-tasked / etc clears the tag)
     private _role = _grp getVariable ["DSC_bftRole", ""];
     if (_role != "QRF") exitWith {
-        diag_log format ["DSC: bftQrfReact - group %1 no longer QRF (role=%2), exiting loop", groupId _grp, _role];
+        LOG_2("bftQrfReact - group %1 no longer QRF (role=%2), exiting loop",groupId _grp,_role);
     };
 
     // Mission-end watchdog
@@ -98,7 +98,6 @@ while {true} do {
         _grp setCombatMode "RED";
         _grp move _objPos;
 
-        diag_log format ["DSC: bftQrfReact - %1 TRIGGERED on contact (%2 hostiles near AO), pushing to %3",
-            groupId _grp, count _hostile, _objPos];
+        LOG_3("bftQrfReact - %1 TRIGGERED on contact (%2 hostiles near AO), pushing to %3",groupId _grp,count _hostile,_objPos);
     };
 };

@@ -28,7 +28,7 @@ params [
 ];
 
 if (_patrolGroups isEqualTo [] || _targetPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_convergePatrols - Invalid parameters";
+    ERROR("fnc_convergePatrols - Invalid parameters");
     false
 };
 
@@ -67,9 +67,9 @@ private _redirectedCount = 0;
     
     _redirectedCount = _redirectedCount + 1;
     
-    diag_log format ["DSC: Patrol %1 converging on %2", _group, _targetPos];
+    LOG_2("Patrol %1 converging on %2",_group,_targetPos);
 } forEach _patrolGroups;
 
-diag_log format ["DSC: fnc_convergePatrols - Redirected %1 patrols to defend position", _redirectedCount];
+LOG_1("fnc_convergePatrols - Redirected %1 patrols to defend position",_redirectedCount);
 
 _redirectedCount > 0

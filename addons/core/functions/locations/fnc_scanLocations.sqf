@@ -30,11 +30,14 @@ params [
 ];
 
 private _debug = _config getOrDefault ["debug", false];
+#ifdef DEBUG_MODE_FULL
+_debug = true;
+#endif
 
 // ============================================================================
 // STAGE 1: Raw World Sampling
 // ============================================================================
-diag_log "DSC: ========== Anchor-Based Location Scan ==========";
+INFO("========== Anchor-Based Location Scan ==========");
 
 private _structureTypes = call DSC_core_fnc_getStructureTypes;
 private _mainTypes = _structureTypes get "main";
@@ -47,7 +50,7 @@ private _functionalLookup = _structureTypes get "functionalLookup";
 private _centerPosition = [worldSize / 2, worldSize / 2, 0];
 private _allStructures = [_centerPosition, ["House", "Building", "Strategic"], worldSize] call DSC_core_fnc_getMapStructures;
 
-diag_log format ["DSC: Stage 1 - Found %1 raw structures on map", count _allStructures];
+TRACE_1("Stage 1 - Count raw structures on map: ",count _allStructures);
 
 private _enterableStructures = [];
 private _structureClasses = [];
@@ -86,7 +89,7 @@ private _structureFunctional = [];
 
 } forEach _allStructures;
 
-diag_log format ["DSC: Stage 1 - %1 enterable structures after filtering", count _enterableStructures];
+TRACE_1("Stage 1 - enterable structures after filtering: ",count _enterableStructures);
 
 // Filter out structures inside player base markers
 private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 };
@@ -105,11 +108,11 @@ private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 }
     _structureFunctional = _keepIndices apply { _structureFunctional select _x };
     private _excluded = _countBefore - (count _enterableStructures);
     if (_excluded > 0) then {
-        diag_log format ["DSC: Excluded %1 structures inside %2", _excluded, _marker];
+       TRACE_2("Excluded structures inside: ",_excluded,_marker);
     };
 } forEach _playerBaseMarkers;
 
-diag_log format ["DSC: Stage 1 - %1 structures after player base exclusion", count _enterableStructures];
+TRACE_1("Stage 1 - structures after player base exclusion: ",count _enterableStructures);
 
 // Build lookup
 private _structIndexMap = createHashMap;
@@ -127,7 +130,7 @@ _namedLocations = _namedLocations select {
     !_insideBase
 };
 
-diag_log format ["DSC: Stage 2 - Found %1 named locations from engine (after base exclusion)", count _namedLocations];
+TRACE_1("Stage 2 - Found %1 named locations from engine (after base exclusion)",count _namedLocations);
 
 private _anchors = [];
 
@@ -146,7 +149,7 @@ private _anchors = [];
     private _isAirbase = false;
     { if (_x in _nameLower) exitWith { _isAirbase = true } } forEach ["airfield", "airbase", "airport", "air base", "air station"];
     if (_isAirbase) then {
-        diag_log format ["DSC: Stage 2 - Skipping airbase anchor: %1", _locName];
+        TRACE_1("Stage 2 - Skipping airbase anchor: ",_locName);
         continue;
     };
 
@@ -197,11 +200,11 @@ private _milProcessed = createHashMap;
         { _sumX = _sumX + (getPos _x select 0); _sumY = _sumY + (getPos _x select 1) } forEach _cluster;
         private _milCenter = [_sumX / (count _cluster), _sumY / (count _cluster), 0];
         _anchors pushBack [_milCenter, format ["Military %1", count _anchors], "Military", true, []];
-        diag_log format ["DSC: Stage 2 - Created unnamed military anchor at %1 (%2 structures)", _milCenter, count _cluster];
+        TRACE_2("Stage 2 - Created number of unnamed military anchor at ",_milCenter,count _cluster);
     };
 } forEach _milStructures;
 
-diag_log format ["DSC: Stage 2 - Total anchors: %1", count _anchors];
+TRACE_1("Stage 2 - Total anchors: ",count _anchors);
 
 // ============================================================================
 // STAGE 3: Assign structures to nearest anchor
@@ -257,7 +260,7 @@ private _assignedSet = createHashMap;
 } forEach _anchors;
 
 private _orphans = _enterableStructures select { !(str _x in _assignedSet) };
-diag_log format ["DSC: Stage 3.5 - %1 orphaned structures to cluster", count _orphans];
+TRACE_1("Stage 3.5 - orphaned structures to cluster: ",count _orphans);
 
 private _orphanProcessed = createHashMap;
 private _orphanClusterRadius = 150;
@@ -302,7 +305,7 @@ private _orphanAnchorsCreated = 0;
     _orphanAnchorsCreated = _orphanAnchorsCreated + 1;
 } forEach _orphans;
 
-diag_log format ["DSC: Stage 3.5 - Created %1 orphan anchors from %2 structures", _orphanAnchorsCreated, count _orphans];
+TRACE_2("Stage 3.5 - Created orphan anchors from structures: ",_orphanAnchorsCreated,count _orphans);
 
 // ============================================================================
 // STAGE 4: Military tier + build location hashmaps with tags
@@ -514,8 +517,8 @@ private _tagCounts = createHashMap;
     { _tagCounts set [_x, (_tagCounts getOrDefault [_x, 0]) + 1] } forEach (_x get "tags");
 } forEach _locations;
 
-diag_log format ["DSC: Location Scan Complete - %1 locations", count _locations];
-diag_log format ["DSC: Tag distribution: %1", _tagCounts];
+TRACE_1("Location Scan Complete - locations: ",count _locations);
+TRACE_1("Tag distribution: ",_tagCounts);
 
 // ============================================================================
 // DEBUG: Marker Visualization
@@ -559,9 +562,9 @@ if (_debug) then {
         _areaMarker setMarkerAlphaLocal 0.15;
     } forEach _locations;
 
-    diag_log format ["DSC: Created %1 debug markers", count _locations];
+    TRACE_1("Created debug markers: ",count _locations);
 };
 
-diag_log "DSC: ========== Location Scan Complete ==========";
+INFO("========== Location Scan Complete ==========");
 
 _locations

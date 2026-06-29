@@ -16,6 +16,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _id   = _zone get "id";
 private _type = _zone get "type";
 
@@ -25,7 +27,7 @@ private _handler  = _registry getOrDefault [_type, createHashMap];
 private _customDespawn = _handler getOrDefault ["despawn", {}];
 if (_customDespawn isNotEqualTo {}) exitWith {
     private _result = [_zone] call _customDespawn;
-    diag_log format ["DSC: despawnPresenceZone [%1] - custom handler (type=%2)", _id, _type];
+    LOG_2("despawnPresenceZone [%1] - custom handler (type=%2)",_id,_type);
     _result
 };
 
@@ -73,9 +75,9 @@ _zone set ["vehicles", []];
 _zone set ["groups", _protectedGroups];  // keep the commandeered groups attached so they don't double-process
 
 if (_protectedGroups isNotEqualTo []) then {
-    diag_log format ["DSC: despawnPresenceZone [%1] - kept %2 commandeered group(s) alive", _id, count _protectedGroups];
+    LOG_2("despawnPresenceZone [%1] - kept %2 commandeered group(s) alive",_id,count _protectedGroups);
 };
 
-diag_log format ["DSC: despawnPresenceZone [%1] - removed %2 entities", _id, _removed];
+LOG_2("despawnPresenceZone [%1] - removed %2 entities",_id,_removed);
 
 _removed

@@ -44,6 +44,8 @@ params [
     ["_config", createHashMap, [createHashMap]]
 ];
 
+#include "script_component.hpp"
+
 private _result = createHashMapFromArray [
     ["units", []],
     ["groups", []]
@@ -86,7 +88,7 @@ private _pickedRole = "";
 } forEach _candidateRoles;
 
 if (_pickedGroups isEqualTo []) exitWith {
-    diag_log "DSC: resolveIrregularOverlay - no irregulars/opForPartner groups available";
+    WARNING("resolveIrregularOverlay - no irregulars/opForPartner groups available");
     _result
 };
 
@@ -107,7 +109,6 @@ private _patrolResult = [_zonePos, _patrolPool, east, _patrolConfig] call DSC_co
 (_result get "units")  append (_patrolResult getOrDefault ["units", []]);
 (_result get "groups") append (_patrolResult getOrDefault ["groups", []]);
 
-diag_log format ["DSC: resolveIrregularOverlay - %1 patrol units (role '%2', forced east side)",
-    count (_result get "units"), _pickedRole];
+LOG_2("resolveIrregularOverlay - %1 patrol units (role '%2', forced east side)",count (_result get "units"),_pickedRole);
 
 _result

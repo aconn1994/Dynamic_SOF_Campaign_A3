@@ -29,7 +29,7 @@ params [
 ];
 
 if (isNull _unit || _targetPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_haloJump - Invalid parameters";
+    ERROR("fnc_haloJump - Invalid parameters");
 };
 
 private _altitude = _config getOrDefault ["altitude", 2000];

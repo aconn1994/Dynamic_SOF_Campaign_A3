@@ -36,7 +36,7 @@ private _tagCounts = createHashMap;
     } forEach _tags;
 } forEach _result;
 
-diag_log format ["DSC: fnc_classifyGroups - Classified %1 groups", count _result];
-diag_log format ["DSC: fnc_classifyGroups - Tag distribution: %1", _tagCounts];
+TRACE_1("Classified groups: ",count _result);
+TRACE_1("Tag distribution: ",_tagCounts);
 
 _result

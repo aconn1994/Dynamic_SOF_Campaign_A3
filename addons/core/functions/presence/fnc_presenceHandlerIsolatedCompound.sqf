@@ -20,6 +20,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _id         = _zone get "id";
 private _pos        = _zone get "position";
 private _radius     = _zone getOrDefault ["radius", 100];
@@ -143,10 +145,9 @@ if (!isNull _curator && {(_zone get "units") isNotEqualTo []}) then {
     _curator addCuratorEditableObjects [_zone get "units", true];
 };
 
-diag_log format ["DSC: activatePresenceZone [%1] - isolatedCompound: %2u (ctrl=%3 inf=%4 str=%5 gC=%6 pC=%7)",
-    _id, count (_zone get "units"), _ctrlControl,
-    (_zone getOrDefault ["controllerInfluence", 0]) toFixed 2,
-    (_proj get "strength") toFixed 2,
-    _guardChance toFixed 2, _patrolChance toFixed 2];
+private _icU = count (_zone get "units");
+private _icInf = (_zone getOrDefault ["controllerInfluence", 0]) toFixed 2;
+private _icStr = (_proj get "strength") toFixed 2;
+LOG_7("activatePresenceZone [%1] - isolatedCompound: %2u (ctrl=%3 inf=%4 str=%5 gC=%6 pC=%7)",_id,_icU,_ctrlControl,_icInf,_icStr,_guardChance toFixed 2,_patrolChance toFixed 2);
 
 _spawnedAny

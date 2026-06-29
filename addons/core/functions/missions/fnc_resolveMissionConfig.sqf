@@ -72,7 +72,7 @@ params [
 ];
 
 if (_influenceData isEqualTo createHashMap || _factionData isEqualTo createHashMap) exitWith {
-    diag_log "DSC: resolveMissionConfig - Missing influence or faction data";
+    ERROR("resolveMissionConfig - Missing influence or faction data");
     createHashMap
 };
 
@@ -88,14 +88,14 @@ if (_profileName != "") then {
     private _profile = _profiles getOrDefault [_profileName, createHashMap];
 
     if (_profile isEqualTo createHashMap) then {
-        diag_log format ["DSC: resolveMissionConfig - Unknown profile: %1", _profileName];
+        WARNING_1("resolveMissionConfig - Unknown profile: %1",_profileName);
     } else {
         {
             if !(_x in _template) then {
                 _template set [_x, _y];
             };
         } forEach _profile;
-        diag_log format ["DSC: resolveMissionConfig - Applied profile: %1", _profileName];
+        LOG_1("resolveMissionConfig - Applied profile: %1",_profileName);
     };
 };
 
@@ -184,13 +184,12 @@ if (_needsLocationSelection) then {
         };
     };
 
-    diag_log format ["DSC: resolveMissionConfig - %1 candidate locations (profile: %2, required: %3, excluded: %4)",
-        count _candidateLocations, _profileName, _requiredTags, _excludeTags];
+    LOG_4("resolveMissionConfig - %1 candidate locations (profile: %2, required: %3, excluded: %4)",count _candidateLocations,_profileName,_requiredTags,_excludeTags);
 };
 
 // Exit if no candidates found
 if (_needsLocationSelection && { _candidateLocations isEqualTo [] }) exitWith {
-    diag_log format ["DSC: resolveMissionConfig - No valid locations for %1 [%2]", _missionType, _profileName];
+    WARNING_2("resolveMissionConfig - No valid locations for %1 [%2]",_missionType,_profileName);
     createHashMap
 };
 
@@ -226,7 +225,7 @@ if (_locationType == "") then {
     _locationType = _selectedLocation get "locType";
 };
 
-diag_log format ["DSC: resolveMissionConfig - Location: %1 (%2, %3m from base)", _selectedName, _locationType, round _distanceFromBase];
+INFO_3("resolveMissionConfig - Location: %1 (%2, %3m from base)",_selectedName,_locationType,round _distanceFromBase);
 
 // ============================================================================
 // 4. Read area context from influence
@@ -255,7 +254,7 @@ private _areaSide = east;
     };
 } forEach _factionData;
 
-diag_log format ["DSC: resolveMissionConfig - Area: %1 (%2, influence: %3)", _areaFaction, _areaControlledBy, _areaInfluence toFixed 2];
+LOG_3("resolveMissionConfig - Area: %1 (%2, influence: %3)",_areaFaction,_areaControlledBy,_areaInfluence toFixed 2);
 
 // ============================================================================
 // 5. Resolve target faction
@@ -323,12 +322,12 @@ if (_targetFaction != "") then {
 
 // Exit if no target faction could be resolved
 if (_targetFaction == "") exitWith {
-    diag_log format ["DSC: resolveMissionConfig - No enemy factions available (roles: %1)",
-        _template getOrDefault ["targetRoles", ["opFor", "opForPartner", "irregulars"]]];
+    private _roles = _template getOrDefault ["targetRoles", ["opFor", "opForPartner", "irregulars"]];
+    ERROR_1("resolveMissionConfig - No enemy factions available (roles: %1)",_roles);
     createHashMap
 };
 
-diag_log format ["DSC: resolveMissionConfig - Target: %1 (%2), area: %3", _targetFaction, _targetRole, _areaFaction];
+INFO_3("resolveMissionConfig - Target: %1 (%2), area: %3",_targetFaction,_targetRole,_areaFaction);
 
 // ============================================================================
 // 6. Extract groups + assets for both factions
@@ -341,7 +340,7 @@ private _targetAssetsAll = _targetRoleData getOrDefault ["assets", createHashMap
 private _targetAssets = _targetAssetsAll getOrDefault [_targetFaction, createHashMap];
 
 if (_targetGroups isEqualTo []) then {
-    diag_log format ["DSC: resolveMissionConfig - No pre-classified groups for %1, extracting fresh", _targetFaction];
+    WARNING_1("resolveMissionConfig - No pre-classified groups for %1, extracting fresh",_targetFaction);
     private _rawGroups = [_targetFaction] call DSC_core_fnc_extractGroups;
     _targetGroups = [_rawGroups] call DSC_core_fnc_classifyGroups;
 };
@@ -367,7 +366,7 @@ if (_areaFaction != _targetFaction) then {
     } forEach ["opFor", "opForPartner", "irregulars"];
 
     if (_areaGroups isEqualTo []) then {
-        diag_log format ["DSC: resolveMissionConfig - No pre-classified groups for area faction %1, extracting fresh", _areaFaction];
+        WARNING_1("resolveMissionConfig - No pre-classified groups for area faction %1, extracting fresh",_areaFaction);
         private _rawGroups = [_areaFaction] call DSC_core_fnc_extractGroups;
         _areaGroups = [_rawGroups] call DSC_core_fnc_classifyGroups;
     };
@@ -376,7 +375,7 @@ if (_areaFaction != _targetFaction) then {
     };
 };
 
-diag_log format ["DSC: resolveMissionConfig - Target groups: %1, Area groups: %2", count _targetGroups, count _areaGroups];
+LOG_2("resolveMissionConfig - Target groups: %1, Area groups: %2",count _targetGroups,count _areaGroups);
 
 // ============================================================================
 // 7. Resolve generation parameters
@@ -429,7 +428,6 @@ private _config = createHashMapFromArray [
     };
 } forEach _template;
 
-diag_log format ["DSC: resolveMissionConfig - Config built: %1 [%2] at %3 (target: %4, area: %5, density: %6)",
-    _missionType, _profileName, _selectedName, _targetFaction, _areaFaction, _density];
+INFO_6("resolveMissionConfig - Config built: %1 [%2] at %3 (target: %4, area: %5, density: %6)",_missionType,_profileName,_selectedName,_targetFaction,_areaFaction,_density);
 
 _config

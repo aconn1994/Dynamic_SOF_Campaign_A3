@@ -52,7 +52,7 @@ params [
 ];
 
 if (_influenceData isEqualTo createHashMap || _factionData isEqualTo createHashMap) exitWith {
-    diag_log "DSC: selectMission - Missing influence or faction data";
+    ERROR("selectMission - Missing influence or faction data");
     createHashMap
 };
 
@@ -67,7 +67,7 @@ if (_template isEqualTo createHashMap) then {
         // ["regionRadius", 5000]
     ];
 
-    diag_log "DSC: selectMission - No template provided, using random KILL_CAPTURE";
+    LOG("selectMission - No template provided, using random KILL_CAPTURE");
 };
 
 // ============================================================================

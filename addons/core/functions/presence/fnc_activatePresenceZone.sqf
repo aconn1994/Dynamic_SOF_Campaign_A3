@@ -17,6 +17,8 @@
 
 params [["_zone", createHashMap, [createHashMap]]];
 
+#include "..\..\script_component.hpp"
+
 private _id   = _zone get "id";
 private _type = _zone get "type";
 
@@ -24,13 +26,13 @@ private _registry = missionNamespace getVariable ["DSC_presenceHandlers", create
 private _handler  = _registry getOrDefault [_type, createHashMap];
 
 if (_handler isEqualTo createHashMap) exitWith {
-    diag_log format ["DSC: activatePresenceZone [%1] - skip (no handler registered for type=%2)", _id, _type];
+    WARNING_2("activatePresenceZone [%1] - skip (no handler registered for type=%2)",_id,_type);
     false
 };
 
 private _populate = _handler getOrDefault ["populate", {}];
 if (_populate isEqualTo {}) exitWith {
-    diag_log format ["DSC: activatePresenceZone [%1] - skip (handler for type=%2 has no populate fn)", _id, _type];
+    WARNING_2("activatePresenceZone [%1] - skip (handler for type=%2 has no populate fn)",_id,_type);
     false
 };
 

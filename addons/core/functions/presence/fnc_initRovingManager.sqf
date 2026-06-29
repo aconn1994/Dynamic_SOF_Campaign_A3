@@ -58,7 +58,7 @@ private _eastCount = count (_hotspots getOrDefault ["east", []]);
 private _westCount = count (_hotspots getOrDefault ["west", []]);
 
 if (_eastCount == 0 && _westCount == 0) exitWith {
-    diag_log "DSC: rovingManager - No hotspots found, aborting (no air rovers will spawn)";
+    WARNING("rovingManager - No hotspots found, aborting (no air rovers will spawn)");
     0
 };
 
@@ -89,7 +89,7 @@ missionNamespace setVariable ["DSC_rovingStats", createHashMapFromArray [
 ], true];
 missionNamespace setVariable ["DSC_rovingWorkerHeartbeat", diag_tickTime, true];
 
-diag_log format ["DSC: rovingManager - %1 east hotspots, %2 west hotspots registered", _eastCount, _westCount];
+INFO_2("rovingManager - %1 east hotspots, %2 west hotspots registered",_eastCount,_westCount);
 
 // ============================================================================
 // Worker — drains spawn queue with yields
@@ -120,8 +120,7 @@ diag_log format ["DSC: rovingManager - %1 east hotspots, %2 west hotspots regist
                     };
                 };
             };
-            diag_log format ["DSC: roving worker BEGIN/END spawn [%1/%2] %3ms (qS=%4)",
-                _subtype, _sideKey, ((diag_tickTime - _t0) * 1000) toFixed 1, count _q];
+            LOG_4("roving worker BEGIN/END spawn [%1/%2] %3ms (qS=%4)",_subtype,_sideKey,((diag_tickTime - _t0) * 1000) toFixed 1,count _q);
             uiSleep 1.5; // pace spawns so back-to-back ones don't stutter
         } else {
             uiSleep 1;
@@ -163,7 +162,7 @@ diag_log format ["DSC: rovingManager - %1 east hotspots, %2 west hotspots regist
     private _lastStatsReport = diag_tickTime;
     private _statsReportInterval = 60;
 
-    diag_log format ["DSC: rovingManager - Tick loop started (%1s, phase-offset 4s)", _tickInterval];
+    INFO_1("rovingManager - Tick loop started (%1s, phase-offset 4s)",_tickInterval);
 
     while { true } do {
         private _now = diag_tickTime;
@@ -299,21 +298,20 @@ diag_log format ["DSC: rovingManager - %1 east hotspots, %2 west hotspots regist
             private _stats = missionNamespace getVariable ["DSC_rovingStats", createHashMap];
             private _runtimeMin = ((_now - (_stats getOrDefault ["loopStart", _now])) / 60) toFixed 1;
             private _activeNow = missionNamespace getVariable ["DSC_rovingActive", []];
-            diag_log format ["DSC: ===== ROVING STATS (%1 min) =====", _runtimeMin];
-            diag_log format ["DSC: roving - spawned=%1 (rotary=%2 fixedWing=%3 ground=%4 foot=%5 boat=%6) despawned=%7 active=%8",
-                _stats getOrDefault ["spawned", 0],
-                _stats getOrDefault ["rotarySpawned", 0],
-                _stats getOrDefault ["fixedWingSpawned", 0],
-                _stats getOrDefault ["groundSpawned", 0],
-                _stats getOrDefault ["footSpawned", 0],
-                _stats getOrDefault ["boatSpawned", 0],
-                _stats getOrDefault ["despawned", 0],
-                count _activeNow];
-            diag_log format ["DSC: roving - attempts=%1 skipBudget=%2 skipAO=%3 nearHotspot=%4",
-                _stats getOrDefault ["spawnAttempts", 0],
-                _stats getOrDefault ["skippedBudget", 0],
-                _stats getOrDefault ["skippedAoOverlap", 0],
-                _stats getOrDefault ["nearHotspotSpawns", 0]];
+            INFO_1("===== ROVING STATS (%1 min) =====",_runtimeMin);
+            private _sSp = _stats getOrDefault ["spawned", 0];
+            private _sRo = _stats getOrDefault ["rotarySpawned", 0];
+            private _sFw = _stats getOrDefault ["fixedWingSpawned", 0];
+            private _sGr = _stats getOrDefault ["groundSpawned", 0];
+            private _sFt = _stats getOrDefault ["footSpawned", 0];
+            private _sBo = _stats getOrDefault ["boatSpawned", 0];
+            private _sDe = _stats getOrDefault ["despawned", 0];
+            INFO_8("roving - spawned=%1 (rotary=%2 fixedWing=%3 ground=%4 foot=%5 boat=%6) despawned=%7 active=%8",_sSp,_sRo,_sFw,_sGr,_sFt,_sBo,_sDe,count _activeNow);
+            private _sAt = _stats getOrDefault ["spawnAttempts", 0];
+            private _sSb = _stats getOrDefault ["skippedBudget", 0];
+            private _sSa = _stats getOrDefault ["skippedAoOverlap", 0];
+            private _sNh = _stats getOrDefault ["nearHotspotSpawns", 0];
+            INFO_4("roving - attempts=%1 skipBudget=%2 skipAO=%3 nearHotspot=%4",_sAt,_sSb,_sSa,_sNh);
         };
 
         uiSleep _tickInterval;

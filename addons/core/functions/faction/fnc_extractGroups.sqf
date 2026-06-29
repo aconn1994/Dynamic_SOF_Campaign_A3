@@ -32,7 +32,8 @@ private _result = [];
 // Get faction info from CfgFactionClasses
 private _factionCfg = configFile >> "CfgFactionClasses" >> _factionClass;
 if (!isClass _factionCfg) exitWith {
-    diag_log format ["DSC: fnc_extractGroups - Faction class '%1' not found in CfgFactionClasses", _factionClass];
+    TRACE_1("Faction Config not found: ",_factionClass);
+    ERROR("Faction class not found in CfgFactionClasses.");
     _result
 };
 
@@ -48,7 +49,7 @@ private _sideName = switch (_side) do {
 };
 
 if (_sideName == "") exitWith {
-    diag_log format ["DSC: fnc_extractGroups - Unknown side %1 for faction '%2'", _side, _factionClass];
+    TRACE_2("Unknown side for faction: ",_side,_factionClass);
     _result
 };
 
@@ -63,7 +64,8 @@ if (_factionClass isEqualTo "rhs_faction_socom") then { _factionClass = "rhs_fac
 // Check if faction exists in CfgGroups
 private _groupsFactionCfg = configFile >> "CfgGroups" >> _sideName >> _factionClass;
 if (!isClass _groupsFactionCfg) exitWith {
-    diag_log format ["DSC: fnc_extractGroups - No CfgGroups entry for faction '%1' under %2", _factionClass, _sideName];
+    TRACE_2("No CfgGroups entry for faction.",_factionClass,_sideName);
+    ERROR("No CfgGroups entry for faction.");
     _result
 };
 
@@ -113,10 +115,6 @@ if (!isClass _groupsFactionCfg) exitWith {
 } forEach ("true" configClasses _groupsFactionCfg);
 
 // Log extraction summary
-diag_log format [
-    "DSC: fnc_extractGroups - Extracted %1 groups from faction '%2'",
-    count _result,
-    _factionClass
-];
+TRACE_2("Extracted groups from faction",count _result,_factionClass);
 
 _result

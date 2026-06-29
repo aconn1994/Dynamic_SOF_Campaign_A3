@@ -25,7 +25,7 @@ params [
 ];
 
 if (_startPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_buildRoadRoute - No start position provided";
+    ERROR("fnc_buildRoadRoute - No start position provided");
     []
 };
 
@@ -38,7 +38,7 @@ if (_preferredDir < 0) then {
 // ============================================================================
 private _nearestRoads = _startPos nearRoads 300;
 if (_nearestRoads isEqualTo []) exitWith {
-    diag_log format ["DSC: fnc_buildRoadRoute - No roads within 300m of %1", _startPos];
+    LOG_1("fnc_buildRoadRoute - No roads within 300m of %1",_startPos);
     []
 };
 
@@ -135,7 +135,6 @@ if (count _route > 1) then {
     };
 };
 
-diag_log format ["DSC: fnc_buildRoadRoute - Built route: %1 waypoints, %2m total (target: %3m)",
-    count _thinned, round _totalDistance, _targetDistance];
+LOG_3("fnc_buildRoadRoute - Built route: %1 waypoints, %2m total (target: %3m)",count _thinned,round _totalDistance,_targetDistance);
 
 _thinned

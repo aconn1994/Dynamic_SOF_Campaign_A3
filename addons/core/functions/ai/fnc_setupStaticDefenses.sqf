@@ -56,7 +56,7 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: setupStaticDefenses - No location position";
+    ERROR("setupStaticDefenses - No location position");
     _result
 };
 
@@ -144,10 +144,10 @@ private _guardStructures = [];
     { if (_struct isKindOf _x) exitWith { _guardStructures pushBack _struct } } forEach _guardStructureTypes;
 } forEach _locationStructures;
 
-diag_log format ["DSC: setupStaticDefenses - Found %1 guard structures", count _guardStructures];
+LOG_1("setupStaticDefenses - Found %1 guard structures",count _guardStructures);
 
 if (_guardStructures isEqualTo []) exitWith {
-    diag_log "DSC: setupStaticDefenses - No guard structures found";
+    WARNING("setupStaticDefenses - No guard structures found");
     _result
 };
 
@@ -204,7 +204,7 @@ private _defenseGroup = createGroup [_side, true];
         (_result get "units") pushBack _gunner;
         _staticsSpawned = _staticsSpawned + 1;
 
-        diag_log format ["DSC: setupStaticDefenses - %1: Static weapon (%2 / %3)", typeOf _structure, _weaponClass, _gunnerCls];
+        LOG_3("setupStaticDefenses - %1: Static weapon (%2 / %3)",typeOf _structure,_weaponClass,_gunnerCls);
     } else {
         private _lookoutCls = call _pickTowerClass;
         private _lookout = _defenseGroup createUnit [_lookoutCls, _topPos, [], 0, "NONE"];
@@ -218,7 +218,8 @@ private _defenseGroup = createGroup [_side, true];
         (_result get "units") pushBack _lookout;
         _lookoutsSpawned = _lookoutsSpawned + 1;
 
-        diag_log format ["DSC: setupStaticDefenses - %1: Lookout%2 (%3)", typeOf _structure, ["", " (covered)"] select (!_hasOpenSky), _lookoutCls];
+        private _covLabel = ["", " (covered)"] select (!_hasOpenSky);
+        LOG_3("setupStaticDefenses - %1: Lookout%2 (%3)",typeOf _structure,_covLabel,_lookoutCls);
     };
 
     // Additional lookouts on remaining positions
@@ -257,12 +258,10 @@ if ((units _defenseGroup) isNotEqualTo []) then {
             (objectParent _x) enableDynamicSimulation true;
         };
     } forEach (units _defenseGroup);
-    // [_defenseGroup] call DSC_core_fnc_addCombatActivation;
 } else {
     deleteGroup _defenseGroup;
 };
 
-diag_log format ["DSC: setupStaticDefenses - Complete: %1 statics, %2 lookouts",
-    _staticsSpawned, _lookoutsSpawned];
+LOG_2("setupStaticDefenses - Complete: %1 statics, %2 lookouts",_staticsSpawned,_lookoutsSpawned);
 
 _result

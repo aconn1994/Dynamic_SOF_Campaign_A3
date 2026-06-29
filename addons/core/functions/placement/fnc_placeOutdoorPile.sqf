@@ -52,7 +52,7 @@ private _zOffset = _spec getOrDefault ["zOffset", 0];
 private _spread = _config getOrDefault ["spread", 4];
 
 if (_classname isEqualTo "") exitWith {
-    diag_log "DSC: placeOutdoorPile - empty classname";
+    ERROR("placeOutdoorPile - empty classname");
     []
 };
 
@@ -111,7 +111,6 @@ for "_i" from 0 to (_count - 1) do {
     _placed pushBack _obj;
 };
 
-diag_log format ["DSC: placeOutdoorPile - placed %1/%2 %3 around %4",
-    count _placed, _count, _classname, _anchorPos];
+LOG_4("placeOutdoorPile - placed %1/%2 %3 around %4",count _placed,_count,_classname,_anchorPos);
 
 _placed

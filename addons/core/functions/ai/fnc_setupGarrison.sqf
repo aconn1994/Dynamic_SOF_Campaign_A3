@@ -83,12 +83,12 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: setupGarrison - No location position";
+    ERROR("setupGarrison - No location position");
     _result
 };
 
 if (_groupTemplates isEqualTo [] && { (_configOverrides getOrDefault ["unitPoolOverride", []]) isEqualTo [] }) exitWith {
-    diag_log "DSC: setupGarrison - No group templates and no unitPoolOverride";
+    ERROR("setupGarrison - No group templates and no unitPoolOverride");
     _result
 };
 
@@ -152,12 +152,11 @@ if (_mainStructures isEqualTo [] && _sideStructures isEqualTo []) then {
 private _totalStructures = (count _mainStructures) + (count _sideStructures);
 
 if (_totalStructures == 0) exitWith {
-    diag_log "DSC: setupGarrison - No structures found";
+    WARNING("setupGarrison - No structures found");
     _result
 };
 
-diag_log format ["DSC: setupGarrison - %1 main + %2 side = %3 total structures",
-    count _mainStructures, count _sideStructures, _totalStructures];
+LOG_3("setupGarrison - %1 main + %2 side = %3 total structures",count _mainStructures,count _sideStructures,_totalStructures);
 
 // ============================================================================
 // SCALING TABLE LOOKUP
@@ -176,8 +175,7 @@ private _satelliteRange = [1, 2];
 private _numAnchors = round ((_anchorRange # 0) + ((_anchorRange # 1) - (_anchorRange # 0)) * _densityFactor);
 _numAnchors = _numAnchors min _totalStructures;
 
-diag_log format ["DSC: setupGarrison - Scaling: %1 structures -> %2 anchors (density: %3, factor: %4)",
-    _totalStructures, _numAnchors, _density, _densityFactor];
+LOG_4("setupGarrison - Scaling: %1 structures -> %2 anchors (density: %3, factor: %4)",_totalStructures,_numAnchors,_density,_densityFactor);
 
 // ============================================================================
 // BUILD UNIT CLASS POOL FROM GROUP TEMPLATES
@@ -209,13 +207,12 @@ if (_unitPool isEqualTo []) then {
 };
 
 if (_unitPool isEqualTo []) exitWith {
-    diag_log "DSC: setupGarrison - No unit classes extracted from templates";
+    WARNING("setupGarrison - No unit classes extracted from templates");
     _result
 };
 
 private _uniqueClasses = _unitPool arrayIntersect _unitPool;
-diag_log format ["DSC: setupGarrison - Unit pool: %1 total entries, %2 unique classes",
-    count _unitPool, count _uniqueClasses];
+LOG_2("setupGarrison - Unit pool: %1 total entries, %2 unique classes",count _unitPool,count _uniqueClasses);
 
 // ============================================================================
 // SELECT ANCHORS (main structures first, maximize spread)
@@ -264,8 +261,7 @@ for "_i" from 1 to _remainingAnchors do {
     _availableSide = _availableSide - [_anchor];
 };
 
-diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted side)",
-    count _anchors, _mainAnchors, (count _anchors) - _mainAnchors];
+LOG_3("setupGarrison - %1 anchors selected (%2 main, %3 promoted side)",count _anchors,_mainAnchors,(count _anchors) - _mainAnchors);
 
 // ============================================================================
 // SPAWN UNITS — one group per unit, one unit per building position
@@ -310,8 +306,8 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
         private _shuffled = _positions call BIS_fnc_arrayShuffle;
         private _spawnPositions = _shuffled select [0, _numUnits];
 
-        diag_log format ["DSC: setupGarrison - Building %1 (%2): %3 positions, spawning %4",
-            typeOf _building, ["side", "main"] select _isMain, count _positions, _numUnits];
+        private _sideLabel = ["side", "main"] select _isMain;
+        LOG_4("setupGarrison - Building %1 (%2): %3 positions, spawning %4",typeOf _building,_sideLabel,count _positions,_numUnits);
 
         {
             private _pos = _x;
@@ -324,10 +320,6 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
             _unit allowDamage true;
 
             [_unit, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;
-
-            // if (_useCombatActivation) then {
-            //     [_grp, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-            // };
 
             _grp enableDynamicSimulation true;
 
@@ -342,8 +334,7 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
         uiSleep 0.1;
     } forEach _clusterBuildings;
 
-    diag_log format ["DSC: setupGarrison - Cluster at %1: %2 buildings, %3 units",
-        _anchorPos, count _clusterBuildings, _clusterUnits];
+    LOG_3("setupGarrison - Cluster at %1: %2 buildings, %3 units",_anchorPos,count _clusterBuildings,_clusterUnits);
 
     uiSleep 0.15;
 } forEach _anchors;
@@ -351,7 +342,6 @@ diag_log format ["DSC: setupGarrison - %1 anchors selected (%2 main, %3 promoted
 // ============================================================================
 // SUMMARY
 // ============================================================================
-diag_log format ["DSC: setupGarrison - Complete: %1 units, %2 groups, %3 clusters",
-    count (_result get "units"), count (_result get "groups"), count (_result get "clusters")];
+LOG_3("setupGarrison - Complete: %1 units, %2 groups, %3 clusters",count (_result get "units"),count (_result get "groups"),count (_result get "clusters"));
 
 _result

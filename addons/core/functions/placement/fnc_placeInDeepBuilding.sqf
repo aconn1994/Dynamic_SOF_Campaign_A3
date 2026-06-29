@@ -57,7 +57,7 @@ private _hasBodyguards = _archetype getOrDefault ["hasBodyguards", true];
 private _minPositions = _archetype getOrDefault ["minPositions", 3];
 
 if (_unitClass isEqualTo "") exitWith {
-    diag_log "DSC: placeInDeepBuilding called without unitClass";
+    ERROR("placeInDeepBuilding called without unitClass");
     createHashMapFromArray [
         ["unit", objNull],
         ["building", objNull],
@@ -108,7 +108,7 @@ if (_hasBodyguards && { _garrisonUnits isNotEqualTo [] }) then {
             _building = _hostBuilding;
             _withBodyguards = true;
             _fallback = "bodyguard";
-            diag_log format ["DSC: placeInDeepBuilding - bodyguard path in %1", _building];
+            LOG_1("placeInDeepBuilding - bodyguard path in %1",_building);
         };
     };
 };
@@ -129,7 +129,7 @@ if (isNull _unit) then {
         _unit setPos _pos;
         _unit setUnitPos "UP";
         _fallback = "structure";
-        diag_log format ["DSC: placeInDeepBuilding - structure path in %1", _building];
+        LOG_1("placeInDeepBuilding - structure path in %1",_building);
     };
 };
 
@@ -141,7 +141,7 @@ if (isNull _unit) then {
     _pos = _locationPos;
     _unit = _group createUnit [_unitClass, _pos, [], 5, "NONE"];
     _fallback = "center";
-    diag_log "DSC: placeInDeepBuilding - center fallback (no buildings with positions)";
+    LOG("placeInDeepBuilding - center fallback (no buildings with positions)");
 };
 
 createHashMapFromArray [

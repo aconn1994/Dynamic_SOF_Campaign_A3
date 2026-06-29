@@ -28,11 +28,8 @@ waitUntil { !isNull (findDisplay 46) };
         private _hasInfluence = !isNil { missionNamespace getVariable "DSC_influenceData" };
         private _hasLocations = !isNil { missionNamespace getVariable "DSC_locations" };
 
-        diag_log format [
-            "DSC: tablet keybind pressed - initGlobalsComplete=%1 factionData=%2 influenceData=%3 locations=%4 missionState=%5",
-            _ready, _hasFaction, _hasInfluence, _hasLocations,
-            missionNamespace getVariable ["missionState", "<unset>"]
-        ];
+        private _mState = missionNamespace getVariable ["missionState","<unset>"];
+        TRACE_5("tablet keybind pressed",_ready,_hasFaction,_hasInfluence,_hasLocations,_mState);
 
         if (!_ready) exitWith {
             hint format [
@@ -55,4 +52,4 @@ waitUntil { !isNull (findDisplay 46) };
     [0x21, [true, true, false]] // Ctrl + Shift + F
 ] call CBA_fnc_addKeybind;
 
-diag_log "DSC: Client debug layer initialized (tablet keybind registered)";
+INFO("Client debug layer initialized (tablet keybind registered)");

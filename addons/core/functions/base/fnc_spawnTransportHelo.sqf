@@ -49,7 +49,7 @@ if (_invincible) then {
 { _x disableAI "AUTOCOMBAT"; _x setBehaviour "CARELESS" } forEach _crew;
 _group setCombatMode "BLUE";
 
-diag_log format ["DSC: Spawned transport helo %1 at %2", _vehicleClass, _spawnPosAir];
+LOG_2("Spawned transport helo %1 at %2",_vehicleClass,_spawnPosAir);
 
 createHashMapFromArray [
     ["vehicle", _vehicle],

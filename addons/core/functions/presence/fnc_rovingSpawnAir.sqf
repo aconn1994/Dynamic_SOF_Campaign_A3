@@ -55,7 +55,7 @@ params [
 private _empty = createHashMap;
 
 if !(_airType in ["rotary", "fixedWing"]) exitWith {
-    diag_log format ["DSC: rovingSpawnAir - Invalid air type '%1'", _airType];
+    ERROR_1("rovingSpawnAir - Invalid air type '%1'",_airType);
     _empty
 };
 
@@ -71,7 +71,7 @@ private _playerPos = getPosASL _player;
 // All hotspot types eligible for air (airbases included).
 private _allHotspots = _hotspots getOrDefault ["all", []];
 if (_allHotspots isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnAir - No hotspots registered";
+    WARNING("rovingSpawnAir - No hotspots registered");
     _empty
 };
 private _sortedHotspots = [_allHotspots, [], { (_x get "position") distance2D _playerPos }, "ASCEND"] call BIS_fnc_sortBy;
@@ -116,7 +116,7 @@ private _airPool = [];
 } forEach _assetsByFaction;
 
 if (_airPool isEqualTo []) exitWith {
-    diag_log format ["DSC: rovingSpawnAir - No %1 aircraft in %2 pool", _airType, _roleKey];
+    LOG_2("rovingSpawnAir - No %1 aircraft in %2 pool",_airType,_roleKey);
     _empty
 };
 
@@ -138,7 +138,7 @@ private _spawnPos = [_spawnPos2D select 0, _spawnPos2D select 1, _altitude];
 // ============================================================================
 private _vehicle = createVehicle [_airClass, _spawnPos, [], 0, "FLY"];
 if (isNull _vehicle) exitWith {
-    diag_log format ["DSC: rovingSpawnAir - Failed to createVehicle %1 at %2", _airClass, _spawnPos];
+    ERROR_2("rovingSpawnAir - Failed to createVehicle %1 at %2",_airClass,_spawnPos);
     _empty
 };
 
@@ -150,7 +150,7 @@ _vehicle allowDamage true;
 private _group = createVehicleCrew _vehicle;
 if (isNull _group) exitWith {
     deleteVehicle _vehicle;
-    diag_log format ["DSC: rovingSpawnAir - createVehicleCrew failed for %1", _airClass];
+    ERROR_1("rovingSpawnAir - createVehicleCrew failed for %1",_airClass);
     _empty
 };
 
@@ -284,9 +284,9 @@ private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 
 if (!isNull _curator) then {
     private _zeusEntities = [_vehicle] + (units _group);
     _curator addCuratorEditableObjects [_zeusEntities, true];
-    diag_log format ["DSC: rovingSpawnAir - added %1 entities to Zeus", count _zeusEntities];
+    LOG_1("rovingSpawnAir - added %1 entities to Zeus",count _zeusEntities);
 } else {
-    diag_log "DSC: rovingSpawnAir - no curator available, skipping Zeus add";
+    LOG("rovingSpawnAir - no curator available, skipping Zeus add");
 };
 
 // Stats
@@ -298,8 +298,6 @@ if (_nearHotspot) then {
     _stats set ["nearHotspotSpawns", (_stats getOrDefault ["nearHotspotSpawns", 0]) + 1];
 };
 
-diag_log format ["DSC: roving spawned [%1/%2] %3 src=%4/%5 dst=%6m alt=%7m sideKey=%8",
-    _airType, _behavior, _airClass, _origin get "type", _origin get "id",
-    round (_originPos distance2D _destPos), round _altitude, _sideKey];
+LOG_8("roving spawned [%1/%2] %3 src=%4/%5 dst=%6m alt=%7m sideKey=%8",_airType,_behavior,_airClass,_origin get "type",_origin get "id",round (_originPos distance2D _destPos),round _altitude,_sideKey);
 
 _record

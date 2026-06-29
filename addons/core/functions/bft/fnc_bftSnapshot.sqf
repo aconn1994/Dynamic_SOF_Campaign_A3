@@ -70,7 +70,7 @@ if (_friendlySides isEqualTo []) then { _friendlySides = [west] };
 
 missionNamespace setVariable ["DSC_bftFriendlySides", _friendlySides, true];
 
-diag_log format ["DSC: bftSnapshot - friendly sides: %1", _friendlySides];
+INFO_1("bftSnapshot - friendly sides: %1",_friendlySides);
 
 // ----------------------------------------------------------------------------
 // Vehicle → BI marker subtype classifier

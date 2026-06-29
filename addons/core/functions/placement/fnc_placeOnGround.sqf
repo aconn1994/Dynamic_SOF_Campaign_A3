@@ -45,7 +45,7 @@ private _side = _archetype getOrDefault ["side", civilian];
 private _stance = _archetype getOrDefault ["stance", "SIT"];
 
 if (_unitClass isEqualTo "") exitWith {
-    diag_log "DSC: placeOnGround called without unitClass";
+    ERROR("placeOnGround called without unitClass");
     createHashMapFromArray [
         ["unit", objNull], ["building", objNull], ["position", [0,0,0]],
         ["group", grpNull], ["withBodyguards", false], ["fallback", "none"]
@@ -104,7 +104,7 @@ switch (_stance) do {
 _unit disableAI "PATH";
 _unit setDir random 360;
 
-diag_log format ["DSC: placeOnGround - %1 path: %2 in %3", _stance, _fallback, _building];
+LOG_3("placeOnGround - %1 path: %2 in %3",_stance,_fallback,_building);
 
 createHashMapFromArray [
     ["unit", _unit],

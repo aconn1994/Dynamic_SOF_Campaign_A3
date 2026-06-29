@@ -24,6 +24,8 @@ params [
     ["_preset", createHashMap, [createHashMap]]
 ];
 
+#include "..\..\script_component.hpp"
+
 private _t0 = diag_tickTime;
 private _timings = createHashMap;
 private _stamp = {
@@ -41,15 +43,15 @@ private _structures   = _zone getOrDefault ["structures", []];
 
 // Gate checks — preserved from pre-refactor logic
 if !(_controlledBy in ["opFor", "bluFor", "contested"]) exitWith {
-    diag_log format ["DSC: activatePresenceZone [%1] - skip (controlledBy=%2 not opFor/bluFor/contested)", _id, _controlledBy];
+    LOG_2("activatePresenceZone [%1] - skip (controlledBy=%2 not opFor/bluFor/contested)",_id,_controlledBy);
     false
 };
 if (_faction == "" && {_type != "camp"}) exitWith {
-    diag_log format ["DSC: activatePresenceZone [%1] - skip (no faction assigned)", _id];
+    LOG_1("activatePresenceZone [%1] - skip (no faction assigned)",_id);
     false
 };
 if (_structures isEqualTo [] && {_type != "camp"}) exitWith {
-    diag_log format ["DSC: activatePresenceZone [%1] - skip (no structures)", _id];
+    LOG_1("activatePresenceZone [%1] - skip (no structures)",_id);
     false
 };
 
@@ -71,7 +73,7 @@ if (_faction != "") then {
     } forEach _factionProfileConfig;
 
     if (_roleName == "") then {
-        diag_log format ["DSC: activatePresenceZone [%1] - faction %2 not in any role, will borrow", _id, _faction];
+        WARNING_2("activatePresenceZone [%1] - faction %2 not in any role, will borrow",_id,_faction);
     };
 };
 
@@ -125,8 +127,7 @@ if (_footGroups isEqualTo []) then {
         } forEach _otherGroups;
     } forEach _allowedSides;
     if (_footGroups isNotEqualTo []) then {
-        diag_log format ["DSC: activatePresenceZone [%1] - borrowed %2 foot groups from allied roles (faction='%3' ctrl=%4)",
-            _id, count _footGroups, _faction, _controlledBy];
+        LOG_4("activatePresenceZone [%1] - borrowed %2 foot groups from allied roles (faction='%3' ctrl=%4)",_id,count _footGroups,_faction,_controlledBy);
     };
 };
 
@@ -267,13 +268,7 @@ if (_spawnVehicles) then {
 };
 ["vehicles"] call _stamp;
 
-diag_log format ["DSC: activatePresenceZone [%1] - %2 units, %3 vehicles, %4 groups (faction=%5)",
-    _id,
-    count (_zone get "units"),
-    count (_zone get "vehicles"),
-    count (_zone get "groups"),
-    _faction
-];
+LOG_5("activatePresenceZone [%1] - %2 units, %3 vehicles, %4 groups (faction=%5)",_id,count (_zone get "units"),count (_zone get "vehicles"),count (_zone get "groups"),_faction);
 
 // Zeus integration
 private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 } else { objNull };
@@ -281,7 +276,7 @@ if (!isNull _curator) then {
     private _all = (_zone get "units") + (_zone get "vehicles");
     if (_all isNotEqualTo []) then {
         _curator addCuratorEditableObjects [_all, true];
-        diag_log format ["DSC: activatePresenceZone [%1] - added %2 entities to Zeus", _id, count _all];
+        LOG_2("activatePresenceZone [%1] - added %2 entities to Zeus",_id,count _all);
     };
 };
 ["curator"] call _stamp;
@@ -289,10 +284,12 @@ if (!isNull _curator) then {
 _zone set ["timings", _timings];
 [_type, _id, _timings, count (_zone get "units"), count (_zone get "vehicles")] call DSC_core_fnc_presenceLogTimings;
 
+#ifdef DEBUG_MODE_FULL
 (format ["DSC presence: ACTIVATED %1 — %2u %3v",
     _zone get "name",
     count (_zone get "units"),
     count (_zone get "vehicles")
 ]) remoteExec ["systemChat", 0];
+#endif
 
 true

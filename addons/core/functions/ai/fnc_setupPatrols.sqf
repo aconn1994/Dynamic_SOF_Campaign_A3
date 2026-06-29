@@ -49,12 +49,12 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupPatrols - No location position provided";
+    ERROR("fnc_setupPatrols - No location position provided");
     _result
 };
 
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupPatrols - No group templates provided";
+    ERROR("fnc_setupPatrols - No group templates provided");
     _result
 };
 
@@ -72,7 +72,7 @@ private _spawnAngle = _configOverrides getOrDefault ["spawnAngle", -1];
 // Calculate number of patrols
 private _numPatrols = (_patrolCountRange select 0) + floor random ((_patrolCountRange select 1) - (_patrolCountRange select 0) + 1);
 
-diag_log format ["DSC: fnc_setupPatrols - Spawning %1 patrol groups", _numPatrols];
+LOG_1("fnc_setupPatrols - Spawning %1 patrol groups",_numPatrols);
 
 // Spawn patrol groups
 for "_i" from 1 to _numPatrols do {
@@ -87,7 +87,7 @@ for "_i" from 1 to _numPatrols do {
     private _groupName = _selectedGroup get "groupName";
     private _doctrineTags = _selectedGroup get "doctrineTags";
 
-    diag_log format ["DSC: fnc_setupPatrols - Patrol %1: %2", _i, _groupName];
+    LOG_2("fnc_setupPatrols - Patrol %1: %2",_i,_groupName);
 
     // Find safe spawn position with random radius
     private _spawnRadius = (_spawnRadiusRange select 0) + random ((_spawnRadiusRange select 1) - (_spawnRadiusRange select 0));
@@ -114,7 +114,7 @@ for "_i" from 1 to _numPatrols do {
     // Safety net — even BIS_fnc_findSafePos can occasionally return a water
     // position on rocky shorelines. Skip the patrol if so.
     if (surfaceIsWater _groupSpawnPos) then {
-        diag_log format ["DSC: fnc_setupPatrols - Patrol %1: no land spawn near %2, skipping", _i, _locationPos];
+        WARNING_2("fnc_setupPatrols - Patrol %1: no land spawn near %2, skipping",_i,_locationPos);
         continue;
     };
 
@@ -137,6 +137,6 @@ for "_i" from 1 to _numPatrols do {
     sleep 0.5;
 };
 
-diag_log format ["DSC: fnc_setupPatrols - Total: %1 units, %2 groups", count (_result get "units"), count (_result get "groups")];
+LOG_2("fnc_setupPatrols - Total: %1 units, %2 groups",count (_result get "units"),count (_result get "groups"));
 
 _result

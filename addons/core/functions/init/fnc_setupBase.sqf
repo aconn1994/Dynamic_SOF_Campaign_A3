@@ -31,6 +31,8 @@ params [
     ["_baseConfig", createHashMap, [createHashMap]]
 ];
 
+#include "..\..\script_component.hpp"
+
 private _id = _baseConfig getOrDefault ["id", ""];
 private _type = _baseConfig getOrDefault ["type", ""];
 private _position = _baseConfig getOrDefault ["position", []];
@@ -56,11 +58,11 @@ private _result = createHashMapFromArray [
 ];
 
 if (_id == "" || _position isEqualTo []) exitWith {
-    diag_log "DSC: fnc_setupBase - Missing required config (id or position)";
+    ERROR("fnc_setupBase - Missing required config (id or position)");
     _result
 };
 
-diag_log format ["DSC: fnc_setupBase - Initializing '%1' (%2) at %3", _name, _type, _position];
+LOG_3("fnc_setupBase - Initializing '%1' (%2) at %3",_name,_type,_position);
 
 // ============================================================================
 // Faction Assets
@@ -90,9 +92,9 @@ if (_type == "playerBase") then {
             _structures = _structures select { getPos _x inArea _mainMarker };
         };
 
-        diag_log format ["DSC: fnc_setupBase - Scanned %1 structures inside '%2'", count _structures, _mainMarker];
+        TRACE_2("fnc_setupBase - Scanned structures inside marker",count _structures,_mainMarker);
     } else {
-        diag_log format ["DSC: fnc_setupBase - WARNING: Main marker '%1' not found", _mainMarker];
+        WARNING_1("fnc_setupBase - Main marker '%1' not found",_mainMarker);
         if (_structures isEqualTo []) then {
             _structures = [_position, ["House", "Building", "Strategic"], _radius] call DSC_core_fnc_getMapStructures;
         };
@@ -145,7 +147,7 @@ if (_type == "playerBase") then {
         };
     } forEach _subMarkers;
 
-    diag_log format ["DSC: fnc_setupBase - Found zones: %1", keys _zoneMarkers];
+    TRACE_1("fnc_setupBase - Found zones",keys _zoneMarkers);
 
     // Scan each zone for helipad objects
     {
@@ -175,7 +177,7 @@ if (_type == "playerBase") then {
         ];
         (_result get "zones") set [_zoneName, _zoneData];
 
-        diag_log format ["DSC: fnc_setupBase - Zone '%1': %2 markers, %3 pads", _zoneName, count _markers, count _zonePads];
+        TRACE_3("fnc_setupBase - Zone scan",_zoneName,count _markers,count _zonePads);
     } forEach _zoneMarkers;
 };
 
@@ -234,7 +236,7 @@ private _sideStructures = [];
 _guardConfig set ["mainStructures", _mainStructures];
 _guardConfig set ["sideStructures", _sideStructures];
 
-diag_log format ["DSC: fnc_setupBase - Guard scan: %1 main, %2 side structures", count _mainStructures, count _sideStructures];
+TRACE_2("fnc_setupBase - Guard scan",count _mainStructures,count _sideStructures);
 
 // --- Static Defenses (towers, bunkers, static weapons) ---
 private _staticConfig = createHashMapFromArray [
@@ -277,7 +279,7 @@ if (_footGroups isNotEqualTo []) then {
     (_result get "units") append (_guardResult get "units");
     (_result get "groups") append (_guardResult get "groups");
 } else {
-    diag_log "DSC: fnc_setupBase - No foot groups available for entry guards";
+    WARNING("fnc_setupBase - No foot groups available for entry guards");
 };
 
 // ============================================================================
@@ -308,7 +310,7 @@ if (_type == "playerBase") then {
             (_result get "vehicles") pushBack _helo;
             (_heliportZone get "vehicles") pushBack _helo;
 
-            diag_log format ["DSC: fnc_setupBase - Heliport: placed %1 on pad at %2", _heloClass, _padPos];
+            TRACE_2("fnc_setupBase - Heliport placed",_heloClass,_padPos);
         } forEach _heliportPads;
     };
 
@@ -336,7 +338,7 @@ if (_type == "playerBase") then {
             (_result get "vehicles") pushBack _ac;
             (_airstripZone get "vehicles") pushBack _ac;
 
-            diag_log format ["DSC: fnc_setupBase - Airstrip: placed %1 at %2", _acClass, _padPos];
+            TRACE_2("fnc_setupBase - Airstrip placed",_acClass,_padPos);
         } forEach _airstripPads;
     };
 
@@ -368,7 +370,7 @@ if (_type == "playerBase") then {
             (_result get "vehicles") pushBack _veh;
             (_motorpoolZone get "vehicles") pushBack _veh;
 
-            diag_log format ["DSC: fnc_setupBase - Motor Pool: placed %1 at %2", _vehClass, _padPos];
+            TRACE_2("fnc_setupBase - Motor Pool placed",_vehClass,_padPos);
         } forEach _motorpoolInvisible;
     };
 
@@ -395,7 +397,7 @@ if (_type == "playerBase") then {
 
                 (_result get "vehicles") pushBack _veh;
                 (_tocZone get "vehicles") pushBack _veh;
-                diag_log format ["DSC: fnc_setupBase - TOC: placed utility %1 at %2", _vehClass, _padPos];
+                TRACE_2("fnc_setupBase - TOC placed utility",_vehClass,_padPos);
             } else {
                 if (_transportHelos isEqualTo []) then { continue };
                 private _heloClass = selectRandom _transportHelos;
@@ -407,7 +409,7 @@ if (_type == "playerBase") then {
 
                 (_result get "vehicles") pushBack _helo;
                 (_tocZone get "vehicles") pushBack _helo;
-                diag_log format ["DSC: fnc_setupBase - TOC: placed helo %1 at %2", _heloClass, _padPos];
+                TRACE_2("fnc_setupBase - TOC placed helo",_heloClass,_padPos);
             };
         } forEach _tocPads;
     };
@@ -445,7 +447,7 @@ if (_type in ["bluFor", "opFor"]) then {
 
                 (_result get "vehicles") pushBack _helo;
 
-                diag_log format ["DSC: fnc_setupBase - %1 base helo: %2 at %3", _type, _heloClass, _padPos];
+                TRACE_3("fnc_setupBase - base helo placed",_type,_heloClass,_padPos);
             };
         };
     };
@@ -469,7 +471,7 @@ if (_type in ["bluFor", "opFor"]) then {
             _veh lock 2;
 
             (_result get "vehicles") pushBack _veh;
-            diag_log format ["DSC: fnc_setupBase - %1 ground vehicle: %2 at %3", _type, _vehClass, _spotPos];
+            TRACE_3("fnc_setupBase - ground vehicle placed",_type,_vehClass,_spotPos);
         } forEach _parkSpots;
     };
 };
@@ -483,7 +485,6 @@ private _allVehicles = _result get "vehicles";
 { _x triggerDynamicSimulation true } forEach _allUnits;
 { _x triggerDynamicSimulation true } forEach _allVehicles;
 
-diag_log format ["DSC: fnc_setupBase - '%1' complete: %2 units, %3 vehicles, %4 groups (dynSim enabled)",
-    _name, count _allUnits, count _allVehicles, count (_result get "groups")];
+INFO_4("fnc_setupBase - '%1' complete: %2 units, %3 vehicles, %4 groups (dynSim enabled)",_name,count _allUnits,count _allVehicles,count (_result get "groups"));
 
 _result

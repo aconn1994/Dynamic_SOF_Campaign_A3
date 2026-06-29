@@ -32,7 +32,7 @@ params [
 ];
 
 if (_missionConfig isEqualTo createHashMap) exitWith {
-    diag_log "DSC: populateAO - No mission config provided";
+    ERROR("populateAO - No mission config provided");
     createHashMapFromArray [["location", createHashMap], ["groups", []], ["units", []], ["vehicles", []], ["defenderUnits", []], ["patrolGroups", []], ["garrisonUnits", []], ["tags", []]]
 };
 
@@ -75,7 +75,7 @@ if (_hasAreaFaction && { _areaAssets isEqualTo createHashMap }) then {
 // Always align to east when mixing east and independent
 if (_hasAreaFaction && { _areaSide != _targetSide }) then {
     private _alignedSide = if (_areaSide == east || _targetSide == east) then { east } else { _targetSide };
-    diag_log format ["DSC: populateAO - Aligning sides to %1 (target was %2, area was %3)", _alignedSide, _targetSide, _areaSide];
+    LOG_3("populateAO - Aligning sides to %1 (target was %2, area was %3)",_alignedSide,_targetSide,_areaSide);
     _targetSide = _alignedSide;
     _areaSide = _alignedSide;
 };
@@ -86,8 +86,8 @@ if (_hasAreaFaction && { _areaSide != _targetSide }) then {
 east setFriend [independent, 1];
 independent setFriend [east, 1];
 
-diag_log format ["DSC: populateAO - %1 (%2 buildings, density: %3, target: %4, area: %5)",
-    _locationName, _buildingCount, _density, _targetFaction, ["same", _areaFaction] select _hasAreaFaction];
+private _areaLabel = ["same", _areaFaction] select _hasAreaFaction;
+LOG_5("populateAO - %1 (%2 buildings, density: %3, target: %4, area: %5)",_locationName,_buildingCount,_density,_targetFaction,_areaLabel);
 
 // ============================================================================
 // Result tracking
@@ -105,7 +105,7 @@ private _aoResult = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: populateAO - No location position provided";
+    ERROR("populateAO - No location position provided");
     _aoResult
 };
 
@@ -142,7 +142,7 @@ private _sideStructures = [];
     };
 } forEach _structures;
 
-diag_log format ["DSC: populateAO - Classified %1 main, %2 side structures", count _mainStructures, count _sideStructures];
+LOG_2("populateAO - Classified %1 main, %2 side structures",count _mainStructures,count _sideStructures);
 
 // ============================================================================
 // Filter group templates (target faction)
@@ -181,7 +181,7 @@ if (_hasAreaFaction) then {
         + ([_areaGroups, ["FOOT", "AA_TEAM"], ["AMPHIBIOUS"]] call DSC_core_fnc_getGroupsByTag);
 };
 
-diag_log format ["DSC: populateAO - Target foot: %1, Area foot: %2", count _targetFootGroups, count _areaFootGroups];
+LOG_2("populateAO - Target foot: %1, Area foot: %2",count _targetFootGroups,count _areaFootGroups);
 
 // ============================================================================
 // GARRISON — target faction fills objective structures
@@ -200,7 +200,7 @@ if (_targetFootGroups isNotEqualTo [] && { _mainStructures isNotEqualTo [] || _s
         _garrisonConfig set ["scalingTable", [
             [1000, _garrisonAnchors, _garrisonSatellites]
         ]];
-        diag_log format ["DSC: populateAO - Garrison override: anchors %1, satellites %2", _garrisonAnchors, _garrisonSatellites];
+        LOG_2("populateAO - Garrison override: anchors %1, satellites %2",_garrisonAnchors,_garrisonSatellites);
     };
 
     private _garrisonResult = [_locationPos, _targetFootGroups, _targetSide, _garrisonConfig] call DSC_core_fnc_setupGarrison;
@@ -212,7 +212,7 @@ if (_targetFootGroups isNotEqualTo [] && { _mainStructures isNotEqualTo [] || _s
     (_aoResult get "garrisonClusters") append (_garrisonResult get "clusters");
     (_aoResult get "tags") append (_garrisonResult get "tags");
 
-    diag_log format ["DSC: populateAO - Garrison (target): %1 units in %2 groups", count (_garrisonResult get "units"), count (_garrisonResult get "groups")];
+    LOG_2("populateAO - Garrison (target): %1 units in %2 groups",count (_garrisonResult get "units"),count (_garrisonResult get "groups"));
 };
 
 // ============================================================================
@@ -241,7 +241,7 @@ if (_targetFootGroups isNotEqualTo [] && { (_aoResult get "garrisonClusters") is
     (_aoResult get "units") append (_guardResult get "units");
     (_aoResult get "defenderUnits") append (_guardResult get "units");
 
-    diag_log format ["DSC: populateAO - Guards (target): %1 units", count (_guardResult get "units")];
+    LOG_1("populateAO - Guards (target): %1 units",count (_guardResult get "units"));
 };
 
 // ============================================================================

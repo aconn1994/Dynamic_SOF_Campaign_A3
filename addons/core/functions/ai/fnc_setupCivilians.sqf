@@ -37,13 +37,15 @@ params [
     ["_config", createHashMap, [createHashMap]]
 ];
 
+#include "script_component.hpp"
+
 private _result = createHashMapFromArray [
     ["units", []],
     ["groups", []]
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: setupCivilians - no location position";
+    ERROR("setupCivilians - no location position");
     _result
 };
 
@@ -54,7 +56,7 @@ private _classPool  = _config getOrDefault ["classPool", []];
 private _classMix   = _config getOrDefault ["classMix", []];
 
 if (_count <= 0) exitWith {
-    diag_log "DSC: setupCivilians - count <= 0, skipping";
+    LOG("setupCivilians - count <= 0, skipping");
     _result
 };
 
@@ -76,7 +78,7 @@ if (_classPool isEqualTo [] && { _classMix isEqualTo [] }) then {
 };
 
 if (_classPool isEqualTo [] && { _classMix isEqualTo [] }) exitWith {
-    diag_log "DSC: setupCivilians - no civilian classes resolved, skipping";
+    WARNING("setupCivilians - no civilian classes resolved, skipping");
     _result
 };
 
@@ -176,7 +178,6 @@ for "_i" from 0 to (_count - 1) do {
     uiSleep 0.15;
 };
 
-diag_log format ["DSC: setupCivilians - spawned %1 civilians at %2 (radius %3)",
-    _spawned, _locationPos, _radius];
+LOG_3("setupCivilians - spawned %1 civilians at %2 (radius %3)",_spawned,_locationPos,_radius);
 
 _result

@@ -119,7 +119,7 @@ private _profile = switch (toLower _profileName) do {
     };
 
     default {
-        diag_log format ["DSC: Unknown skill profile '%1', defaulting to moderate", _profileName];
+        WARNING_1("Unknown skill profile '%1', defaulting to moderate",_profileName);
         ["moderate"] call DSC_core_fnc_getSkillProfile
     };
 };

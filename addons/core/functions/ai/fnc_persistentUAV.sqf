@@ -32,7 +32,7 @@ params [
 ];
 
 if (_targetPos isEqualTo []) exitWith {
-    diag_log "DSC: persistentUAV - No target position";
+    ERROR("persistentUAV - No target position");
 };
 
 private _uavClass = _config getOrDefault ["uavClass", "B_UAV_02_dynamicLoadout_F"];
@@ -45,7 +45,7 @@ private _destroyedDelay = _config getOrDefault ["destroyedDelay", 1800];
 // Spawn position - far off map edge
 private _spawnPos = [_targetPos select 0, (_targetPos select 1) - 5000, _altitude];
 
-diag_log format ["DSC: Persistent UAV spawning - target: %1, class: %2", _targetPos, _uavClass];
+INFO_2("Persistent UAV spawning - target: %1, class: %2",_targetPos,_uavClass);
 
 // Spawn UAV
 private _uav = createVehicle [_uavClass, _spawnPos, [], 0, "FLY"];
@@ -85,7 +85,7 @@ missionNamespace setVariable ["DSC_activeUAV", _uav, true];
 missionNamespace setVariable ["DSC_activeUAVGroup", _uavGroup, true];
 
 systemChat "ISR drone on station in approximately 5 minutes.";
-diag_log "DSC: UAV on approach to station";
+INFO("UAV on approach to station");
 
 // ============================================================================
 // Monitor loop - fuel and alive status
@@ -108,7 +108,7 @@ waitUntil {
         _newWp setWaypointLoiterRadius _loiterRadius;
         _newWp setWaypointLoiterType "CIRCLE";
 
-        diag_log format ["DSC: UAV retargeted to %1", _currentTarget];
+        LOG_1("UAV retargeted to %1",_currentTarget);
     };
 
     !alive _uav || (fuel _uav) < _fuelThreshold
@@ -121,7 +121,7 @@ private _nextTargetPos = missionNamespace getVariable ["DSC_uavTargetPos", _targ
 
 if (!alive _uav) then {
     systemChat "ISR drone has been shot down. Replacement in 30 minutes.";
-    diag_log "DSC: UAV destroyed - replacement delayed";
+    INFO("UAV destroyed - replacement delayed");
 
     // Cleanup wreck
     sleep 30;
@@ -133,7 +133,7 @@ if (!alive _uav) then {
     sleep (_destroyedDelay - 30);
 } else {
     systemChat "ISR drone at bingo fuel. Going off-station. Back in 10 minutes.";
-    diag_log "DSC: UAV RTB for refuel";
+    INFO("UAV RTB for refuel");
 
     // Fly away
     while { (waypoints _uavGroup) isNotEqualTo [] } do {
@@ -157,5 +157,5 @@ _nextTargetPos = missionNamespace getVariable ["DSC_uavTargetPos", []];
 if (_nextTargetPos isNotEqualTo []) then {
     [_nextTargetPos, _config] spawn DSC_core_fnc_persistentUAV;
 } else {
-    diag_log "DSC: UAV cycle ended - no active target";
+    INFO("UAV cycle ended - no active target");
 };

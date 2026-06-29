@@ -47,7 +47,7 @@ params [
 private _result = createHashMapFromArray [["all", []], ["east", []], ["west", []]];
 
 if (_influenceData isEqualTo createHashMap) exitWith {
-    diag_log "DSC: resolveRovingHotspots - No influence data";
+    ERROR("resolveRovingHotspots - No influence data");
     _result
 };
 
@@ -126,7 +126,6 @@ private _registerInstallation = {
 { [_x, "base",    3.0] call _registerInstallation } forEach _bases;
 { [_x, "outpost", 1.5] call _registerInstallation } forEach _outposts;
 
-diag_log format ["DSC: rovingHotspots - %1 total (east=%2 west=%3)",
-    count (_result get "all"), count (_result get "east"), count (_result get "west")];
+INFO_3("rovingHotspots - %1 total (east=%2 west=%3)",count (_result get "all"),count (_result get "east"),count (_result get "west"));
 
 _result

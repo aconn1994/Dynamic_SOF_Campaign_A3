@@ -105,7 +105,7 @@ private _markedBuildings = [];
         _markers pushBack _dotName;
     } forEach _buildingsToMark;
 
-    diag_log format ["DSC: drawCompoundMarkers - Cluster %1: %2 buildings marked (%3 garrisoned + nearby clearance)", _letter, count _buildingsToMark, count _clusterBuildings];
+    LOG_3("drawCompoundMarkers - Cluster %1: %2 buildings marked (%3 garrisoned + nearby clearance)",_letter,count _buildingsToMark,count _clusterBuildings);
 } forEach _clusters;
 
 _markers

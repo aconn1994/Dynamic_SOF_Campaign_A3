@@ -29,7 +29,7 @@ params [
 ];
 
 if (_influenceData isEqualTo createHashMap || _locationId == "") exitWith {
-    diag_log "DSC: fnc_updateInfluence - Invalid parameters";
+    ERROR("fnc_updateInfluence - Invalid parameters");
     _influenceData
 };
 
@@ -37,7 +37,7 @@ private _influenceMap = _influenceData get "influenceMap";
 private _locInfluence = _influenceMap getOrDefault [_locationId, createHashMap];
 
 if (_locInfluence isEqualTo createHashMap) exitWith {
-    diag_log format ["DSC: fnc_updateInfluence - Location %1 not in influence map", _locationId];
+    WARNING_1("fnc_updateInfluence - Location %1 not in influence map",_locationId);
     _influenceData
 };
 
@@ -83,8 +83,7 @@ if (_result == "success") then {
             _locInfluence set ["influence", 0.5];
         };
     };
-    diag_log format ["DSC: updateInfluence - SUCCESS at %1: %2 -> %3 (influence: %4)",
-        _locationId, _currentOwner, _locInfluence get "controlledBy", (_locInfluence get "influence") toFixed 2];
+    LOG_4("updateInfluence - SUCCESS at %1: %2 -> %3 (influence: %4)",_locationId,_currentOwner,_locInfluence get "controlledBy",(_locInfluence get "influence") toFixed 2);
 } else {
     // Player failure: opFor strengthens
     switch (_currentOwner) do {
@@ -109,8 +108,7 @@ if (_result == "success") then {
             _locInfluence set ["influence", 0.5];
         };
     };
-    diag_log format ["DSC: updateInfluence - FAILURE at %1: %2 -> %3 (influence: %4)",
-        _locationId, _currentOwner, _locInfluence get "controlledBy", (_locInfluence get "influence") toFixed 2];
+    LOG_4("updateInfluence - FAILURE at %1: %2 -> %3 (influence: %4)",_locationId,_currentOwner,_locInfluence get "controlledBy",(_locInfluence get "influence") toFixed 2);
 };
 
 // Update the map entry

@@ -108,8 +108,7 @@ if (_anchorOverride >= 0) then {
 // Spawn-chance gate — perf safety valve. Half the zones add nothing in towns,
 // 80% add nothing in cities (would-be, when we lower city later).
 if (!_forceSpawn && { random 1 > _spawnChance }) exitWith {
-    diag_log format ["DSC: setupGarrisonCivilians - skip (tier=%1 chance=%2)",
-        _sizeTier, _spawnChance toFixed 2];
+    LOG_2("setupGarrisonCivilians - skip (tier=%1 chance=%2)",_sizeTier,_spawnChance toFixed 2);
     _empty
 };
 
@@ -119,7 +118,7 @@ if (!_forceSpawn && { random 1 > _spawnChance }) exitWith {
 private _mixTotalWeight = 0;
 { _mixTotalWeight = _mixTotalWeight + (_x param [1, 0]) } forEach _classMix;
 if (_mixTotalWeight <= 0) exitWith {
-    diag_log "DSC: setupGarrisonCivilians - empty classMix, skipping";
+    WARNING("setupGarrisonCivilians - empty classMix, skipping");
     _empty
 };
 
@@ -142,7 +141,7 @@ for "_i" from 1 to 20 do {
 };
 
 if (_unitPool isEqualTo []) exitWith {
-    diag_log "DSC: setupGarrisonCivilians - resolver produced empty pool";
+    WARNING("setupGarrisonCivilians - resolver produced empty pool");
     _empty
 };
 
@@ -183,7 +182,7 @@ private _result = [_locationPos, [], civilian, _garrisonConfig] call DSC_core_fn
     (group _u) setCombatMode "BLUE";
 } forEach (_result getOrDefault ["units", []]);
 
-diag_log format ["DSC: setupGarrisonCivilians - %1 indoor civs at %2 (tier=%3)",
-    count (_result getOrDefault ["units", []]), _locationPos, _sizeTier];
+private _civCt = count (_result getOrDefault ["units", []]);
+LOG_3("setupGarrisonCivilians - %1 indoor civs at %2 (tier=%3)",_civCt,_locationPos,_sizeTier);
 
 _result

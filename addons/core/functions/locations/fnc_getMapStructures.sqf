@@ -28,7 +28,7 @@ params [
 ];
 
 if (_position isEqualTo [] || _classNames isEqualTo []) exitWith {
-    diag_log "DSC: fnc_getMapStructures - Invalid parameters";
+    TRACE_1("Invalid parameters",null);
     []
 };
 

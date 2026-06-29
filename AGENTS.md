@@ -136,8 +136,31 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 - Functions: `DSC_core_fnc_<name>` (via CBA PREP_SUB macros)
 - Hashmaps everywhere — locations, groups, missions, AO data are all hashmaps
 - `getOrDefault` used extensively for safety
-- Debug markers behind `#ifdef DEBUG_MODE_FULL` in `addons/main/script_mod.hpp`
-- `diag_log format ["DSC: ..."]` for all logging
+- Debug markers + spammy systemChats live behind `#ifdef DEBUG_MODE_FULL`
+- **Use CBA log macros, never `diag_log`** (see `.crush/logging.md` for the full convention)
+  - `ERROR(msg)` / `ERROR_n(msg, a1..aN)` — bad input, missing required data, unrecoverable. Always logs.
+  - `WARNING(msg)` / `WARNING_n(...)` — degraded but operational (fallback, missing optional). Logs in `DEBUG_MODE_NORMAL` and above.
+  - `INFO(msg)` / `INFO_n(...)` — init banners, mission START/SUCCESS/INCOMPLETE, "X initialized". Logs in `DEBUG_MODE_NORMAL` and above.
+  - `LOG(msg)` / `LOG_n(...)` — per-event detail (per-zone, per-archetype, per-tick). Logs in `DEBUG_MODE_FULL` only.
+  - `TRACE_n(msg, v1..vN)` — variable inspection on per-event detail. Logs in `DEBUG_MODE_FULL` only.
+  - Drop the `"DSC: "` prefix — CBA macros prepend `[DSC] (component) LEVEL:` automatically.
+  - Max `_8` suffix for all `_n` variants. For longer arg lists, build the string first: `private _msg = format [...]; LOG(_msg);`
+  - Any macro arg containing an inline array literal (`getOrDefault ["k", v]`, `["a","b"] select X`, `_x getVariable ["k", d]`) MUST be hoisted to a `private _tmp = …;` first — HEMTT's preprocessor counts commas inside `[]` and miscounts macro args otherwise.
+  - Files that use any log macro must `#include "..\..\script_component.hpp"` (or local `"script_component.hpp"` for subfolders that have one).
+- Player-facing `systemChat` (mission feedback, base actions) stays unconditional. Developer-probe `systemChat` (zone counts, tick summaries, stats) gets gated behind `#ifdef DEBUG_MODE_FULL`.
+- Debug markers (presence ELLIPSE state markers, scanLocations dot markers) are gated behind `#ifdef DEBUG_MODE_FULL`. Gameplay markers (base/outpost flag icons + danger zones, HALO drop, extraction LZ, compound markers) stay unconditional.
+
+## Debug Modes
+
+Set exactly **one** of these in `addons/main/script_mod.hpp`:
+
+| Mode | Use case | What survives |
+|---|---|---|
+| `DEBUG_MODE_MINIMAL` | Live play / release | `ERROR()`, `ERROR_WITH_TITLE()`, player-facing systemChats, gameplay markers |
+| `DEBUG_MODE_NORMAL`  | Playtest builds      | + `INFO()` + `WARNING()`, mission outcome systemChat |
+| `DEBUG_MODE_FULL`    | Developer debug      | + `LOG()` + `TRACE_n()`, debug markers, per-tick instrumentation systemChats |
+
+CBA preprocesses the disabled tiers to no-ops so live builds pay zero cost. Lower tiers are always subsumed (e.g. `DEBUG_MODE_FULL` implies `NORMAL` and `MINIMAL`).
 
 ## Faction Roles
 
@@ -214,10 +237,12 @@ gotcha below about `setAccTime`).
 - **Presence manager state machine** — `_activateQueue` and `_despawnQueue` must be mutated **in place** (`deleteAt`). Reassigning the local (`_q = _q - [_zone]`) creates a new array, breaks the worker's reference, and silently leaks units. Same for ACTIVATING→DORMANT: if entities already exist on the zone, route through DESPAWNING or you orphan them.
 - **Presence manager handler dispatch** (Sprint A) — when adding new zone types, register a handler with `fnc_registerPresenceHandler`. Do not add branches to `fnc_activatePresenceZone`. See `.crush/presence-manager.md`.
 - **Dynamic simulation is enabled globally** — `enableDynamicSimulationSystem true` in `fnc_initServer` Step 0. Category distances: Group=1500m, Vehicle=2000m, EmptyVehicle=500m, Prop=300m. Every presence-spawned group MUST opt in via `enableDynamicSimulation true` (already wired in setupCivilians, setupGarrison, setupPatrols, setupStaticDefenses, setupMortarEmplacement, setupVehicles, setupGuards, setupVehiclePatrol). Combat activation (FiredNear EH) is unaffected by dyn-sim state. NOTE: `setDynamicSimulationDistanceCoef` is a **global** setter (takes a class String, not a Group/Object); there is no per-entity coef in stock Arma — to vary AI ranges per role, tune the global category distances instead.
+- **CBA log macro arg counting** — HEMTT's preprocessor counts commas inside `[]` as macro arg separators, even when nested inside `()`. Any inline array literal in a `LOG_n`/`INFO_n`/`WARNING_n`/`ERROR_n`/`TRACE_n` arg breaks the build with "function call with incorrect number of arguments". Hoist to a local first: `private _ct = count (_x getOrDefault ["units", []]); LOG_2("...", _id, _ct);`. Same trap for `["a","b"] select X`. For >8 args, use `private _msg = format [...]; LOG(_msg);`. See `.crush/logging.md`.
 
 ## Detailed System Docs
 
 - `.crush/architecture.md` — Init flow, addon structure, data flow between systems
+- `.crush/logging.md` — **Logging + debug mode reference**: CBA macro cheat sheet, three-tier mode policy, marker/systemChat gating, HEMTT macro-arg-count gotcha
 - `.crush/faction-system.md` — Faction profiles, extraction pipeline, classification, doctrine tags
 - `.crush/mission-system.md` — AO population, mission types, briefing, cleanup, combat activation
 - `.crush/mission-generation.md` — Mission config system (template + resolver), profile population params

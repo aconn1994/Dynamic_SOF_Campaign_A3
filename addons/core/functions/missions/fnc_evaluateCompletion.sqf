@@ -89,12 +89,12 @@ if (_completion isEqualType "") then {
 // Fetch named condition if we don't already have an inline expr
 if (_checkBlock isEqualTo {}) then {
     if (_typeName isEqualTo "") exitWith {
-        diag_log "DSC: evaluateCompletion - no completion type specified";
+        WARNING("evaluateCompletion - no completion type specified");
     };
     private _registry = call DSC_core_fnc_getCompletionTypes;
     private _entry = _registry getOrDefault [_typeName, createHashMap];
     if (_entry isEqualTo createHashMap) exitWith {
-        diag_log format ["DSC: evaluateCompletion - unknown completion type '%1'", _typeName];
+        WARNING_1("evaluateCompletion - unknown completion type '%1'",_typeName);
     };
     _checkBlock = _entry get "check";
     // Only fall back to registry messages if caller didn't override

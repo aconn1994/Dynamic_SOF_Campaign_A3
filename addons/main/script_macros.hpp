@@ -1,10 +1,10 @@
+#include "\x\cba\addons\main\script_macros_common.hpp"
+#include "\x\cba\addons\xeh\script_xeh.hpp"
+
 // Global toggles for caching/logging
 #define DISABLE_COMPILE_CACHE
 // #define DEBUG_MODE_FULL
 #define DEBUG_SYNCHRONOUS
-
-#include "\z\DSC\addons\main\includes\script_macros_common.hpp"
-#include "\z\DSC\addons\main\includes\script_xeh.hpp"
 
 #define QQUOTE(var1) QUOTE(QUOTE(var1))
 

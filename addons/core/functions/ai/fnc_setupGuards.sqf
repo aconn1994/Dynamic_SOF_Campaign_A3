@@ -75,12 +75,12 @@ private _result = createHashMapFromArray [
 ];
 
 if (_locationPos isEqualTo []) exitWith {
-    diag_log "DSC: setupGuards - No location position";
+    ERROR("setupGuards - No location position");
     _result
 };
 
 if (_groupTemplates isEqualTo []) exitWith {
-    diag_log "DSC: setupGuards - No group templates";
+    ERROR("setupGuards - No group templates");
     _result
 };
 
@@ -117,7 +117,7 @@ private _unitPool = [];
 } forEach _groupTemplates;
 
 if (_unitPool isEqualTo []) exitWith {
-    diag_log "DSC: setupGuards - No unit classes extracted from templates";
+    WARNING("setupGuards - No unit classes extracted from templates");
     _result
 };
 
@@ -141,7 +141,7 @@ if (_garrisonClusters isNotEqualTo []) then {
 };
 
 if (_buildingsToGuard isEqualTo []) exitWith {
-    diag_log "DSC: setupGuards - No buildings to guard";
+    WARNING("setupGuards - No buildings to guard");
     _result
 };
 
@@ -150,8 +150,7 @@ private _shuffled = _buildingsToGuard call BIS_fnc_arrayShuffle;
 private _numToGuard = (ceil ((count _buildingsToGuard) * _buildingCoverage)) max 1;
 private _selectedBuildings = _shuffled select [0, _numToGuard];
 
-diag_log format ["DSC: setupGuards - Guarding %1/%2 buildings (coverage: %3)",
-    count _selectedBuildings, count _buildingsToGuard, _buildingCoverage];
+LOG_3("setupGuards - Guarding %1/%2 buildings (coverage: %3)",count _selectedBuildings,count _buildingsToGuard,_buildingCoverage);
 
 // ============================================================================
 // SPAWN GUARDS — exterior positions at building fronts
@@ -247,7 +246,7 @@ private _usedPositions = [];
     } forEach _guardPositions;
 
     if (_guardPositions isNotEqualTo []) then {
-        diag_log format ["DSC: setupGuards - %1: %2 guards (%3)", typeOf _building, count _guardPositions, _placementMethod];
+        LOG_3("setupGuards - %1: %2 guards (%3)",typeOf _building,count _guardPositions,_placementMethod);
     };
 
     // Yield between buildings so per-frame work stays bounded even when many
@@ -263,14 +262,10 @@ if ((units _guardsGroup) isNotEqualTo []) then {
     (_result get "groups") pushBack _guardsGroup;
     _guardsGroup enableDynamicSimulation true;
 
-    // if (_useCombatActivation) then {
-    //     [_guardsGroup, _reactionDelay] call DSC_core_fnc_addCombatActivation;
-    // };
 } else {
     deleteGroup _guardsGroup;
 };
 
-diag_log format ["DSC: setupGuards - Complete: %1 guards across %2 buildings",
-    _totalGuards, count _selectedBuildings];
+LOG_2("setupGuards - Complete: %1 guards across %2 buildings",_totalGuards,count _selectedBuildings);
 
 _result

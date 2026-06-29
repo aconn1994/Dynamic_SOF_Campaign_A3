@@ -76,7 +76,7 @@ private _playerPos = getPosASL _player;
 // in opFor territory sees opFor patrols; bluFor territory → bluFor patrols.
 private _nonAirbase = (_hotspots getOrDefault ["all", []]) select { (_x get "type") != "airbase" };
 if (_nonAirbase isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnGround - No non-airbase hotspots registered";
+    WARNING("rovingSpawnGround - No non-airbase hotspots registered");
     _empty
 };
 private _sortedHotspots = [_nonAirbase, [], { (_x get "position") distance2D _playerPos }, "ASCEND"] call BIS_fnc_sortBy;
@@ -108,7 +108,7 @@ for "_attempt" from 0 to (_spawnAttempts - 1) do {
 };
 
 if (_spawnPos isEqualTo []) exitWith {
-    diag_log "DSC: rovingSpawnGround - No roads found in 800-2500m ring around player";
+    LOG("rovingSpawnGround - No roads found in 800-2500m ring around player");
     _empty
 };
 
@@ -139,7 +139,7 @@ private _groupPool = [];
 } forEach _groupsByFaction;
 
 if (_groupPool isEqualTo []) exitWith {
-    diag_log format ["DSC: rovingSpawnGround - No motorized/mechanized PATROL groups in %1 pool", _roleKey];
+    LOG_1("rovingSpawnGround - No motorized/mechanized PATROL groups in %1 pool",_roleKey);
     _empty
 };
 
@@ -153,7 +153,7 @@ private _groupConfig = configFile >> "CfgGroups";
 { _groupConfig = _groupConfig >> _x } forEach _pathParts;
 
 if (!isClass _groupConfig) exitWith {
-    diag_log format ["DSC: rovingSpawnGround - Invalid CfgGroups path: %1", _groupPath];
+    ERROR_1("rovingSpawnGround - Invalid CfgGroups path: %1",_groupPath);
     _empty
 };
 
@@ -162,7 +162,7 @@ if (!isClass _groupConfig) exitWith {
 // ============================================================================
 private _group = [_spawnPos, _side, _groupConfig] call BIS_fnc_spawnGroup;
 if (isNull _group) exitWith {
-    diag_log format ["DSC: rovingSpawnGround - BIS_fnc_spawnGroup failed for %1", _groupName];
+    ERROR_1("rovingSpawnGround - BIS_fnc_spawnGroup failed for %1",_groupName);
     _empty
 };
 
@@ -173,7 +173,7 @@ private _vehicle = objNull;
 } forEach units _group;
 
 if (isNull _vehicle) exitWith {
-    diag_log format ["DSC: rovingSpawnGround - Group %1 spawned with no vehicle, aborting", _groupName];
+    ERROR_1("rovingSpawnGround - Group %1 spawned with no vehicle, aborting",_groupName);
     { deleteVehicle _x } forEach units _group;
     deleteGroup _group;
     _empty
@@ -254,9 +254,9 @@ private _curator = if (allCurators isNotEqualTo []) then { allCurators select 0 
 if (!isNull _curator) then {
     private _zeusEntities = [_vehicle] + (units _group);
     _curator addCuratorEditableObjects [_zeusEntities, true];
-    diag_log format ["DSC: rovingSpawnGround - added %1 entities to Zeus", count _zeusEntities];
+    LOG_1("rovingSpawnGround - added %1 entities to Zeus",count _zeusEntities);
 } else {
-    diag_log "DSC: rovingSpawnGround - no curator available, skipping Zeus add";
+    LOG("rovingSpawnGround - no curator available, skipping Zeus add");
 };
 
 // Stats
@@ -268,8 +268,6 @@ if (_nearHotspot) then {
     _stats set ["nearHotspotSpawns", (_stats getOrDefault ["nearHotspotSpawns", 0]) + 1];
 };
 
-diag_log format ["DSC: roving spawned [ground] %1 (%2) src=%3/%4 spawn=%5m units=%6 sideKey=%7",
-    typeOf _vehicle, _groupName, _origin get "type", _origin get "id",
-    round (_spawnPos distance2D _playerPos), count (units _group), _sideKey];
+LOG_7("roving spawned [ground] %1 (%2) src=%3/%4 spawn=%5m units=%6 sideKey=%7",typeOf _vehicle,_groupName,_origin get "type",_origin get "id",round (_spawnPos distance2D _playerPos),count (units _group),_sideKey);
 
 _record
