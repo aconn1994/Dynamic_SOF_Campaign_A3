@@ -165,26 +165,33 @@ addMissionEventHandler ["EntityKilled", {
 // Data published by server Step 4 as DSC_baseMarkerData / DSC_outpostMarkerData.
 // Each entry: [position, name, flagTexture, colorArray]
 
-waitUntil { !(isNil { missionNamespace getVariable "DSC_baseMarkerData" }) };
+// On a dedicated server, initPlayerLocal fires before the main map display
+// (display 12) exists on the client — attaching a Draw EH to a null control
+// silently no-ops. Spawn a waiter that blocks on both the published data and
+// the display being alive before wiring the handler.
+[] spawn {
+    waitUntil { !(isNil { missionNamespace getVariable "DSC_baseMarkerData" }) };
+    waitUntil { sleep 0.5; !isNull (findDisplay 12) };
 
-((findDisplay 12) displayCtrl 51) ctrlAddEventHandler ["Draw", {
-    params ["_map"];
+    ((findDisplay 12) displayCtrl 51) ctrlAddEventHandler ["Draw", {
+        params ["_map"];
 
-    private _baseData = missionNamespace getVariable ["DSC_baseMarkerData", []];
-    private _outpostData = missionNamespace getVariable ["DSC_outpostMarkerData", []];
+        private _baseData = missionNamespace getVariable ["DSC_baseMarkerData", []];
+        private _outpostData = missionNamespace getVariable ["DSC_outpostMarkerData", []];
 
-    {
-        _x params ["_pos", "_name", "_tex", "_color"];
-        if (_tex != "") then {
-            _map drawIcon [_tex, [1,1,1,1], _pos, 38, 26, 0, _name, 1, 0.04, "PuristaBold", "right"];
-        };
-    } forEach _baseData;
+        {
+            _x params ["_pos", "_name", "_tex", "_color"];
+            if (_tex != "") then {
+                _map drawIcon [_tex, [1,1,1,1], _pos, 38, 26, 0, _name, 1, 0.04, "PuristaBold", "right"];
+            };
+        } forEach _baseData;
 
-    {
-        _x params ["_pos", "_name", "_tex", "_color"];
-        if (_tex != "") then {
-            _map drawIcon [_tex, [1,1,1,1], _pos, 26, 18, 0, _name, 1, 0.03, "PuristaMedium", "right"];
-        };
-    } forEach _outpostData;
-}];
+        {
+            _x params ["_pos", "_name", "_tex", "_color"];
+            if (_tex != "") then {
+                _map drawIcon [_tex, [1,1,1,1], _pos, 26, 18, 0, _name, 1, 0.03, "PuristaMedium", "right"];
+            };
+        } forEach _outpostData;
+    }];
+};
 
