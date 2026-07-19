@@ -223,6 +223,12 @@ missionNamespace setVariable ["missionState", "IDLE", true];
 missionNamespace setVariable ["missionInProgress", false, true];
 missionNamespace setVariable ["missionComplete", false, true];
 
+// Check for ZEIC
+missionNamespace setVariable ["zeusInteriorsInstalled", false, true];
+if (isClass (configFile >> "Rsc_ZEIC_InteriorFill")) then { // todo, Expand to legacy mods too
+    missionNamespace setVariable ["zeusInteriorsInstalled", true, true];
+};
+
 missionNamespace setVariable ["initGlobalsComplete", true, true];
 
 // ============================================================================

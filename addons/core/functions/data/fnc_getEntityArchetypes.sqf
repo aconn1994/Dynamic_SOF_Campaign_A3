@@ -56,7 +56,7 @@ createHashMapFromArray [
     ]],
 
     ["BOMBMAKER", createHashMapFromArray [
-        ["unitClassResolver", "civilian_suit"],
+        ["unitClassResolver", "scientist"],
         ["placement", "DEEP_BUILDING"],
         ["hasBodyguards", true],
         ["fleeable", false],
@@ -76,8 +76,18 @@ createHashMapFromArray [
         ["surrenderable", false],
         ["behavior", "captive"],
         ["attachment", "blindfold"],
-        ["animation", "Acts_AidlPercMstpSnonWnonDnon01"],
+        ["animation", "AidlPsitMstpSnonWnonDnon_ground00"],
         ["briefingTitle", "Hostage"],
         ["briefingDesc", "Confirmed PID. Extract alive."]
+    ]],
+    ["FINANCIER", createHashMapFromArray [
+        ["unitClassResolver", "formal"],
+        ["placement", "DEEP_BUILDING"],
+        ["hasBodyguards", true],
+        ["fleeable", true],
+        ["surrenderable", true],
+        ["behavior", "default"],
+        ["briefingTitle", "Cell Financier"],
+        ["briefingDesc", "Responsible for funding and arming the cell."]
     ]]
 ]

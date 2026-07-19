@@ -145,6 +145,16 @@ private _sideStructures = [];
 LOG_2("populateAO - Classified %1 main, %2 side structures",count _mainStructures,count _sideStructures);
 
 // ============================================================================
+// If ZEI/ZEIC installed, fill building interiors
+// ============================================================================
+if (missionNamespace getVariable ["zeusInteriorsInstalled", false]) then {
+    {
+        private _mainStructure = _x;
+        [_mainStructure, "mil", true, true, false, 1] call ZEIC_fnc_createTemplate;
+    } forEach _mainStructures;
+};
+
+// ============================================================================
 // Filter group templates (target faction)
 // ============================================================================
 private _targetFootGroups = [_targetGroups, ["FOOT"], ["AMPHIBIOUS", "NAVAL"]] call DSC_core_fnc_getGroupsByTag;

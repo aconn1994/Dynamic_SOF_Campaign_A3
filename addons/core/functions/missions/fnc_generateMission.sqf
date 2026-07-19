@@ -82,7 +82,7 @@ switch (_missionType) do {
         // pre-archetype-refactor behavior exactly.
         private _raidConfig = createHashMapFromArray [
             ["entities", [
-                createHashMapFromArray [["archetype", "OFFICER"]]
+                createHashMapFromArray [["archetype", selectRandom ["OFFICER", "BOMBMAKER", "HOSTAGE", "FINANCIER"]]]
             ]],
             ["objects", []],
             ["completion", "KILL_CAPTURE"],

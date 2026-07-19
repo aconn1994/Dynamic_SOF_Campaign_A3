@@ -4,8 +4,8 @@ workshop = [
 ]
 # mission = "test.VR"
 # mission = "DSC_Altis.Altis"
-mission = "DSC_Livonia.enoch"
-# mission = "DSC_Malden.Malden"
+# mission = "DSC_Livonia.enoch"
+mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"
 # mission = "DSC_Tanoa.Tanoa"
 
