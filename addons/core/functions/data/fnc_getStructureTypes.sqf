@@ -974,7 +974,8 @@ private _nonOccupiable = createHashMapFromArray [
         "Land_Communication_F",
         "Land_TTowerBig_1_F",
         "Land_TTowerBig_2_F",
-        "Land_PowerPoleWooden_F",
+        // "Land_PowerPoleWooden_F",
+        "Land_PowerLine_distributor_F",
         "Land_FuelStation_Feed_F"
     ]],
     ["port", [
