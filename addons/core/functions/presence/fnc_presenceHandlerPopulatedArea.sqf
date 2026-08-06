@@ -118,11 +118,19 @@ if (_totalStructs > 0 && _milAllowed) then {
         // Per-cluster engagement roll — even in hostile territory, not every
         // building is a hardpoint. Skip rate by control: bluFor 70%, opFor
         // 60%, contested 50% (numbers mirror prior civ/mil split).
+        //
+        // bluFor towns garrison nothing unless DSC_ambientFriendlyForces is
+        // set. A bluForPartner garrison spawns on INDEPENDENT, which strict
+        // diplomacy makes hostile to east, so friendly-held towns were
+        // standing up an army that fought the opFor ambient world on sight
+        // with no player involvement. See fnc_resolveMicrozoneProjection for
+        // the full write-up. Friendly towns still get civilians.
+        private _ambientFriendly = missionNamespace getVariable ["DSC_ambientFriendlyForces", false];
         private _milClusters = 0;
         for "_i" from 1 to _totalClusters do {
             private _roll = random 1;
             private _wantMil = switch (_controlledBy) do {
-                case "bluFor":    { _roll < 0.70 };
+                case "bluFor":    { _ambientFriendly && { _roll < 0.70 } };
                 case "opFor":     { _roll < 0.70 };
                 case "contested": { _roll < 0.70 };
                 default            { false };
@@ -269,7 +277,31 @@ if (_totalStructs > 0) then {
 // ============================================================================
 // Military overlay — single small patrol from controlling side, at >=0.3 inf
 // ============================================================================
-if (_controlledBy in ["opFor", "bluFor", "contested"] && {_influence >= 0.3}) then {
+// bluFor is gated behind DSC_ambientFriendlyForces, same as the garrison block
+// above and fnc_resolveMicrozoneProjection. This was the THIRD military block
+// in this handler and the last one still spawning friendly combatants.
+//
+// Why it matters: the irregular indoor garrison below is deliberately ungated
+// and spawns EAST insurgents in any town including bluFor ones. With this
+// block also live, a single bluFor town produced BOTH an EAST insurgent
+// garrison AND a GUER (bluForPartner/AAF) patrol — a mutually hostile pair
+// standing in the same village. Playtest signature:
+//   [presenceZone] loc_25 type=populatedArea ctrl=bluFor -> sides=["EAST","GUER"]
+// followed by a stream of `O_support_AMG_F -> I_engineer_F` kills with the
+// player kilometres away. That is the "third-party firefight" the player saw.
+//
+// With this gated, a friendly town gets civilians plus an occasional insurgent
+// cell — which is better content, because the player is the one who has to
+// deal with it instead of watching AAF do it.
+private _overlayAmbientFriendly = missionNamespace getVariable ["DSC_ambientFriendlyForces", false];
+private _overlayAllowed = switch (_controlledBy) do {
+    case "opFor":     { true };
+    case "contested": { true };
+    case "bluFor":    { _overlayAmbientFriendly };
+    default            { false };
+};
+
+if (_overlayAllowed && {_influence >= 0.3}) then {
     private _factionData = missionNamespace getVariable ["DSC_factionData", createHashMap];
 
     private _candidateRoles = switch (_controlledBy) do {

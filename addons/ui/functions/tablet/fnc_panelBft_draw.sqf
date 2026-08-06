@@ -34,6 +34,7 @@ private _colorSquad   = [1.00, 1.00, 1.00, 1.0];
 private _colorPlayer  = [0.30, 0.95, 1.00, 1.0];
 private _colorObj     = [1.00, 0.85, 0.10, 1.0];
 private _colorSelect  = [1.00, 0.85, 0.10, 1.0];
+private _colorHostile = [0.95, 0.25, 0.20, 1.0];
 
 // BI marker subtype → texture path.
 private _textureFor = {
@@ -48,6 +49,12 @@ private _textureFor = {
         case "naval":     { "\A3\ui_f\data\map\markers\nato\b_naval.paa" };
         case "uav":       { "\A3\ui_f\data\map\markers\nato\b_uav.paa" };
         case "objective": { "\A3\ui_f\data\map\markers\military\objective_ca.paa" };
+        // Hostile contacts deliberately use the UNKNOWN symbol rather than a
+        // specific NATO type icon. A radio fix tells you something transmitted
+        // there — not whether it was infantry, a truck or a command post. The
+        // ambiguity is the honest representation, and it stops the marker from
+        // reading as confirmed target data.
+        case "hostile":   { "\A3\ui_f\data\map\markers\nato\o_unknown.paa" };
         default            { "\A3\ui_f\data\map\markers\nato\b_unknown.paa" };
     };
 };
@@ -58,6 +65,7 @@ private _colorForTrack = {
         case (_cat == "objective"):          { _colorObj };
         case (_cat == "player"):             { _colorPlayer };
         case (_cat == "squad"):              { _colorSquad };
+        case (_cat == "hostile"):            { _colorHostile };
         case (_iconType == "uav"):           { _colorUav };
         case (_side isEqualTo west):         { _colorWest };
         case (_side isEqualTo independent):  { _colorGuer };
@@ -71,6 +79,7 @@ private _sizeFor = {
         case (_cat == "objective"):  { 32 };
         case (_cat == "player"):     { 26 };
         case (_cat == "squad"):      { 18 };
+        case (_cat == "hostile"):    { 24 };
         case (_iconType == "uav"):   { 26 };
         default                       { 22 };
     };
@@ -110,6 +119,40 @@ private _tracks = [] call DSC_ui_fnc_panelBft_buildTracks;
 
     private _text = [_label, format ["%1 (%2)", _label, _str]] select (_str > 1);
     if (_cat == "objective") then { _text = format ["OBJ: %1", _label] };
+
+    // ------------------------------------------------------------------------
+    // Hostile contact fixes — fade with age, and SAY how old they are
+    // ------------------------------------------------------------------------
+    // The label carries the age because that is the single most important thing
+    // about an enemy marker: it is where the element WAS, not where it is. A
+    // player who reads "SIGINT 2m" understands the enemy has had two minutes to
+    // walk somewhere else. Without the age the marker would imply live
+    // tracking, which is both wrong and a wallhack.
+    //
+    // Alpha decays from full to 0.35 across the fix's lifetime, so a stale
+    // contact is visibly ghosting out rather than vanishing abruptly.
+    if (_cat == "hostile") then {
+        private _src = _t getOrDefault ["contactSource", "SIGINT"];
+        private _age = _t getOrDefault ["contactAge", 0];
+        private _ttl = [240, 90] select (_src isEqualTo "VISUAL");
+
+        private _frac = (_age / _ttl) min 1;
+        private _alpha = 1 - (_frac * 0.65);
+        _color = [_color select 0, _color select 1, _color select 2, _alpha];
+
+        private _ageTxt = if (_age < 60) then {
+            format ["%1s", round _age]
+        } else {
+            format ["%1m", round (_age / 60)]
+        };
+
+        private _srcTag = ["SIGINT", "SEEN"] select (_src isEqualTo "VISUAL");
+        _text = if (_str > 1) then {
+            format ["%1 (%2) %3 %4", _label, _str, _srcTag, _ageTxt]
+        } else {
+            format ["%1 %2 %3", _label, _srcTag, _ageTxt]
+        };
+    };
 
     // BFT-vs-HC marker dedupe: commanded tracks already have a NATO type
     // icon attached by fnc_bftExecuteCommand via addGroupIcon, which the

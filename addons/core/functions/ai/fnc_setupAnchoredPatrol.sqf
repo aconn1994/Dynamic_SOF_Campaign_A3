@@ -121,6 +121,9 @@ for "_i" from 0 to (_count - 1) do {
     private _unit = _group createUnit [_class, _p, [], 0, "NONE"];
     if (isNull _unit) then { continue };
 
+    // Force onto the group's side — see fnc_spawnGroupYielding.
+    [_unit] joinSilent _group;
+
     _unit setPosATL _p;
     _unit setDir random 360;
     [_unit, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;

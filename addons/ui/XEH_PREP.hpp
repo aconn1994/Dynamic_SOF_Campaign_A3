@@ -23,5 +23,10 @@ PREP_SUB(tablet,panelBft_infoIdcs);
 PREP_SUB(tablet,panelBft_command);
 PREP_SUB(tablet,panelBft_toggleFilter);
 
+// Radio Feed panel (C2 Sprint F.4) — hosted on the INTEL tab
+PREP_SUB(tablet,panelRadio_init);
+PREP_SUB(tablet,panelRadio_refresh);
+PREP_SUB(tablet,panelRadio_toggleFilter);
+
 // Debug HUD overlay
 PREP_SUB(tablet,toggleDebugHud);

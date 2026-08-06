@@ -92,7 +92,7 @@ private _profiles = createHashMapFromArray [
 
     ["AFO_urban", createHashMapFromArray [
         ["requiredTags", []],
-        ["excludeTags", ["military", "rural", "base", "outpost"]],
+        ["excludeTags", ["military", "rural", "base", "outpost", "isolated"]],
         ["density", "light"],
         ["qrfEnabled", false],
         ["areaPresenceChance", 0.3],

@@ -56,7 +56,7 @@ createHashMapFromArray [
     ]],
 
     ["BOMBMAKER", createHashMapFromArray [
-        ["unitClassResolver", "scientist"],
+        ["unitClassResolver", "civilian_labcoat"],
         ["placement", "DEEP_BUILDING"],
         ["hasBodyguards", true],
         ["fleeable", false],
@@ -81,7 +81,7 @@ createHashMapFromArray [
         ["briefingDesc", "Confirmed PID. Extract alive."]
     ]],
     ["FINANCIER", createHashMapFromArray [
-        ["unitClassResolver", "formal"],
+        ["unitClassResolver", "civilian_suit"],
         ["placement", "DEEP_BUILDING"],
         ["hasBodyguards", true],
         ["fleeable", true],

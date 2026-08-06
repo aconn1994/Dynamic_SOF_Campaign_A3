@@ -75,13 +75,26 @@ while { !(call _fnc_shouldAbort) } do {
 
     LOG_1("vehiclePatrolLoop - Driving to point %1m away",round (_vehicle distance2D _destination));
 
-    // Wait for arrival
+    // Wait for arrival. The timeout is not optional: without it a vehicle
+    // that cannot path to its destination (blocked road, bridge out, stuck on
+    // terrain) waits here forever and the patrol is dead for the rest of the
+    // mission with no log line to say so.
+    private _legStart = time;
+    private _legTimeout = 300;
     waitUntil {
         sleep 3;
-        (call _fnc_shouldAbort) || { _vehicle distance2D _destination < 50 }
+        (call _fnc_shouldAbort)
+        || { _vehicle distance2D _destination < 50 }
+        || { time - _legStart > _legTimeout }
     };
 
     if (call _fnc_shouldAbort) then { continue };
+
+    if (time - _legStart > _legTimeout) then {
+        private _remaining = round (_vehicle distance2D _destination);
+        LOG_1("vehiclePatrolLoop - Leg timed out with %1m remaining, re-planning",_remaining);
+        continue;
+    };
 
     // Hold position for ~2 minutes
     LOG_1("vehiclePatrolLoop - Holding at %1",getPos _vehicle);

@@ -228,6 +228,11 @@ private _usedPositions = [];
         private _unitClass = selectRandom _unitPool;
         private _unit = _guardsGroup createUnit [_unitClass, _pos, [], 0, "NONE"];
 
+        // Force onto the group's side — `group createUnit` leaves the unit on
+        // its native faction side, producing a mixed-side group that shoots
+        // itself apart. See fnc_spawnGroupYielding.
+        [_unit] joinSilent _guardsGroup;
+
         _unit allowDamage false;
         _unit setPos _pos;
         _unit allowDamage true;

@@ -184,6 +184,14 @@ if (_skillProfile == "") then {
 };
 [_allUnits, _skillProfile] call DSC_core_fnc_applySkillProfile;
 
+// TEMPORARY DIAGNOSTIC (August 2026) — remove with the faction overhaul.
+// Dumps real engine side/rating state for every mission AO unit at T+0/45/75/
+// 120s. Placed after applySkillProfile so it also verifies that the addRating
+// renegade guard actually took effect (if rating still reads low here, the
+// guard is being overwritten by something downstream).
+private _diagTargetSide = _missionConfig getOrDefault ["targetSide", sideUnknown];
+["missionAO", _allUnits, _diagTargetSide] call DSC_core_fnc_diagSideDump;
+
 // Add to zeus if curator exists
 private _curator = (allCurators) select 0;
 if (!isNull _curator) then {

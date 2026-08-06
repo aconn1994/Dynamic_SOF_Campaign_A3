@@ -86,6 +86,45 @@ private _fnc_civilianPool = {
     _pool
 };
 
+// --- Helper: promote a real unit from the target faction ---
+// Last resort before the caller's literal fallback. An HVT drawn from the
+// faction that actually holds the objective is always better than a
+// hardcoded vanilla class: the caller's fallback used to be "O_officer_F",
+// so any faction without an "officer"-keyword unit (every irregular faction —
+// Syndikat, Looters, FIA) got a CSAT officer standing in a Syndikat compound.
+// Wrong uniform, wrong faction, and one more class of "why is that there?"
+// bug to chase.
+//
+// Prefers a leadership-flavoured unit, then a plain rifleman, so "promote a
+// guy on target to be the HVT" is exactly what happens.
+private _fnc_promoteFactionUnit = {
+    params ["_factionClass"];
+    if (_factionClass isEqualTo "") exitWith { "" };
+
+    private _men = [_factionClass] call _fnc_factionMen;
+    if (_men isEqualTo []) exitWith { "" };
+
+    // Leadership-ish first. "sergeant"/"squadleader"/"teamleader" are the
+    // common irregular-faction equivalents of an officer.
+    private _leaderKeywords = ["officer", "commander", "leader", "sergeant", "captain", "boss"];
+    private _hit = "";
+    {
+        private _name = toLower _x;
+        if (_leaderKeywords findIf { _x in _name } != -1) exitWith { _hit = _x };
+    } forEach _men;
+    if (_hit != "") exitWith { _hit };
+
+    // No leader class — take a baseline rifleman rather than a specialist,
+    // so the HVT doesn't spawn carrying an AT launcher.
+    private _riflemen = _men select {
+        private _name = toLower _x;
+        ("rifleman" in _name) || { "soldier_f" in _name } || { "_soldier" in _name }
+    };
+    if (_riflemen isNotEqualTo []) exitWith { selectRandom _riflemen };
+
+    selectRandom _men
+};
+
 // --- Path 2: well-known resolver keys ---
 switch (_resolverKey) do {
 
@@ -100,9 +139,14 @@ switch (_resolverKey) do {
             };
         } forEach _factionUnits;
         if (_hit != "") exitWith { _hit };
-        // No officer keyword match — fall back to caller's fallback (preserves
-        // pre-resolver behavior where irregular factions used a vanilla officer
-        // class). Smarter "irregular HVT" handling belongs in archetype data.
+
+        // No officer keyword match — promote a unit from this faction rather
+        // than falling through to the caller's vanilla class.
+        private _promoted = [_faction] call _fnc_promoteFactionUnit;
+        if (_promoted != "") exitWith {
+            LOG_2("resolveEntityClass - no officer class in %1, promoted %2 as HVT",_faction,_promoted);
+            _promoted
+        };
         _fallback
     };
 
@@ -156,7 +200,15 @@ switch (_resolverKey) do {
     };
 
     default {
-        WARNING_1("resolveEntityClass - unknown resolver '%1'",_resolverKey);
+        // An archetype naming a resolver key that doesn't exist here is a
+        // content bug, and it used to land silently on the caller's
+        // "O_officer_F" fallback — which is how a Syndikat objective ended up
+        // guarded by a CSAT officer. ERROR, not WARNING: it is always wrong.
+        // Still degrade to a faction-correct unit so the mission stays
+        // playable instead of spawning a target from the wrong army.
+        ERROR_1("resolveEntityClass - unknown resolver '%1' (archetype content bug)",_resolverKey);
+        private _promoted = [_faction] call _fnc_promoteFactionUnit;
+        if (_promoted != "") exitWith { _promoted };
         _fallback
     };
 }

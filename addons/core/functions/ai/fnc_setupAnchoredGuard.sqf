@@ -128,6 +128,9 @@ for "_i" from 0 to (_count - 1) do {
     private _unit = _group createUnit [_class, _spawnPos, [], 0, "NONE"];
     if (isNull _unit) then { continue };
 
+    // Force onto the group's side — see fnc_spawnGroupYielding.
+    [_unit] joinSilent _group;
+
     _unit setPosATL _spawnPos;
     _unit setDir random 360;
     _unit setUnitPos "AUTO";

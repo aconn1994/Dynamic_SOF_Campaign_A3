@@ -46,6 +46,15 @@
 ### Deferred
 - [ ] **Vehicle patrol dismount cycle** — drive → staggered dismount → foot patrol → staggered remount → repeat. Architecture exists in `fnc_vehiclePatrolLoop` but AI mount/dismount behavior needs refinement. Design doc in `.crush/vehicle-systems.md`
 
+### Known Bugs (backlog)
+- [ ] **QRF element size is unbounded — one dispatch spawned 17 units** — `c2 QRF DISPATCHED [UNIFORM] - 17 mounted units`. `fnc_c2ResponseQrf` takes whatever the CfgGroups entry contains, so a full motorized infantry group arrives as a single "QRF element". QRFs deliberately ignore the presence budget (rare, player-triggered) but 17 units is a small army, and three concurrent dispatches were observed in one engagement. Needs a per-element unit cap with trimming, or a preference for smaller CfgGroups entries.
+- [ ] **QRF can dispatch to an LKP a few metres from its own node** — `QRF DISPATCHED [DELTA-2] - 4 foot units toward LKP 7m out`. Responders spawn essentially on top of their destination and arrive instantly, so the response reads as a garrison shuffle rather than a reinforcement. Add a minimum travel distance below which the node should recall instead of dispatching.
+- [ ] **Roving foot rovers occasionally spawn ~21 km from the player and despawn 8s later** — observed `roving spawned [foot] BUS_InfSentry src=base/loc_65 spawn=21110m` followed 8s later by `roving despawned dist=21108m`. The spawn-position search in `fnc_rovingSpawnFoot` is picking a point far outside the despawn ring, so the whole spawn is wasted work and briefly consumes rover budget. Clamp the search to the despawn radius, or reject and retry before spawning.
+- [ ] **`fnc_buildRoadRoute` returns 0m on airfield concrete** — ground rovers spawning near `player_base_0` / an airbase log `start candidate 0-3 unusable (0m dead-end)` on every attempt, because runway and taxiway segments are `Road` objects that carry no `roadsConnectedTo` graph links. Self-recovers via the "3 route failures → move toward patrol center" fallback, so this is log noise rather than a stall — but ground rovers arguably should not pick airfield spawn points at all.
+- [x] **Side allocation regression (`.crush/faction-sides.md`)** — FIXED. Rather than convert the ~10 individual side-resolution call sites (the partial migration that caused the regression), role sides are now normalized **once** in `fnc_initServer` at profile selection, before the profile reaches `missionNamespace`. Since `fnc_initFactionData` copies `side` verbatim, both runtime sources are correct by construction and no downstream site needs changing. Follow-up cleanup (deleting the now-dead `side` entries from the profile literals) is tracked as Phase 0 in `.crush/faction-autoscan.md`.
+- [x] **`fnc_buildRoadRoute` frequently returned a single stationary waypoint** — FIXED. Three causes: (1) the walk started from the single nearest road, which is often a driveway/bridge-ramp/isolated stub with no graph neighbours, so it died on iteration one — now tries up to 4 nearest roads as start candidates; (2) any dead end terminated the whole route — now backtracks (bounded DFS, 12 pops) and tries another branch; (3) a 1-point route at the caller's own position was returned as success, and both patrol loops then set a MOVE waypoint the vehicle was already inside, fired arrival instantly, and re-planned in place forever — routes shorter than 25% of target now return `[]` so the caller retries. `roadsConnectedTo` is also filtered for nulls and self-references. Termination reason is logged.
+- [x] **Rotary rovers dying seconds after spawn** — FIXED. `fnc_rovingSpawnAir` computed a desired *above-ground* altitude (rotary 100-150m) and passed it straight to `setPosASL` as a sea-level coordinate, so helicopters spawned underground anywhere terrain exceeded that — which is most of the Altis interior. Spawn altitude and all waypoint altitudes are now `getTerrainHeightASL + altitude` (clamped at 0 for water). Also: initial velocity is now set along the heading after crew creation (`setPosASL` + `setDir` don't rotate the momentum `createVehicle ... "FLY"` starts with, so rotaries wallowed and settled into terrain), and the transit/loiter roll was inverted against its own doc comment — `random 1 < 0.05` gave ~95% loiter, meaning nearly every rotary orbited low and slow near the player instead of transiting. Now 55% transit as documented.
+
 ## Phase 2: Faction & Map Layer — IN PROGRESS
 
 ### Influence System
@@ -72,9 +81,16 @@
 - [ ] **Dynamic simulation** — all base entities get `triggerDynamicSimulation true` for zero idle cost
 
 ### Faction Configuration
+### Faction Configuration
 - [ ] **Player-selectable factions** — currently hardcoded vanilla/RHS profiles
 - [ ] **Civilians** — neutral population spawning
 - [ ] **Environment actors** — IDAP, UN, contractors with presence
+- [ ] **🔧 Faction config rework — Plan A two-pole model** (Design: `.crush/faction-overhaul.md`). Approved, deferred until after C2. Never override a faction's native side: roles become descriptive labels for mission logic and a faction may only be cast into a role whose required side matches its `CfgFactionClasses` side. Independent stops being used for combatants entirely, all `setFriend` calls are deleted, and one load-time validator rejects invalid configs so the whole class of side bugs becomes unrepresentable instead of debuggable. **Net deletion of code** — removes `fnc_resolveRoleSide`, the normalization pass, the realignment pass, and the forced-east overrides. Costs AAF/Syndikat/Looters as vanilla combatants (near-zero cost under RHS/CUP).
+  - [ ] Sub-task: rename the `"side"` key collision — `fnc_extractGroups` stores a NUMBER under `"side"` on group hashmaps while `fnc_initFactionData` stores a SIDE object under the same key on role hashmaps
+  - [ ] Sub-task: repair `factionClass` provenance in `fnc_extractGroups` — the CfgGroups desync workaround overwrites `_factionClass` before storing it, so groups carry the CfgGroups node name (`"Guerilla"`) rather than the real faction class, silently breaking every downstream role lookup
+  - [ ] Sub-task: fix garrison grouping — `fnc_setupGarrison` creates one group per unit (16 groups for 16 units observed), so Arma applies no line-of-fire deconfliction between defenders in the same building. Needs `disableAI "PATH"` + `setUnitPos` before merging or units abandon firing positions to form up
+  - [ ] Sub-task: remove the `DSCDIAG` instrumentation (see Cleanup in `.crush/faction-overhaul.md`)
+- [ ] **Faction autoscan** (Design: `.crush/faction-autoscan.md`) — follows the rework. Inverted CfgGroups walk to kill the desync table, faction catalog + role-scoring heuristics, tablet Campaign Setup panel
 
 ### Mission Markers
 - [x] **SOF raid-style intel** — Contact_circle4 on garrison cluster anchors, black dot markers with alpha-numeric callouts (A1, A2, B1...)
@@ -223,6 +239,47 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
 
 **Deferred**: Forced encounters (forced patrol injection when no combat for X minutes in opFor territory). Out of presence manager scope — would be a separate immersion system.
 
+### C2 Network + ISR — F.1 + F.2 + F.3 SHIPPED (Design: `.crush/c2-network.md`)
+
+Adds the missing "communication" layer: AI forces belong to installations,
+report contact, miss check-ins, and generate proportionate responses. ISR
+is the player's read-access to the same network. Sibling subsystem to
+presence + roving; own registry, own tick (10s, third phase offset), own
+reaction budget.
+
+**Locked scope decisions**: real QRF spawn + travel within node reach;
+telegraphs always visible with detail ISR-gated; alert state resets on
+mission cleanup; **ambient from day one** (not mission-only); all
+factions including `bluForPartner` (simplified); difficulty emergent from
+tier + distance + influence + archetype; text-only chatter; QRF may
+exceed the presence budget cap.
+
+- [x] **F.1 — Provenance + registry** — `DSC_c2Nodes` built at init (base=COMMAND, outpost=RELAY, camp/town=OUTSTATION), link topology precomputed per faction comms archetype (conventional/partner hierarchical, irregular mesh), stable per-faction phonetic callsigns, provenance stamped (`DSC_c2Parent`/`DSC_c2Role`/`DSC_c2NextCheckIn`/`DSC_c2RtbEta`/`DSC_c2Radioman`), 10s alert-decay tick with LOD, alert ratchet + reset on mission cleanup. **Log-only, zero gameplay delta.**
+- [x] **F.2 — Signals + propagation** — report timer with leader (1.8×) / radioman (2.5×) modifiers, gunfire + explosion noise events graded by radius (75m suppressed → 3500m vehicle kill), check-in/RTB/SILENCE accountability, breadth-first relay hops with per-hop reliability rolls + grade degradation, LKP confidence decay, radio feed ring buffer. Direct attacks on installations escalate to BLACK. **Still dispatches nothing.**
+- [x] **F.3 — Response ladder** — recall (redirect existing mobile groups, zero spawn cost) + QRF (real spawn at the node, real travel to LKP, ignores presence budget), capability gated by `ladder ∩ tier` so a town recalls but cannot QRF, per-episode decision latency, per-level dispatch cooldown, search radius scaled by LKP confidence, LAMBS `taskHunt` soft dependency for foot elements, presence `COMBAT` hold so responding zones don't tear down mid-response.
+- [x] **F.4 — ISR + player-facing** — coverage tiers (NONE / BASIC = player within 800m / ENHANCED = ISR drone on station with fog+rain degrading the orbit radius / FULL = F.5 SIGINT stub), coverage evaluated best-of {event position, node LKP, node position} via the shared `fnc_c2IsrEntryTier`, live intercepted chatter via `systemChat` throttled to 1 line per 2.5s, dispatch notifications with bearing + element type + ETA gated at ENHANCED (the reason keeping the drone alive matters), diegetic ungated telegraphs (illum flare on RED transition, forced headlights on QRF departure — both night-only, 3km player gate), tablet **Radio Feed** page on the INTEL tab with timestamped scrollback, per-source coloring, live coverage header, alerted-node strip, and EARNED/ALL(DEBUG) filter, plus **hostile contact fixes on the Blue Force Tracker** — SIGINT radio-direction-finding on groups that actually transmitted (ENHANCED-gated at the moment of emission, 240s TTL) and VISUAL own-force observation (`knowsAbout >= 0.5`, 90s TTL, refreshed while watched), drawn as ageing/fading `o_unknown` markers that state their own staleness. **`LOST` lines never reach the player** — that would reveal whether a clean wipe worked, which is the reward the report timer exists to protect. Likewise no contact marker for a group killed before it transmits.
+- [ ] **F.5 — Counterplay** — radioman targeting, comms infra archetypes (hack / quiet-disable / destroy), jamming, `heat` persistence
+
+**F.1 implementation notes**: provenance is stamped at
+`fnc_activatePresenceZone` (one choke point covering all 8 zone types and
+any future handler) rather than inside each setup function; civilian-side
+groups are excluded from node rosters; nodes resolve per side so contested
+skirmish patrols don't report to the installation they're attacking.
+
+**F.2 implementation notes**: signal sources are two server-side handlers
+(`EntityKilled` + a client-fired CBA relay) plus a tick backstop, rather
+than per-unit `FiredNear` EHs — the presence manager can have 150 units
+standing and per-unit handlers wouldn't scale. AMBER-grade signals never
+relay, which is what keeps alert state meaningful. Roster hygiene detects
+wiped elements *before* pruning them, otherwise `SILENCE` could never fire.
+Suppressor state is classified client-side because muzzle accessory data
+isn't reliable for remote units.
+
+**Free hooks still unused**: `fnc_generateMission` has a vestigial
+commented-out `qrfEnabled` block to be replaced by registering the mission
+AO as a transient C2 node. (The presence `COMBAT` state and
+`fnc_convergePatrols` are now both consumed by F.3.)
+
 ## Design Philosophy
 
 - **Soft objectives** — tasks guide, not dictate
@@ -244,4 +301,54 @@ Phase 1 is complete. Mission config system + mission archetype refactor both shi
 
 **Presence Manager** — Sprints 1-8 shipped. World simulation populates the area around the player with civilians, military patrols, base garrisons, static defenses, mortars, and contested-zone skirmishes. Mission AO arbitration coordinates with the mission system. Instrumented with per-zone activation latency, periodic STATS reports, debug markers. A 15-minute helicopter performance test surfaced a 22% activation-abandonment rate at speed — the next sprints (A: handler registry refactor, B: per-type perf tuning, C: pause-instead-of-delete) address this before new presence content (Sprint D: structure archetype data; Sprint E: roving entities) lands. See `.crush/presence-manager.md` for the full state.
 
-Next up: **Sprint A — Presence Manager Handler Registry Refactor**. Mechanical extraction of zone-type populate/despawn logic into discrete handler functions, registered with the manager loop. No behavior change; sets the stage for performance tuning (B), pause-instead-of-delete lifecycle (C), and the much larger variety of zone types (D) that the long-term vision needs.
+**C2 Network** — Sprints F.1-F.4 shipped (August 2026). AI groups belong to
+installations, run a contact-report timer, miss check-ins, propagate signals
+through a relay topology with last-known-position, and dispatch recall/QRF
+responses gated by tier capability and node reach. F.4 made all of it
+perceivable: coverage-tiered intercepted chatter, ISR dispatch warnings with
+bearing and ETA, diegetic night telegraphs, and a tablet Radio Feed scrollback.
+Three playtests drove eleven bug fixes; the mechanics (report timer, radioman
+multiplier, reach gate, echo suppression) are confirmed working in-game. F.4
+awaits playtest. F.5 (counterplay) is designed but not started. See
+`.crush/c2-network.md`.
+
+---
+
+## Next up
+
+**1. Playtest F.4.** Eight validation tests are written up in
+`.crush/c2-network.md` ("Validating F.4 in game"). The important ones: chatter
+appears with no assets (BASIC), the ISR dispatch line with bearing + ETA appears
+only with the drone alive (ENHANCED), and `LOST` lines never surface under the
+EARNED filter.
+
+**2. Garrison grouping fix.** `fnc_setupGarrison` creates one group per unit,
+so defenders in the same building have no line-of-fire deconfliction and
+friendly-fire each other. No longer a fratricide *cause* (that was
+`createUnit` side inheritance, now fixed) but still a real quality problem.
+
+**3. C2 F.5 — Counterplay.** Radioman targeting, comms infrastructure
+archetypes (hack / quiet-disable / destroy), jamming, `heat` persistence. The
+network now has both a voice and an audience, which is the prerequisite for
+attacking it being meaningful.
+
+**4. Faction config rework — Plan A.** See `.crush/faction-overhaul.md`.
+Hardening rather than a bug fix: it makes the entire class of side bugs
+unrepresentable. Worth doing, not urgent.
+
+### Resolved
+
+- ~~Side-allocation regression~~ — the real root cause was **`group createUnit`
+  does not set the unit's side**. A Syndikat class (native GUER) spawned into
+  `createGroup [east]` produced a unit on GUER inside an EAST group, and since
+  AI hostility is evaluated observer-group-side vs target-unit-side, every
+  fighter read its own squadmates as enemy independents. Fixed with
+  `joinSilent` at all 11 `createUnit` sites. Three earlier diagnoses (side
+  normalization, microzone projection, rating/renegade) each fixed a real but
+  different bug. Full write-up in `.crush/faction-overhaul.md`.
+- ~~Road-route + rotary-rover bugs~~ — fixed; see Known Bugs above.
+- ~~Rovers unable to return fire~~ — all four rover spawners used
+  `setCombatMode "BLUE"` (never fire) plus `disableAI "TARGET"`/`"AUTOTARGET"`,
+  three independent locks on ever shooting. Now `GREEN` (hold fire, defend
+  only) with `AUTOCOMBAT` disabled.
+

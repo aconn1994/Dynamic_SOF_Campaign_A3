@@ -58,14 +58,25 @@ _uav allowDamage true;
 // waypoint and ignore terminal "Move here" / "Loiter here" commands.
 // AWARE + disableAI AUTOCOMBAT keeps the drone non-engaging while
 // remaining responsive to player AI commands from the terminal.
+//
+// This block must stay ENABLED. The default class is
+// B_UAV_02_dynamicLoadout_F — an ARMED west-side Sentinel. With autocombat
+// live it prosecutes the objective on its own the moment it reaches station,
+// which starts the firefight before the player is anywhere near the AO and
+// fires contact reports into the C2 network unprompted. `setCaptive true`
+// below does NOT prevent this: captive only changes how others treat the
+// drone, not whether the drone engages.
+//
+// ISR is meant to be an observation asset. If armed UAV support is wanted it
+// should be an explicit player-commanded action, not ambient behaviour.
 private _uavGroup = group _uav;
-// {
-//     _x setBehaviour "AWARE";
-//     _x setCombatMode "BLUE";
-//     _x disableAI "AUTOCOMBAT";
-//     _x disableAI "TARGET";
-//     _x disableAI "AUTOTARGET";
-// } forEach units _uavGroup;
+{
+    _x setBehaviour "AWARE";
+    _x setCombatMode "BLUE";
+    _x disableAI "AUTOCOMBAT";
+    _x disableAI "TARGET";
+    _x disableAI "AUTOTARGET";
+} forEach units _uavGroup;
 
 // Make undetectable by enemy AI
 _uav setCaptive true;

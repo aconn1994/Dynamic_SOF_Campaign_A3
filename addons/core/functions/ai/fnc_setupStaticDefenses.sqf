@@ -195,6 +195,10 @@ private _defenseGroup = createGroup [_side, true];
 
         private _gunnerCls = call _pickTowerClass;
         private _gunner = _defenseGroup createUnit [_gunnerCls, _topPos, [], 0, "NONE"];
+
+        // Force onto the group's side — see fnc_spawnGroupYielding.
+        [_gunner] joinSilent _defenseGroup;
+
         _gunner allowDamage false;
         _gunner moveInGunner _static;
         [_gunner, _skillProfile, _skillVariance] call DSC_core_fnc_applySkillProfile;

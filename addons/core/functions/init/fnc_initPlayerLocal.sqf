@@ -3,6 +3,30 @@
 waitUntil { missionNamespace getVariable ["initGlobalsComplete", false]; };
 
 // ============================================================================
+// Renegade protection for the player's own squad
+// ============================================================================
+// The player's squad is Eden-placed, so it never passes through
+// fnc_applySkillProfile and gets none of the addRating protection that
+// DSC-spawned AI receives.
+//
+// That matters more here than anywhere else. A playtest showed a squadmate at
+// rating -1040 — over half of the way to the ~-2000 renegade threshold — after
+// a single mission. The presence manager populates towns and compounds with
+// civilians, so collateral damage in a firefight is routine, and a civilian
+// kill is a large single penalty.
+//
+// If a squadmate crosses the threshold it becomes RENEGADE: hostile to every
+// side including west, so the player's own squad turns on itself. From the
+// player's chair that is inexplicable and unrecoverable, with no feedback
+// pointing at the cause. Not a consequence worth modelling.
+//
+// Applied to the player too — a renegade player is attacked by their own AI
+// and by every friendly installation on the map.
+{
+    if (!isNull _x) then { _x addRating 1000000 };
+} forEach (units group player);
+
+// ============================================================================
 // Mission Actions (on Joint Operations Center flagpole)
 // ============================================================================
 jointOperationCenter addAction [
@@ -157,6 +181,62 @@ addMissionEventHandler ["EntityKilled", {
         [_killed] call DSC_core_fnc_placeDynamicRespawn;
     };
 }];
+
+// ============================================================================
+// C2 Network: report the player's weapon discharge (Sprint F.2)
+// ============================================================================
+// Suppressor state is classified HERE, on the machine that owns the weapon —
+// muzzle accessory data is not reliably readable for remote units, so a
+// server-side check would misgrade every shot in multiplayer.
+//
+// Throttled to one event per second per player. Without it, a 30-round burst
+// would fire 30 identical noise events, each doing a full node sweep. The
+// throttle costs nothing in fidelity: the network cannot be *more* alerted
+// by the second bullet than the first.
+//
+// This catches misses, which EntityKilled cannot see. Opening fire and
+// missing is still opening fire, and the enemy still heard it.
+player addEventHandler ["Fired", {
+    params ["_unit", "_weapon", "_muzzle"];
+
+    private _last = _unit getVariable ["DSC_c2LastFiredReport", -99];
+    if ((serverTime - _last) < 1) exitWith {};
+    _unit setVariable ["DSC_c2LastFiredReport", serverTime];
+
+    // Accessory slot 0 is the muzzle attachment.
+    private _acc = _unit weaponAccessories _muzzle;
+    private _suppressed = _acc isNotEqualTo [] && {(_acc select 0) != ""};
+
+    // Launchers are never quiet regardless of what is bolted to them.
+    private _isLauncher = _weapon isKindOf ["Launcher", configFile >> "CfgWeapons"];
+
+    private _noiseType = if (_isLauncher) then {
+        "EXPLOSION"
+    } else {
+        ["SMALL_ARMS", "SUPPRESSED"] select _suppressed
+    };
+
+    ["DSC_c2_playerFired", [getPosATL _unit, _noiseType]] call CBA_fnc_serverEvent;
+}];
+
+// ============================================================================
+// C2 Network: intercepted radio chatter sink (Sprint F.4)
+// ============================================================================
+// The server decides what the player has earned (coverage tier, suppression
+// rules, throttle — see fnc_c2IsrBroadcast) and sends a fully formatted line.
+// This handler stays a dumb sink so the gating logic lives in exactly one
+// place and every client renders an identical feed.
+//
+// `systemChat` is deliberate over `hint` or a custom RscTitles layer: it reads
+// as ambient radio traffic, it does not steal focus during a firefight, and it
+// scales to any volume of traffic. Recorded VO or radio SFX were considered and
+// rejected — they become overwhelming the moment the network gets busy, and
+// text is the only surface that stays usable at high line rates.
+["DSC_c2_chatter", {
+    params [["_line", "", [""]]];
+    if (_line isEqualTo "") exitWith {};
+    systemChat _line;
+}] call CBA_fnc_addEventHandler;
 
 // ============================================================================
 // Map Draw: Faction Flag Icons for Military Installations

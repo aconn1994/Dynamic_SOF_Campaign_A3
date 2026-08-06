@@ -114,6 +114,19 @@
 #define DSC_TABLET_IDC_BFT_CMD_QRF             9244
 #define DSC_TABLET_IDC_BFT_CMD_RELEASE         9245
 
+// ============================================================================
+// Radio Feed panel (C2 Sprint F.4)
+// ============================================================================
+// Scrollback of everything the player's ISR coverage has intercepted. Solves
+// the core weakness of real-time-only chatter: during a contact the player is
+// busy and will miss the lines that mattered most.
+#define DSC_TABLET_IDC_RADIO_TITLE             9400
+#define DSC_TABLET_IDC_RADIO_COVERAGE          9401
+#define DSC_TABLET_IDC_RADIO_FILTER            9402
+#define DSC_TABLET_IDC_RADIO_LIST              9403
+#define DSC_TABLET_IDC_RADIO_HINT              9404
+#define DSC_TABLET_IDC_RADIO_NODES             9405
+
 // Debug HUD (always-on overlay)
 #define DSC_DEBUG_HUD_IDD                      9300
 #define DSC_DEBUG_HUD_IDC_FPS                  9301

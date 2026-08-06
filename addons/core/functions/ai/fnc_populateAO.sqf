@@ -80,11 +80,13 @@ if (_hasAreaFaction && { _areaSide != _targetSide }) then {
     _areaSide = _alignedSide;
 };
 
-// Force diplomatic friendship between east and independent for this mission
-// Standard approach used by dynamic missions (Antistasi, ALiVE) to prevent
-// faction-level hostility between cooperating forces (e.g. opFor + irregulars)
-east setFriend [independent, 1];
-independent setFriend [east, 1];
+// Diplomacy is NOT set here. It is established once, symmetrically, in
+// fnc_initPresenceManager and must not be mutated per-mission — the old
+// `east setFriend [independent, 1]` here also made the player's own
+// bluForPartner allies friendly to opFor, and its counterpart reset in
+// fnc_cleanupMission then left the matrix in a different state than it
+// started. Hostile roles are kept off the independent side by
+// fnc_resolveRoleSide instead, which needs no runtime diplomacy at all.
 
 private _areaLabel = ["same", _areaFaction] select _hasAreaFaction;
 LOG_5("populateAO - %1 (%2 buildings, density: %3, target: %4, area: %5)",_locationName,_buildingCount,_density,_targetFaction,_areaLabel);
@@ -438,20 +440,32 @@ if (_patrolTemplates isNotEqualTo []) then {
 // };
 
 // ============================================================================
-// Side Alignment — fix groups spawned on wrong side by BIS_fnc_spawnGroup
+// Side Alignment — verify UNIT sides, not just group sides
 // ============================================================================
-// BIS_fnc_spawnGroup may ignore the side parameter and use the CfgGroups
-// config path side instead. Reassign any mismatched groups via joinSilent.
+// This pass used to compare `side _grp != _targetSide` only. That check was
+// structurally incapable of catching the real bug: `createGroup [east]` always
+// reports EAST, so the group side was always correct while the UNITS inside it
+// sat on their native faction side (Syndikat classes on GUER). The pass ran,
+// found nothing, logged nothing, and a mixed-side garrison went on to shoot
+// itself apart.
+//
+// Units are now forced onto the group side with `joinSilent` at every spawn
+// site (see fnc_spawnGroupYielding), so this is a backstop rather than the
+// primary mechanism. It is kept because it is the only place that can catch a
+// NEW spawn path that forgets to do it, and it now reports per-unit so the
+// failure is loud instead of silent.
 private _allGroups = _aoResult get "groups";
 private _realignedCount = 0;
+private _realignedUnits = 0;
 
 {
     private _grp = _x;
+
+    // Group-level mismatch (rare — createGroup sets this correctly)
     if (side _grp != _targetSide) then {
         private _newGroup = createGroup [_targetSide, true];
         (units _grp) joinSilent _newGroup;
 
-        // Update all tracking arrays that reference this group
         private _idx = (_aoResult get "groups") find _grp;
         if (_idx >= 0) then { (_aoResult get "groups") set [_idx, _newGroup] };
 
@@ -460,11 +474,60 @@ private _realignedCount = 0;
 
         deleteGroup _grp;
         _realignedCount = _realignedCount + 1;
+    } else {
+        // Unit-level mismatch — THE case that was being missed. A unit whose
+        // side disagrees with its own group makes the group's other members
+        // read it as an enemy, because AI hostility is evaluated observer-group
+        // vs target-unit.
+        {
+            if (!isNull _x && {(side _x) isNotEqualTo (side _grp)}) then {
+                private _badCls = typeOf _x;
+                private _badSide = side _x;
+                WARNING_3("populateAO - unit side mismatch: %1 on %2 in %3 group, forcing join",_badCls,_badSide,side _grp);
+                [_x] joinSilent _grp;
+                _realignedUnits = _realignedUnits + 1;
+            };
+        } forEach (units _grp);
     };
 } forEach +_allGroups;
 
-if (_realignedCount > 0) then {
-    diag_log format ["DSC: populateAO - Realigned %1 groups to side %2", _realignedCount, _targetSide];
+if (_realignedCount > 0 || _realignedUnits > 0) then {
+    WARNING_3("populateAO - Realigned %1 groups + %2 individual units to side %3",_realignedCount,_realignedUnits,_targetSide);
+};
+
+// ============================================================================
+// C2 provenance stamping (Sprint F.1)
+// ============================================================================
+// Deliberately after side realignment above — stamping before it would
+// attach provenance to groups that get deleted and replaced, leaving the
+// node roster holding null references.
+//
+// Mission AO forces resolve to whichever installation projects into the
+// objective. If nothing is in reach the AO is genuinely isolated and its
+// defenders have nobody to call, which is the correct outcome for a
+// deep-AFO target and needs no special case.
+//
+// F.3 will promote the mission AO to a transient node of its own so that
+// mission QRF becomes an emergent output of the network rather than the
+// bespoke (currently commented-out) qrfEnabled path in fnc_generateMission.
+private _c2Location = _aoResult get "location";
+private _c2Pos = _c2Location getOrDefault ["position", []];
+if (_c2Pos isNotEqualTo []) then {
+    private _c2Node = [_c2Pos, _targetSide] call DSC_core_fnc_c2ResolveNode;
+    if (_c2Node != "") then {
+        private _stamped = 0;
+        private _c2Armed = (_aoResult get "groups") select {
+            !isNull _x && {(side _x) != civilian}
+        };
+        {
+            if ([_x, _c2Node, "mission"] call DSC_core_fnc_c2StampGroup) then {
+                _stamped = _stamped + 1;
+            };
+        } forEach _c2Armed;
+        LOG_3("populateAO - C2 stamped %1 groups to node %2 (%3)",_stamped,_c2Node,_locationName);
+    } else {
+        LOG_1("populateAO - No C2 node in reach of %1, AO is isolated",_locationName);
+    };
 };
 
 // ============================================================================

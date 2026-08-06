@@ -49,6 +49,13 @@ private _fnc_shouldAbort = {
 private _legMin = _legDistRange select 0;
 private _legMax = _legDistRange select 1;
 
+// A rover that spawned on an isolated road segment can fail route planning
+// on every attempt. Rather than idle until the despawn sweep collects it,
+// fall back to a direct move toward the patrol center after a few failures —
+// that almost always puts it back on the connected network, and the next
+// plan succeeds.
+private _consecutiveRouteFailures = 0;
+
 while { !(call _fnc_shouldAbort) } do {
     private _legDist = _legMin + random (_legMax - _legMin);
 
@@ -62,11 +69,22 @@ while { !(call _fnc_shouldAbort) } do {
     private _route = [_vehPos, _legDist, _routeDir] call DSC_core_fnc_buildRoadRoute;
 
     if (_route isEqualTo []) then {
-        // No road from current position — wait and retry. Rare; only
-        // happens if the rover got off-road into terrain with no nearby
-        // roads.
-        sleep 8;
-        continue;
+        _consecutiveRouteFailures = _consecutiveRouteFailures + 1;
+
+        if (_consecutiveRouteFailures < 3) then {
+            // No usable road route from here — wait and retry. The direction
+            // bias is re-rolled each pass, so a retry is a genuinely
+            // different attempt.
+            sleep 8;
+            continue;
+        };
+
+        // Unstick: drive straight at the patrol center and re-plan on arrival.
+        LOG_1("rovingGroundPatrolLoop - %1 route failures, forcing move toward patrol center",_consecutiveRouteFailures);
+        _route = [_patrolCenter];
+        _consecutiveRouteFailures = 0;
+    } else {
+        _consecutiveRouteFailures = 0;
     };
 
     private _destination = _route select -1;

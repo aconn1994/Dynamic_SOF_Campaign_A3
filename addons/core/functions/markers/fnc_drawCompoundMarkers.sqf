@@ -84,11 +84,18 @@ private _markedBuildings = [];
         if (_bldg distance2D _clusterCenter < _dotRadius && { !(_bldg in _markedBuildings) }) then {
             _buildingsToMark pushBackUnique _bldg;
         };
-        {
-            if (_x distance2D _bldg <= _nearbyRadius && { !(_x in _markedBuildings) }) then {
-                _buildingsToMark pushBackUnique _x;
-            };
-        } forEach (nearestObjects [getPos _bldg, ["House"], _nearbyRadius]);
+        // Clearance ring of nearby Houses is only for small/isolated compounds
+        // (per docstring). Large locations (towns/cities) rely solely on the
+        // tight anchor radius above — otherwise every dense city block pulls
+        // in unrelated Houses within range of each garrisoned structure and
+        // buries the actual mission compound in extra dots.
+        if (!_isLarge) then {
+            {
+                if (_x distance2D _bldg <= _nearbyRadius && { !(_x in _markedBuildings) }) then {
+                    _buildingsToMark pushBackUnique _x;
+                };
+            } forEach (nearestObjects [getPos _bldg, ["House"], _nearbyRadius]);
+        };
     } forEach _clusterBuildings;
 
     _markedBuildings append _buildingsToMark;

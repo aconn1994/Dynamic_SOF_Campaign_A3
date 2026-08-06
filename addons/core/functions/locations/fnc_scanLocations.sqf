@@ -523,47 +523,47 @@ TRACE_1("Tag distribution: ",_tagCounts);
 // ============================================================================
 // DEBUG: Marker Visualization
 // ============================================================================
-if (_debug) then {
-    {
-        private _loc = _x;
-        private _pos = _loc get "position";
-        private _locName = _loc get "name";
-        private _locTags = _loc get "tags";
-        private _id = _loc get "id";
-        private _bCount = _loc get "buildingCount";
+// if (_debug) then {
+//     {
+//         private _loc = _x;
+//         private _pos = _loc get "position";
+//         private _locName = _loc get "name";
+//         private _locTags = _loc get "tags";
+//         private _id = _loc get "id";
+//         private _bCount = _loc get "buildingCount";
 
-        private _color = "ColorGrey";
-        if ("military" in _locTags && "base" in _locTags) then { _color = "ColorRed" };
-        if ("military" in _locTags && "outpost" in _locTags) then { _color = "ColorOrange" };
-        if ("military" in _locTags && "camp" in _locTags) then { _color = "ColorYellow" };
-        if ("urban" in _locTags) then { _color = "ColorBlue" };
-        if ("civilian" in _locTags && "settlement" in _locTags) then { _color = "ColorGreen" };
-        if ("civilian" in _locTags && "isolated" in _locTags) then { _color = "ColorWhite" };
-        if ("remote" in _locTags) then { _color = "ColorBrown" };
+//         private _color = "ColorGrey";
+//         if ("military" in _locTags && "base" in _locTags) then { _color = "ColorRed" };
+//         if ("military" in _locTags && "outpost" in _locTags) then { _color = "ColorOrange" };
+//         if ("military" in _locTags && "camp" in _locTags) then { _color = "ColorYellow" };
+//         if ("urban" in _locTags) then { _color = "ColorBlue" };
+//         if ("civilian" in _locTags && "settlement" in _locTags) then { _color = "ColorGreen" };
+//         if ("civilian" in _locTags && "isolated" in _locTags) then { _color = "ColorWhite" };
+//         if ("remote" in _locTags) then { _color = "ColorBrown" };
 
-        private _markerType = "mil_dot";
-        if ("city" in _locTags || "town" in _locTags) then { _markerType = "mil_objective" };
-        if ("settlement" in _locTags) then { _markerType = "mil_triangle" };
-        if ("base" in _locTags) then { _markerType = "mil_objective" };
-        if ("outpost" in _locTags) then { _markerType = "mil_triangle" };
+//         private _markerType = "mil_dot";
+//         if ("city" in _locTags || "town" in _locTags) then { _markerType = "mil_objective" };
+//         if ("settlement" in _locTags) then { _markerType = "mil_triangle" };
+//         if ("base" in _locTags) then { _markerType = "mil_objective" };
+//         if ("outpost" in _locTags) then { _markerType = "mil_triangle" };
 
-        private _markerName = format ["dsc_loc_%1", _id];
-        private _marker = createMarkerLocal [_markerName, _pos];
-        _marker setMarkerTypeLocal _markerType;
-        _marker setMarkerColorLocal _color;
-        _marker setMarkerTextLocal format ["%1 [%2] (%3)", _locName, _bCount, _locTags joinString ","];
-        _marker setMarkerSizeLocal [0.7, 0.7];
+//         private _markerName = format ["dsc_loc_%1", _id];
+//         private _marker = createMarkerLocal [_markerName, _pos];
+//         _marker setMarkerTypeLocal _markerType;
+//         _marker setMarkerColorLocal _color;
+//         _marker setMarkerTextLocal format ["%1 [%2] (%3)", _locName, _bCount, _locTags joinString ","];
+//         _marker setMarkerSizeLocal [0.7, 0.7];
 
-        private _areaName = format ["dsc_loc_%1_area", _id];
-        private _areaMarker = createMarkerLocal [_areaName, _pos];
-        _areaMarker setMarkerShapeLocal "ELLIPSE";
-        _areaMarker setMarkerSizeLocal [_loc get "radius", _loc get "radius"];
-        _areaMarker setMarkerColorLocal _color;
-        _areaMarker setMarkerAlphaLocal 0.15;
-    } forEach _locations;
+//         private _areaName = format ["dsc_loc_%1_area", _id];
+//         private _areaMarker = createMarkerLocal [_areaName, _pos];
+//         _areaMarker setMarkerShapeLocal "ELLIPSE";
+//         _areaMarker setMarkerSizeLocal [_loc get "radius", _loc get "radius"];
+//         _areaMarker setMarkerColorLocal _color;
+//         _areaMarker setMarkerAlphaLocal 0.15;
+//     } forEach _locations;
 
-    TRACE_1("Created debug markers: ",count _locations);
-};
+//     TRACE_1("Created debug markers: ",count _locations);
+// };
 
 INFO("========== Location Scan Complete ==========");
 

@@ -184,6 +184,10 @@ private _vehiclesSpawned = 0;
                 };
 
                 private _gunner = _crewGroup createUnit [_lookoutClass, _parkPos, [], 0, "NONE"];
+
+                // Force onto the group's side — see fnc_spawnGroupYielding.
+                [_gunner] joinSilent _crewGroup;
+
                 _gunner moveInGunner _vehicle;
                 (_result get "units") pushBack _gunner;
 

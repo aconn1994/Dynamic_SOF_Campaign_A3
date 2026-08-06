@@ -20,6 +20,29 @@ with "open tablet → tweak parameters → queue → play → tweak → queue".
 | **B — Blue Force Tracker** | ACTIVE (next build) | Live friendly-force map page + high-command capacity. First *player-facing* (non-debug) feature. See "Blue Force Tracker — Design & Build Plan" below. |
 | **C — Supports** | DEFERRED | Move flagpole actions (HALO, Extraction, Recruit Medic) into a Supports panel; UAV control; air support. **Deferred** — an external support mod currently covers this. Revisit after BFT ships. |
 | **D — In-mission UI (rest)** | planned | Squad panel (`units group player`), Intel panel (reads `DSC_currentMission >> intelTokens`) |
+| **E — Radio Feed** | planned | Scrollable, timestamped history of intercepted enemy comms + ISR reports. Consumer of the C2 Network layer — see `.crush/c2-network.md` (Sprint F.4). |
+
+### Radio Feed page (Phase E preview)
+
+The C2 Network delivers chatter as real-time subtitles, which the player
+will miss while in contact. The Radio Feed page is the scrollback.
+
+```
+[14:32:07] (INTERCEPT) KILO-2 → ZULU   "Contact, small arms, grid 034-112"
+[14:32:41] (INTERCEPT) ZULU   → KILO-2 "Say again your location"
+[14:33:15] (ISR)       QRF dispatched — Ostatny outpost, 4 vehicles, bearing 340
+[14:38:02] (INTERCEPT) ZULU   → HQ     "Kilo-2 not responding, sending a section"
+```
+
+Backed by a ring buffer (~200 entries) cleared on mission cleanup with
+the rest of C2 state. Entries carry `nodeId` for map cross-reference and
+a `grade` field marking the ISR fidelity tier the line was earned at.
+Text-only by design — audio VO would get overwhelming once the network
+is busy, and text scales to any traffic volume.
+
+Slots into `fnc_switchPanel` as one more tab alongside
+mission/supports/bft/squad/intel.
+
 
 ## Code Structure
 

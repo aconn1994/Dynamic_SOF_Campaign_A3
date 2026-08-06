@@ -30,6 +30,7 @@ PREP_SUB(classification,classifyGroups);
 
 // Data
 PREP_SUB(data,getBriefingFragments);
+PREP_SUB(data,getC2Archetypes);
 PREP_SUB(data,getCompletionTypes);
 PREP_SUB(data,getEntityArchetypes);
 PREP_SUB(data,getMissionProfiles);
@@ -37,6 +38,10 @@ PREP_SUB(data,getObjectArchetypes);
 PREP_SUB(data,getStructureTypes);
 
 // Debug
+// TEMPORARY (August 2026) — side/faction diagnostics. Remove with the
+// faction overhaul (Plan A). See .crush/faction-sides.md.
+PREP_SUB(debug,diagSideDump);
+PREP_SUB(debug,diagSideSample);
 
 // Faction
 PREP_SUB(faction,extractAssets);
@@ -45,6 +50,7 @@ PREP_SUB(faction,filterPatrolGroups);
 PREP_SUB(faction,getGroupsByTag);
 PREP_SUB(faction,initFactionData);
 PREP_SUB(faction,resolveEntityClass);
+PREP_SUB(faction,resolveRoleSide);
 PREP_SUB(faction,spawnGroupYielding);
 
 // Init
@@ -98,6 +104,26 @@ PREP_SUB(bft,bftExecuteCommand);
 PREP_SUB(bft,bftResolveIconType);
 PREP_SUB(bft,bftQrfStaging);
 PREP_SUB(bft,bftQrfReact);
+
+// C2 Network (Sprint F — communication simulation)
+PREP_SUB(c2,initC2Network);
+PREP_SUB(c2,c2InitSignalSources);
+PREP_SUB(c2,c2StampGroup);
+PREP_SUB(c2,c2ResolveNode);
+PREP_SUB(c2,c2RaiseAlert);
+PREP_SUB(c2,c2Signal);
+PREP_SUB(c2,c2ContactReport);
+PREP_SUB(c2,c2NoiseEvent);
+PREP_SUB(c2,c2FeedAdd);
+PREP_SUB(c2,c2Respond);
+PREP_SUB(c2,c2ResponseRecall);
+PREP_SUB(c2,c2ResponseQrf);
+// F.4 — ISR coverage + player-facing delivery
+PREP_SUB(c2,c2IsrCoverage);
+PREP_SUB(c2,c2IsrEntryTier);
+PREP_SUB(c2,c2IsrBroadcast);
+PREP_SUB(c2,c2ContactRegister);
+PREP_SUB(c2,c2Telegraph);
 
 // Placement strategies
 PREP_SUB(placement,placeInDeepBuilding);

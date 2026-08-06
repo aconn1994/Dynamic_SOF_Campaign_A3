@@ -124,14 +124,13 @@ if (isNull _group) exitWith {
     _empty
 };
 
-// Ambient posture
+// Ambient posture — GREEN = hold fire, defend only. See fnc_rovingSpawnFoot
+// for why BLUE + disableAI TARGET/AUTOTARGET prevented all self-defence.
 _group setBehaviour "AWARE";
-_group setCombatMode "BLUE";
+_group setCombatMode "GREEN";
 _group setSpeedMode "LIMITED";
 {
     _x disableAI "AUTOCOMBAT";
-    _x disableAI "TARGET";
-    _x disableAI "AUTOTARGET";
 } forEach units _group;
 
 _group enableDynamicSimulation true;
@@ -183,6 +182,14 @@ private _destPos = _waterPoints select 0;
 // ============================================================================
 // Step 6: register on tracker
 // ============================================================================
+// C2 provenance — see fnc_rovingSpawnGround for the hotspot-as-owner rationale.
+private _c2Node = _nearestHotspot get "id";
+private _c2Nodes = missionNamespace getVariable ["DSC_c2Nodes", createHashMap];
+if !(_c2Node in _c2Nodes) then {
+    _c2Node = [_originPos, _side] call DSC_core_fnc_c2ResolveNode;
+};
+[_group, _c2Node, "rover"] call DSC_core_fnc_c2StampGroup;
+
 private _id = format ["roving_boat_%1_%2", _sideKey, diag_tickTime];
 private _record = createHashMapFromArray [
     ["id",          _id],

@@ -306,6 +306,57 @@ while {true} do {
     } forEach _commanded;
 
     // ------------------------------------------------------------------------
+    // F.4 — hostile contact fixes (VISUAL source)
+    // ------------------------------------------------------------------------
+    // The ordinary BFT function: subordinate units report what they see and it
+    // appears on the common operational picture. Gated on the engine's own
+    // `knowsAbout`, so this cannot reveal anything the player's side has not
+    // actually observed.
+    //
+    // 0.5 is roughly "identified as a hostile presence" rather than a vague
+    // sense that something is out there. Below that the contact is not solid
+    // enough to put a marker on a commander's screen.
+    //
+    // Scanned here rather than on its own loop because the snapshot already
+    // runs at the right cadence (~2.5s) and already has the friendly-side
+    // list. Refreshing while observed is what keeps a visual fix accurate
+    // exactly as long as somebody is looking at it.
+    // 1500 m rather than something larger: beyond that the player's own units
+    // are not reliably identifying anything anyway, and this is a nearEntities
+    // sweep per player every snapshot tick — the radius is the cost driver.
+    private _seenRange = 1500;
+    {
+        private _pUnit = _x;
+        if (alive _pUnit) then {
+            private _pSide = side _pUnit;
+            private _nearHostiles = (_pUnit nearEntities [["Man", "Car", "Tank", "Ship", "Air"], _seenRange])
+                select {
+                    private _e = _x;
+                    alive _e
+                    && { !isNull (group _e) }
+                    && { !((side (group _e)) in _friendlySides) }
+                    && { (side (group _e)) isNotEqualTo civilian }
+                };
+
+            private _seenGroups = [];
+            {
+                private _g = group _x;
+                if (!(_g in _seenGroups) && {(_pSide knowsAbout (leader _g)) >= 0.5}) then {
+                    _seenGroups pushBack _g;
+                };
+            } forEach _nearHostiles;
+
+            {
+                private _hg = _x;
+                private _hl = leader _hg;
+                if (!isNull _hl) then {
+                    [_hg, getPosATL _hl, "VISUAL", groupId _hg] call DSC_core_fnc_c2ContactRegister;
+                };
+            } forEach _seenGroups;
+        };
+    } forEach allPlayers;
+
+    // ------------------------------------------------------------------------
     missionNamespace setVariable ["DSC_bftTracks", _tracks, true];
 
     private _interval = missionNamespace getVariable ["DSC_bftSnapshotInterval", 2.5];

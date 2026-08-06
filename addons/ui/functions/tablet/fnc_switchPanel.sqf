@@ -14,6 +14,7 @@
  * Arguments:
  *     0: _display <DISPLAY> - tablet display
  *     1: _panelKey <STRING> - panel identifier ("mission","supports","bft","squad","intel")
+ *                             "intel" hosts the C2 Radio Feed (F.4)
  */
 
 params [
@@ -35,9 +36,19 @@ private _bftBase = [
     DSC_TABLET_IDC_BFT_LEGEND
 ];
 
+private _radioBase = [
+    DSC_TABLET_IDC_RADIO_TITLE,
+    DSC_TABLET_IDC_RADIO_COVERAGE,
+    DSC_TABLET_IDC_RADIO_FILTER,
+    DSC_TABLET_IDC_RADIO_LIST,
+    DSC_TABLET_IDC_RADIO_NODES,
+    DSC_TABLET_IDC_RADIO_HINT
+];
+
 private _panelControls = createHashMapFromArray [
     ["mission", [DSC_TABLET_IDC_MGEN_PANEL]],
-    ["bft",     _bftBase + ([] call DSC_ui_fnc_panelBft_infoIdcs)]
+    ["bft",     _bftBase + ([] call DSC_ui_fnc_panelBft_infoIdcs)],
+    ["intel",   _radioBase]
 ];
 
 {
@@ -78,6 +89,12 @@ switch (_panelKey) do {
     };
     case "bft": {
         [_display] call DSC_ui_fnc_panelBft_init;
+    };
+    // Radio Feed is hosted on the existing INTEL tab rather than adding a
+    // sixth: intercepted enemy traffic IS intelligence, and the tab was a
+    // "not implemented yet" stub.
+    case "intel": {
+        [_display] call DSC_ui_fnc_panelRadio_init;
     };
     default {
         hint format ["'%1' panel not implemented yet.", _panelKey];

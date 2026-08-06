@@ -127,11 +127,26 @@ private _airClass = selectRandom _airPool;
 // ============================================================================
 // _spawnDir is a random angle from player. Aircraft spawns there at altitude,
 // flies through player area to _destPos on the opposite side.
+//
+// _altitude is ABOVE GROUND. It must be added to the terrain height at the
+// spawn point before being used as an ASL coordinate. The previous code
+// passed it straight to setPosASL, so a rotary rover asking for 120m of
+// clearance was placed at 120m *above sea level* — which on Altis is below
+// ground across most of the interior. That produced the "rotary spawned
+// alt=119m ... despawned dead ~7s later" pattern, and every one of those
+// crashes fired a legitimate 3500m VEHICLE_KILL noise event into the C2
+// network, spraying false RED alerts across the map.
+//
+// Clamped at 0 so a spawn over open water measures from the surface rather
+// than the sea bed.
 private _altitude = if (_airType == "rotary") then { 100 + random 50 } else { 600 + random 400 };
 private _spawnDistFromPlayer = if (_airType == "rotary") then { 2500 + random 2000 } else { 4000 + random 2000 };
 
 private _spawnPos2D = _playerPos getPos [_spawnDistFromPlayer, _spawnDir];
-private _spawnPos = [_spawnPos2D select 0, _spawnPos2D select 1, _altitude];
+private _spawnX = _spawnPos2D select 0;
+private _spawnY = _spawnPos2D select 1;
+private _terrainASL = (getTerrainHeightASL [_spawnX, _spawnY]) max 0;
+private _spawnPos = [_spawnX, _spawnY, _terrainASL + _altitude];
 
 // ============================================================================
 // Step 5: create vehicle + crew
@@ -142,8 +157,10 @@ if (isNull _vehicle) exitWith {
     _empty
 };
 
+private _heading = _spawnPos2D getDir _destPos;
+
 _vehicle setPosASL _spawnPos;
-_vehicle setDir (_spawnPos2D getDir _destPos);
+_vehicle setDir _heading;
 _vehicle flyInHeight _altitude;
 _vehicle allowDamage true;
 
@@ -154,16 +171,34 @@ if (isNull _group) exitWith {
     _empty
 };
 
+// Give it real airspeed along its heading. createVehicle's "FLY" flag starts
+// the aircraft in flight, but setPosASL + setDir do not rotate the initial
+// velocity vector, so the aircraft was being repositioned and re-aimed while
+// still carrying its original momentum — rotary craft in particular would
+// wallow, settle and hit terrain before the AI took over. Matching velocity
+// to heading gives the flight model something coherent to fly out of.
+// Applied AFTER crew creation, which resets velocity.
+private _cruise = [110, 40] select (_airType == "rotary");
+_vehicle setVelocity [(sin _heading) * _cruise, (cos _heading) * _cruise, 0];
+
 // Ambient posture — see persistentUAV gotcha note: CARELESS makes flyers
 // cling to current waypoint. AWARE + disable AUTOCOMBAT gives clean transit
-// without firing on player vehicles passively.
+// without hunting the player.
+//
+// GREEN (hold fire, defend only) rather than BLUE (never fire). See
+// fnc_rovingSpawnFoot for the full write-up: BLUE plus disableAI TARGET and
+// AUTOTARGET is three separate locks on ever firing, so rovers were shot down
+// without ever responding.
+//
+// Air is the sharpest case for this change — an armed gunship that returns
+// fire is a real threat spike. It is still gated behind the player shooting
+// first, which is the correct trade: an attack helicopter that placidly
+// absorbs fire is worse for immersion than one that fights back.
 _group setBehaviour "AWARE";
-_group setCombatMode "BLUE";
+_group setCombatMode "GREEN";
 _group setSpeedMode "NORMAL";
 {
     _x disableAI "AUTOCOMBAT";
-    _x disableAI "TARGET";
-    _x disableAI "AUTOTARGET";
 } forEach units _group;
 
 _group enableDynamicSimulation true;
@@ -182,17 +217,33 @@ _vehicle enableDynamicSimulation true;
 //
 // All air retains AWARE + autocombat-disabled posture, so loitering is
 // non-threatening to the player.
-private _behavior = ["loiter", "transit"] select (random 1 < 0.05);
+//
+// The roll was inverted against its own documented intent (0.05 gave ~95%
+// loiter, not 55% transit), which meant nearly every rotary rover was
+// orbiting low and slow near the player instead of transiting — the worst
+// possible exposure for the terrain-clipping spawn bug fixed in Step 4.
+private _behavior = ["loiter", "transit"] select (random 1 < 0.55);
+
+// Waypoint altitudes are terrain-relative for the same reason the spawn is
+// (see Step 4) — a bare _altitude as the Z coordinate is an below-ground
+// command anywhere the terrain rises above it.
+private _fnc_atAltitude = {
+    params ["_x", "_y"];
+    private _ground = (getTerrainHeightASL [_x, _y]) max 0;
+    [_x, _y, _ground + _altitude]
+};
+
+// The exit point inherited the player's own Z from `getPos`, which is a
+// sea-level-ish number 6-10km away from wherever the terrain actually is.
+_destPos = [_destPos select 0, _destPos select 1] call _fnc_atAltitude;
 
 if (_behavior == "transit") then {
     // Mid-waypoint near the player keeps the flight visible. Final waypoint
     // past the destination heading off-map ensures the aircraft doesn't
     // hang around if the despawn sweep is delayed.
-    private _midPos = [
-        (_playerPos select 0) + (-500 + random 1000),
-        (_playerPos select 1) + (-500 + random 1000),
-        _altitude
-    ];
+    private _midX = (_playerPos select 0) + (-500 + random 1000);
+    private _midY = (_playerPos select 1) + (-500 + random 1000);
+    private _midPos = [_midX, _midY] call _fnc_atAltitude;
 
     private _wpMid = _group addWaypoint [_midPos, 0];
     _wpMid setWaypointType "MOVE";
@@ -209,20 +260,16 @@ if (_behavior == "transit") then {
     // circles indefinitely. A short scheduled scope kills the cycle after
     // 90-180s and pushes the aircraft toward the exit, so it doesn't
     // loiter forever.
-    private _loiterCenter = [
-        (_playerPos select 0) + (-1000 + random 2000),
-        (_playerPos select 1) + (-1000 + random 2000),
-        _altitude
-    ];
+    private _loiterX = (_playerPos select 0) + (-1000 + random 2000);
+    private _loiterY = (_playerPos select 1) + (-1000 + random 2000);
+    private _loiterCenter = [_loiterX, _loiterY] call _fnc_atAltitude;
     private _loiterRadius = [1500, 600] select (_airType == "rotary");
 
     for "_i" from 0 to 2 do {
         private _ang = (_i * 120) + (random 30);
-        private _ringPos = [
-            (_loiterCenter select 0) + _loiterRadius * sin _ang,
-            (_loiterCenter select 1) + _loiterRadius * cos _ang,
-            _altitude
-        ];
+        private _ringX = _loiterX + _loiterRadius * sin _ang;
+        private _ringY = _loiterY + _loiterRadius * cos _ang;
+        private _ringPos = [_ringX, _ringY] call _fnc_atAltitude;
         private _wp = _group addWaypoint [_ringPos, 0];
         _wp setWaypointType "MOVE";
         _wp setWaypointSpeed "LIMITED";
@@ -252,7 +299,8 @@ if (_behavior == "transit") then {
 // flying outbound until despawn culls it. Transit only — loiter behavior
 // builds its own exit via the scheduled scope above.
 if (_behavior == "transit") then {
-    private _exitPos = _destPos getPos [6000, _exitDir];
+    private _exitRaw = _destPos getPos [6000, _exitDir];
+    private _exitPos = [_exitRaw select 0, _exitRaw select 1] call _fnc_atAltitude;
     private _wpExit = _group addWaypoint [_exitPos, 0];
     _wpExit setWaypointType "MOVE";
     _wpExit setWaypointSpeed "NORMAL";
@@ -261,6 +309,14 @@ if (_behavior == "transit") then {
 // ============================================================================
 // Step 7: register on tracker
 // ============================================================================
+// C2 provenance — see fnc_rovingSpawnGround for the hotspot-as-owner rationale.
+private _c2Node = _nearestHotspot get "id";
+private _c2Nodes = missionNamespace getVariable ["DSC_c2Nodes", createHashMap];
+if !(_c2Node in _c2Nodes) then {
+    _c2Node = [_originPos, _side] call DSC_core_fnc_c2ResolveNode;
+};
+[_group, _c2Node, "rover"] call DSC_core_fnc_c2StampGroup;
+
 private _id = format ["roving_air_%1_%2", _sideKey, diag_tickTime];
 private _record = createHashMapFromArray [
     ["id",          _id],

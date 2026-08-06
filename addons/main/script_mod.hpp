@@ -26,6 +26,6 @@
 //   TRACE_n            — variable inspection on the same per-event detail
 //
 // Debug markers + spammy systemChats are gated behind #ifdef DEBUG_MODE_FULL.
-#define DEBUG_MODE_NORMAL
+#define DEBUG_MODE_FULL
 
 #include "script_version.hpp"

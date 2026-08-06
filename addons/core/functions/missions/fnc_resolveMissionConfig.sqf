@@ -247,10 +247,12 @@ if (_areaFaction == "") then {
 // Determine area side
 private _areaSide = east;
 {
+    private _roleKey = _x;
     private _roleData = _y;
     private _roleFactions = _roleData getOrDefault ["factions", []];
     if (_areaFaction in _roleFactions) exitWith {
-        _areaSide = _roleData getOrDefault ["side", east];
+        private _natural = _roleData getOrDefault ["side", east];
+        _areaSide = [_roleKey, _natural] call DSC_core_fnc_resolveRoleSide;
     };
 } forEach _factionData;
 
@@ -270,7 +272,12 @@ if (_targetFaction != "") then {
         private _roleData = _factionData getOrDefault [_role, createHashMap];
         private _roleFactions = _roleData getOrDefault ["factions", []];
         if (_targetFaction in _roleFactions) exitWith {
-            _targetSide = _roleData getOrDefault ["side", east];
+            private _natural = _roleData getOrDefault ["side", east];
+            // Hostile roles are forced off independent — see
+            // fnc_resolveRoleSide. Without this, a mission targeting
+            // irregulars (or an independent-side partner faction) spawns
+            // enemies the player's own AI treats as friendly.
+            _targetSide = [_role, _natural] call DSC_core_fnc_resolveRoleSide;
             _targetRole = _role;
         };
     } forEach ["opFor", "opForPartner", "irregulars", "bluFor", "bluForPartner"];
@@ -283,7 +290,8 @@ if (_targetFaction != "") then {
         private _role = _x;
         private _roleData = _factionData getOrDefault [_role, createHashMap];
         private _roleFactions = _roleData getOrDefault ["factions", []];
-        private _roleSide = _roleData getOrDefault ["side", east];
+        private _natural = _roleData getOrDefault ["side", east];
+        private _roleSide = [_role, _natural] call DSC_core_fnc_resolveRoleSide;
         {
             _targetCandidates pushBack [_x, _roleSide, _role];
         } forEach _roleFactions;
@@ -295,7 +303,8 @@ if (_targetFaction != "") then {
             private _role = _x;
             private _roleData = _factionData getOrDefault [_role, createHashMap];
             private _roleFactions = _roleData getOrDefault ["factions", []];
-            private _roleSide = _roleData getOrDefault ["side", east];
+            private _natural = _roleData getOrDefault ["side", east];
+            private _roleSide = [_role, _natural] call DSC_core_fnc_resolveRoleSide;
             {
                 _targetCandidates pushBack [_x, _roleSide, _role];
             } forEach _roleFactions;

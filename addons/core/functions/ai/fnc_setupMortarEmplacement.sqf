@@ -91,6 +91,10 @@ for "_i" from 0 to (_count - 1) do {
     _mortar setDir (random 360);
 
     private _gunner = _group createUnit [_crewClass, _pos, [], 0, "NONE"];
+
+    // Force onto the group's side — see fnc_spawnGroupYielding.
+    [_gunner] joinSilent _group;
+
     _gunner allowDamage false;
     _gunner moveInGunner _mortar;
     [_gunner, "moderate", 0.05] call DSC_core_fnc_applySkillProfile;

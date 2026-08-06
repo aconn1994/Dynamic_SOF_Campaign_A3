@@ -136,6 +136,12 @@ for "_i" from 0 to (_count - 1) do {
     private _unit = _group createUnit [_class, _spawnPos, [], 0, "NONE"];
     if (isNull _unit) then { deleteGroup _group; continue };
 
+    // Force onto the group's side — see fnc_spawnGroupYielding. Usually a
+    // no-op here (civilian class into a civilian group), but the classMix can
+    // resolve non-CIV_F classes, and an armed west/east "civilian" wandering a
+    // town on its native side is a hostile the player never provoked.
+    [_unit] joinSilent _group;
+
     _unit setPosATL _spawnPos;
     _unit setDir random 360;
     _unit allowFleeing 0;

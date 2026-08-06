@@ -92,6 +92,13 @@ if (_candidatesWithPos isNotEqualTo []) then {
 // ----------------------------------------------------------------------------
 private _group = createGroup [_side, true];
 private _unit = _group createUnit [_unitClass, _pos, [], 0, "NONE"];
+
+// Force onto the group's side — see fnc_spawnGroupYielding. Matters here even
+// for hostages: a HOSTAGE archetype resolves a CIV_F class but the caller may
+// pass a non-civilian side, and the mismatch makes the group's own side see the
+// hostage as an enemy.
+[_unit] joinSilent _group;
+
 _unit setPos _pos;
 
 switch (_stance) do {

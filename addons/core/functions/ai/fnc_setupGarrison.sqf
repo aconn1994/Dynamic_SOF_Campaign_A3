@@ -315,6 +315,12 @@ LOG_3("setupGarrison - %1 anchors selected (%2 main, %3 promoted side)",count _a
             private _grp = createGroup [_side, true];
             private _unit = _grp createUnit [_unitClass, _pos, [], 0, "NONE"];
 
+            // Force the unit onto the group's side. `group createUnit` leaves
+            // the unit on its CfgFactionClasses native side, producing a
+            // mixed-side group that shoots itself apart. See
+            // fnc_spawnGroupYielding for the full write-up.
+            [_unit] joinSilent _grp;
+
             _unit allowDamage false;
             _unit setPos _pos;
             _unit allowDamage true;

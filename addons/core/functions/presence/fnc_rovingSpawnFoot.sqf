@@ -129,14 +129,29 @@ if (isNull _group || {(units _group) isEqualTo []}) exitWith {
 };
 
 // Ambient posture — same as air/ground rovers. Foot patrols are armed but
-// not actively hunting; they react only if fired upon.
+// not actively hunting; they DO defend themselves when engaged.
+//
+// GREEN + AUTOCOMBAT-off is the combination that actually expresses that.
+// The previous posture was BLUE + disableAI TARGET + disableAI AUTOTARGET,
+// which is three independent locks on ever firing a shot:
+//   - setCombatMode "BLUE"      = NEVER FIRE (not "hold fire", never)
+//   - disableAI "AUTOTARGET"    = never acquires a target
+//   - disableAI "TARGET"        = never aims at one
+// The old comment claimed "react only if fired upon", but that was impossible:
+// a patrol could be shot to pieces one man at a time and would not respond.
+// Confirmed in playtest — a six-man CSAT patrol was wiped over two minutes
+// without returning fire.
+//
+// Correct mapping of intent to engine settings:
+//   setCombatMode "GREEN"       = hold fire, DEFEND ONLY  <- what we wanted
+//   disableAI "AUTOCOMBAT"      = stay in AWARE, keep walking the patrol
+//                                 route instead of going hunting
+//   targeting AI left ENABLED   = can see and shoot whoever shoots them
 _group setBehaviour "AWARE";
-_group setCombatMode "BLUE";
+_group setCombatMode "GREEN";
 _group setSpeedMode "LIMITED";
 {
     _x disableAI "AUTOCOMBAT";
-    _x disableAI "TARGET";
-    _x disableAI "AUTOTARGET";
 } forEach units _group;
 
 _group enableDynamicSimulation true;
@@ -158,6 +173,14 @@ private _destPos = _playerPos;
 // ============================================================================
 // Step 6: register on tracker
 // ============================================================================
+// C2 provenance — see fnc_rovingSpawnGround for the hotspot-as-owner rationale.
+private _c2Node = _nearestHotspot get "id";
+private _c2Nodes = missionNamespace getVariable ["DSC_c2Nodes", createHashMap];
+if !(_c2Node in _c2Nodes) then {
+    _c2Node = [_originPos, _side] call DSC_core_fnc_c2ResolveNode;
+};
+[_group, _c2Node, "rover"] call DSC_core_fnc_c2StampGroup;
+
 private _id = format ["roving_foot_%1_%2", _sideKey, diag_tickTime];
 // Vehicle field stays objNull for foot rovers — despawn sweep handles units.
 private _record = createHashMapFromArray [

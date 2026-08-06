@@ -68,7 +68,10 @@ if (_faction != "") then {
         private _facs = (_y getOrDefault ["factions", []]);
         if (_faction in _facs) exitWith {
             _roleName = _x;
-            _side = _y getOrDefault ["side", east];
+            // Hostile roles are forced off independent so the player's own
+            // partner forces can own that side. See fnc_resolveRoleSide.
+            private _natural = _y getOrDefault ["side", east];
+            _side = [_x, _natural] call DSC_core_fnc_resolveRoleSide;
         };
     } forEach _factionProfileConfig;
 

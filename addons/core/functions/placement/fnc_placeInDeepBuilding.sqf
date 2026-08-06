@@ -102,6 +102,14 @@ if (_hasBodyguards && { _garrisonUnits isNotEqualTo [] }) then {
             _pos = selectRandom _freePositions;
             _group = group _bodyguard;
             _unit = _group createUnit [_unitClass, _pos, [], 0, "NONE"];
+
+            // Force onto the group's side — see fnc_spawnGroupYielding.
+            // Critical for HVTs: a BOMBMAKER/FINANCIER resolves a CIV_F class,
+            // and without this the HVT sits on the civilian side inside an east
+            // bodyguard group. Confirmed in playtest:
+            // `side=CIV grpSide=EAST cls=C_scientist_01_formal_F`.
+            [_unit] joinSilent _group;
+
             _unit setPos _pos;
             _unit setUnitPos "UP";
             _unit disableAI "PATH";
@@ -126,6 +134,10 @@ if (isNull _unit) then {
         private _buildingPositions = _building buildingPos -1;
         _pos = selectRandom _buildingPositions;
         _unit = _group createUnit [_unitClass, _pos, [], 0, "NONE"];
+
+        // Force onto the group's side — see fnc_spawnGroupYielding.
+        [_unit] joinSilent _group;
+
         _unit setPos _pos;
         _unit setUnitPos "UP";
         _fallback = "structure";
@@ -140,6 +152,10 @@ if (isNull _unit) then {
     _group = createGroup [_side, true];
     _pos = _locationPos;
     _unit = _group createUnit [_unitClass, _pos, [], 5, "NONE"];
+
+    // Force onto the group's side — see fnc_spawnGroupYielding.
+    [_unit] joinSilent _group;
+
     _fallback = "center";
     LOG("placeInDeepBuilding - center fallback (no buildings with positions)");
 };

@@ -19,6 +19,17 @@
 // Eventually I want to autoscan for factions, and allow the player to decide what they want the it to look like
 
 // Vanilla Altis
+//
+// ROLE CASTING RULES (see .crush/faction-sides.md):
+//   - The `side` here is an INPUT to fnc_resolveRoleSide, not a fact. It is
+//     overwritten by the normalization pass below. All hostile roles collapse
+//     onto east regardless of what is written here.
+//   - Cast by BEHAVIOUR, not by the faction's config side. Syndikat and
+//     Looters are config-independent but they are insurgents, so they belong
+//     in `irregulars`, not in a partner role.
+//   - `bluForPartner` means "armed ally that fights alongside the player".
+//     Anything listed here spawns as a live combatant at every bluFor-
+//     controlled location on the map, so keep it small and deliberate.
 private _factionProfileConfigVanilla = createHashMapFromArray [
     ["bluFor", createHashMapFromArray [
         ["side", west],
@@ -26,7 +37,7 @@ private _factionProfileConfigVanilla = createHashMapFromArray [
     ]],
     ["bluForPartner", createHashMapFromArray [
         ["side", independent],
-        ["factions", ["IND_F", "BLU_GEN_F"]] // AAF, Gendarmerie
+        ["factions", ["IND_F"]] // AAF (host nation military)
     ]],
     ["opFor", createHashMapFromArray [
         ["side", east],
@@ -34,11 +45,14 @@ private _factionProfileConfigVanilla = createHashMapFromArray [
     ]],
     ["opForPartner", createHashMapFromArray [
         ["side", east],
-        ["factions", ["OPF_G_F", "IND_C_F"]] // FIA, Syndikat
+        ["factions", ["OPF_G_F"]] // FIA (opFor-aligned militia)
     ]],
     ["irregulars", createHashMapFromArray [
-        ["side", independent],
-        ["factions", ["IND_L_F"]] // Looters
+        ["side", east],
+        // Syndikat moved here from opForPartner. It is a criminal/insurgent
+        // faction, not a military auxiliary — casting it as a partner made it
+        // eligible to garrison military outposts as a top-tier holder.
+        ["factions", ["IND_C_F", "IND_L_F"]] // Syndikat, Looters
     ]],
     ["civilians", createHashMapFromArray [
         ["side", civilian],
@@ -46,7 +60,10 @@ private _factionProfileConfigVanilla = createHashMapFromArray [
     ]],
     ["environmentalActors", createHashMapFromArray [
         ["side", civilian],
-        ["factions", ["CIV_IDAP_F"]] // IDAP
+        // Gendarmerie is a WEST-config law-enforcement faction. It was cast as
+        // a bluForPartner field ally, which both mixed west-config units into
+        // independent-side groups and put riot police in the line of battle.
+        ["factions", ["CIV_IDAP_F", "BLU_GEN_F"]] // IDAP, Gendarmerie
     ]]
 ];
 
@@ -66,8 +83,7 @@ private _factionProfileConfigRhs = createHashMapFromArray [
         ["side", independent],
         ["factions", [
             "rhsgref_faction_cdf_ground_b", // CDF (Ground Forces)
-            "rhssaf_faction_army",           // SAF (KOV)
-            "rhssaf_faction_un"              // SAF (UN Peacekeepers)
+            "rhssaf_faction_army"            // SAF (KOV)
         ]]
     ]],
     ["opFor", createHashMapFromArray [
@@ -84,7 +100,7 @@ private _factionProfileConfigRhs = createHashMapFromArray [
         ["factions", ["rhsgref_faction_nationalist"]] // Nationalist Militia
     ]],
     ["irregulars", createHashMapFromArray [
-        ["side", independent],
+        ["side", east],
         ["factions", ["rhsgref_faction_chdkz"]] // ChDKZ Insurgents
     ]],
     ["civilians", createHashMapFromArray [
@@ -93,7 +109,10 @@ private _factionProfileConfigRhs = createHashMapFromArray [
     ]],
     ["environmentalActors", createHashMapFromArray [
         ["side", civilian],
-        ["factions", ["CIV_IDAP_F"]]
+        // UN peacekeepers moved out of bluForPartner: they are observers, not
+        // a field ally, and every faction in a partner role spawns as a live
+        // combatant across all friendly-held territory.
+        ["factions", ["CIV_IDAP_F", "rhssaf_faction_un"]]
     ]]
 ];
 
@@ -203,6 +222,37 @@ private _selectedProfile = if (_allAegisPresent) then {
     [_factionProfileConfigVanilla, _factionProfileConfigRhs] select (_allRhsPresent);
 };
 
+// ============================================================================
+// Normalize role sides ONCE, at the only point where a profile enters runtime.
+// ============================================================================
+// Arma diplomacy is side-level, so the engine's three combatant sides have to
+// carry all five DSC combat roles. The profile literals above declare a
+// "natural" side per role, and those declarations disagree with each other
+// (vanilla/RHS put bluForPartner on independent, Aegis puts it on west) and
+// with what the engine can actually express (irregulars on independent makes
+// the player's own partner forces indistinguishable from their enemies).
+//
+// Rather than convert the ~10 downstream sites that read `side` off this
+// hashmap or off DSC_factionData (which copies it verbatim), the side is
+// resolved here, once. Everything downstream then reads an already-correct
+// value and the invariant "no unresolved side exists in runtime state" holds
+// by construction instead of by convention.
+//
+// See fnc_resolveRoleSide for the rule and .crush/faction-sides.md for the
+// full write-up.
+{
+    private _roleKey  = _x;
+    private _roleData = _y;
+    private _natural  = _roleData getOrDefault ["side", east];
+    private _resolved = [_roleKey, _natural] call DSC_core_fnc_resolveRoleSide;
+
+    if (_resolved isNotEqualTo _natural) then {
+        INFO_3("Role side normalized: %1 %2 -> %3",_roleKey,_natural,_resolved);
+    };
+
+    _roleData set ["side", _resolved];
+} forEach _selectedProfile;
+
 private _getTimeAsString = {
     private _daytime = dayTime;
     private _hours = floor _daytime;
@@ -274,7 +324,7 @@ INFO("=============== Determining Map Influence =================");
 INFO("Initializing map influence...");
 
 // Campaign profiles: "offensive" (opFor dominant), "defensive" (bluFor dominant), "contested" (mixed)
-private _influenceData = [_locations, "defensive", _factionData] call DSC_core_fnc_initInfluence;
+private _influenceData = [_locations, "offensive", _factionData] call DSC_core_fnc_initInfluence;
 missionNamespace setVariable ["DSC_influenceData", _influenceData, true];
 
 INFO("Map influence has been initialized.");
@@ -401,7 +451,19 @@ systemChat format ["DSC - %1 - Military bases initialized (%2 bases).", call _ge
 #endif
 
 // ============================================================================
-// STEP 4c: Presence Manager (world population around the player)
+// STEP 4c: C2 Network (communication simulation)
+// ============================================================================
+// Must run BEFORE presence + roving: both stamp their spawned groups with
+// C2 provenance, and the node registry has to exist for those stamps to
+// land. Builds nodes from influence data (base=COMMAND, outpost=RELAY,
+// camp/town=OUTSTATION), precomputes link topology per faction comms
+// archetype, assigns stable callsigns, and runs a 10s alert-decay tick.
+// Sprint F.1 is log-only — no signals raised, no responses dispatched.
+INFO("========== Initializing C2 Network ==========");
+[_influenceData, _factionData] call DSC_core_fnc_initC2Network;
+
+// ============================================================================
+// STEP 4d: Presence Manager (world population around the player)
 // ============================================================================
 // Builds a zone registry (bases / outposts / camps / populated areas) from
 // influence data and spawns a 20s tick loop driving a per-zone state machine.
@@ -411,7 +473,7 @@ INFO("========== Initializing Presence Manager ==========");
 [_influenceData] call DSC_core_fnc_initPresenceManager;
 
 // ============================================================================
-// STEP 4d: Roving Manager (Sprint E Phase 1 — ambient air)
+// STEP 4e: Roving Manager (Sprint E Phase 1 — ambient air)
 // ============================================================================
 // Sibling system to the presence manager. Independent globals, tick, worker.
 // Phase-offset 4s from presence so spawn decisions alternate on the scheduler.
@@ -421,7 +483,7 @@ INFO("========== Initializing Roving Manager ==========");
 [_influenceData, _factionData] call DSC_core_fnc_initRovingManager;
 
 // ============================================================================
-// STEP 4e: Blue Force Tracker Snapshot Aggregator
+// STEP 4f: Blue Force Tracker Snapshot Aggregator
 // ============================================================================
 // Walks presence zones + roving records + UAV + current mission, filters to
 // friendly groups (sides resolved from factionProfileConfig bluFor /

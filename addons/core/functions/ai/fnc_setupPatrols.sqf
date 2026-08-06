@@ -126,6 +126,16 @@ for "_i" from 1 to _numPatrols do {
     private _spawnedGroup = [_groupSpawnPos, _side, _groupConfig] call DSC_core_fnc_spawnGroupYielding;
     if (isNull _spawnedGroup) then { continue };
     // _spawnedGroup enableDynamicSimulation true;
+
+    // Renegade protection. Mission-AO patrols get this via
+    // fnc_generateMission -> fnc_applySkillProfile, but the presence-manager
+    // callers (presenceActivateMilitary, contestedSkirmish,
+    // resolveIrregularOverlay) never apply a skill profile, so they would be
+    // left unprotected. See fnc_applySkillProfile for the full rationale:
+    // friendly fire drops rating, rating below ~-2000 flips the unit to
+    // renegade, and a renegade attacks its own faction.
+    { _x addRating 1000000 } forEach (units _spawnedGroup);
+
     (_result get "groups") pushBack _spawnedGroup;
     (_result get "tags") pushBack _doctrineTags;
     (_result get "units") append (units _spawnedGroup);

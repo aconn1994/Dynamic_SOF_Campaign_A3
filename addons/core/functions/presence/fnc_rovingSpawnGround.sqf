@@ -201,14 +201,14 @@ if (isNull _vehicle) exitWith {
 private _driver = driver _vehicle;
 if (!isNull _driver) then { _group selectLeader _driver };
 
-// Ambient posture — match air rover behavior
+// Ambient posture — match air rover behavior. GREEN = hold fire, defend only.
+// See fnc_rovingSpawnFoot for why BLUE + disableAI TARGET/AUTOTARGET was wrong
+// (three independent locks on ever firing, so rovers died without responding).
 _group setBehaviour "AWARE";
-_group setCombatMode "BLUE";
+_group setCombatMode "GREEN";
 _group setSpeedMode "LIMITED";
 {
     _x disableAI "AUTOCOMBAT";
-    _x disableAI "TARGET";
-    _x disableAI "AUTOTARGET";
 } forEach units _group;
 
 _group enableDynamicSimulation true;
@@ -232,6 +232,18 @@ private _destPos = _playerPos;
 // ============================================================================
 // Step 6: register on tracker
 // ============================================================================
+// C2 provenance — a rover reports to the installation that generated it.
+// The hotspot is already "nearest installation to the player", so it is
+// both the right reporting chain and the right owner of this ground.
+// Airbase hotspots are 3den markers rather than influence locations, so
+// they fall back to a positional resolve.
+private _c2Node = _nearestHotspot get "id";
+private _c2Nodes = missionNamespace getVariable ["DSC_c2Nodes", createHashMap];
+if !(_c2Node in _c2Nodes) then {
+    _c2Node = [_spawnPos, _side] call DSC_core_fnc_c2ResolveNode;
+};
+[_group, _c2Node, "rover"] call DSC_core_fnc_c2StampGroup;
+
 private _id = format ["roving_ground_%1_%2", _sideKey, diag_tickTime];
 private _record = createHashMapFromArray [
     ["id",          _id],

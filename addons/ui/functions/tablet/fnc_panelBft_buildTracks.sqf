@@ -108,4 +108,55 @@ if (_objPos isEqualType [] && {count _objPos >= 2}) then {
     ]);
 };
 
+// ----------------------------------------------------------------------------
+// 5. Hostile contact fixes (C2 Sprint F.4)
+// ----------------------------------------------------------------------------
+// SIGINT (radio direction finding on a transmitting element) and VISUAL
+// (own-force contact reports) fixes from DSC_c2Contacts. These are SNAPSHOTS,
+// not tracking — the marker sits where the element was when detected and ages
+// out. See fnc_c2ContactRegister for the realism rationale.
+//
+// Filtered out under MINE for the same reason ambient garrisons are: that view
+// means "the player's own assets".
+//
+// Age is computed client-side from the recorded serverTime so the marker can
+// fade and label its own staleness without the server rebroadcasting.
+if (!_filterMine) then {
+    private _contacts = missionNamespace getVariable ["DSC_c2Contacts", []];
+    {
+        private _c   = _x;
+        private _grp = _c getOrDefault ["group", grpNull];
+        private _pos = _c getOrDefault ["position", []];
+        if (_pos isNotEqualTo []) then {
+            private _src = _c getOrDefault ["source", "SIGINT"];
+            private _age = serverTime - (_c getOrDefault ["time", 0]);
+
+            // Client-side expiry mirrors the server TTLs so a fix disappears
+            // on time even between snapshot writes.
+            private _ttl = [240, 90] select (_src isEqualTo "VISUAL");
+            if (_age <= _ttl) then {
+                private _lbl = _c getOrDefault ["label", ""];
+                if (_lbl isEqualTo "") then { _lbl = "UNKNOWN" };
+
+                _result pushBack (createHashMapFromArray [
+                    ["id",            format ["contact_%1", _grp]],
+                    ["category",      "hostile"],
+                    ["iconType",      "hostile"],
+                    ["group",         _grp],
+                    ["vehicle",       _c getOrDefault ["vehicle", objNull]],
+                    ["position",      _pos],
+                    ["dir",           0],
+                    ["side",          _c getOrDefault ["side", east]],
+                    ["faction",       ""],
+                    ["label",         _lbl],
+                    ["strength",      _c getOrDefault ["strength", 0]],
+                    ["commandable",   false],
+                    ["contactSource", _src],
+                    ["contactAge",    _age]
+                ]);
+            };
+        };
+    } forEach _contacts;
+};
+
 _result

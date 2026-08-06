@@ -48,6 +48,20 @@ private _catLabel = switch (toLower _cat) do {
     case "squad":     { "Squad member" };
     case "player":    { "Self" };
     case "objective": { "Objective" };
+    // F.4 hostile contact fix — the category label carries the detection
+    // source and age, because for an enemy marker "how old is this?" matters
+    // more than anything else on the card.
+    case "hostile": {
+        private _cSrc = _track getOrDefault ["contactSource", "SIGINT"];
+        private _cAge = _track getOrDefault ["contactAge", 0];
+        private _cAgeTxt = if (_cAge < 60) then {
+            format ["%1s old", round _cAge]
+        } else {
+            format ["%1m old", round (_cAge / 60)]
+        };
+        private _cSrcTxt = ["Radio fix (DF)", "Observed"] select (_cSrc isEqualTo "VISUAL");
+        format ["Enemy contact — %1, %2", _cSrcTxt, _cAgeTxt]
+    };
     default            { _cat };
 };
 

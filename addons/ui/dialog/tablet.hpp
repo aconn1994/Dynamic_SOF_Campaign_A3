@@ -659,7 +659,7 @@ class DSC_Tablet {
             class BftLegendLbl : DSC_RscTextDim {
                 idc = DSC_TABLET_IDC_BFT_LEGEND;
                 sizeEx = 0.018;
-                text = "BLUE: NATO   GREEN: Partner   CYAN: ISR Drone   WHITE: Squad   YELLOW: Objective";
+                text = "BLUE: NATO   GREEN: Partner   CYAN: ISR Drone   WHITE: Squad   YELLOW: Objective   RED: Enemy contact (SIGINT / SEEN, with age)";
                 x = EXPR(SCR_X + SCR_W * 0.02);
                 y = EXPR(SCR_Y + SCR_H * 0.950);
                 w = EXPR(SCR_W * 0.66);
@@ -955,6 +955,95 @@ class DSC_Tablet {
                 w = BFT_CMD_W;
                 h = BFT_CMD_H;
                 action = "[(uiNamespace getVariable 'DSC_TabletDisplay'), 'release'] call DSC_ui_fnc_panelBft_command;";
+                show = 0;
+            };
+
+            // ================================================================
+            // Radio Feed panel (C2 Sprint F.4)
+            // ================================================================
+            // Scrollback of intercepted enemy traffic. This exists because
+            // real-time chatter alone is insufficient: during a contact the
+            // player is busy and will miss exactly the lines that mattered
+            // most ("QRF dispatched, bearing 340"). A timestamped history is
+            // what makes the network legible after the fact.
+            //
+            // A listbox rather than structured text: it scrolls natively, rows
+            // can be colored per source, and it costs nothing to append to.
+            // Chrome sits as top-level controls in the same style as the BFT
+            // tab so switchPanel toggles the set as one unit.
+            class RadioTitleLbl : DSC_RscText {
+                idc = DSC_TABLET_IDC_RADIO_TITLE;
+                style = ST_LEFT;
+                font = FONT_B;
+                sizeEx = 0.026;
+                text = "RADIO FEED — INTERCEPTED TRAFFIC";
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.090);
+                w = EXPR(SCR_W * 0.45);
+                h = EXPR(SCR_H * 0.045);
+                colorText[] = COLOR_ACCENT;
+                show = 0;
+            };
+
+            // Live coverage readout. The player needs to know WHY they are or
+            // are not seeing traffic — without this the feed going quiet is
+            // indistinguishable from the feed being broken.
+            class RadioCoverageText : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_RADIO_COVERAGE;
+                sizeEx = 0.020;
+                text = "";
+                x = EXPR(SCR_X + SCR_W * 0.47);
+                y = EXPR(SCR_Y + SCR_H * 0.095);
+                w = EXPR(SCR_W * 0.36);
+                h = EXPR(SCR_H * 0.040);
+                show = 0;
+            };
+
+            class RadioFilterBtn : DSC_RscButton {
+                idc = DSC_TABLET_IDC_RADIO_FILTER;
+                text = "EARNED";
+                sizeEx = 0.022;
+                x = EXPR(SCR_X + SCR_W * 0.84);
+                y = EXPR(SCR_Y + SCR_H * 0.090);
+                w = EXPR(SCR_W * 0.14);
+                h = EXPR(SCR_H * 0.050);
+                action = "[(uiNamespace getVariable 'DSC_TabletDisplay')] call DSC_ui_fnc_panelRadio_toggleFilter;";
+                show = 0;
+            };
+
+            class RadioList : DSC_RscListBox {
+                idc = DSC_TABLET_IDC_RADIO_LIST;
+                sizeEx = 0.021;
+                rowHeight = 0.028;
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.150);
+                w = EXPR(SCR_W * 0.96);
+                h = EXPR(SCR_H * 0.700);
+                show = 0;
+            };
+
+            // Node status strip — which installations are currently alerted.
+            // The feed answers "what was said"; this answers "who is hot right
+            // now", which is the actionable half.
+            class RadioNodesText : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_RADIO_NODES;
+                sizeEx = 0.019;
+                text = "";
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.858);
+                w = EXPR(SCR_W * 0.96);
+                h = EXPR(SCR_H * 0.055);
+                show = 0;
+            };
+
+            class RadioHintLbl : DSC_RscTextDim {
+                idc = DSC_TABLET_IDC_RADIO_HINT;
+                sizeEx = 0.017;
+                text = "INTERCEPT: enemy traffic   ISR: your operator   COMMAND: enemy orders   LOST: never transmitted (debug only)";
+                x = EXPR(SCR_X + SCR_W * 0.02);
+                y = EXPR(SCR_Y + SCR_H * 0.920);
+                w = EXPR(SCR_W * 0.96);
+                h = EXPR(SCR_H * 0.030);
                 show = 0;
             };
 

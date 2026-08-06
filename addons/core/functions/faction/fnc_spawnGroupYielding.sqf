@@ -94,6 +94,30 @@ private _group = createGroup [_side, true];
 
     private _unit = _group createUnit [_vehicleClass, _absPos, [], 0, "NONE"];
     if (!isNull _unit) then {
+        // ====================================================================
+        // FORCE THE UNIT ONTO THE GROUP'S SIDE — load-bearing, do not remove
+        // ====================================================================
+        // `group createUnit` does NOT put the unit on the group's side. The
+        // unit keeps the side of its CfgFactionClasses faction, so spawning a
+        // Syndikat class (native GUER) into `createGroup [east]` yields a unit
+        // where `side _unit` == GUER while `side (group _unit)` == EAST.
+        //
+        // That mixed-side group is lethal. The AI evaluates "am I hostile to
+        // that?" using the observer's GROUP side against the target's UNIT
+        // side — east vs independent, which strict diplomacy makes hostile —
+        // so every Syndikat fighter reads every other Syndikat fighter as an
+        // enemy independent and opens fire. A ten-man objective garrison
+        // wiped itself out in 90 seconds with no player present.
+        //
+        // `joinSilent` re-parents the unit properly and forces its side to
+        // match the group. Verified: this is the ONLY reliable way to do it;
+        // setting the group side afterwards does not retroactively fix units.
+        //
+        // This also explains why FIA/CSAT objectives always worked and
+        // Syndikat/Looter objectives always fell apart: OPF_G_F and OPF_F are
+        // natively east, so there was no mismatch to trigger it.
+        [_unit] joinSilent _group;
+
         if (_rank != "") then { _unit setRank _rank };
         _unit setPosATL _absPos;
     };

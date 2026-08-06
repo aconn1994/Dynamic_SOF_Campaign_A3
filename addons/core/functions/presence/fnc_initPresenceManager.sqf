@@ -489,22 +489,59 @@ missionNamespace setVariable ["DSC_presenceHandlers", createHashMap, true];
 ]] call DSC_core_fnc_registerPresenceHandler;
 
 // ============================================================================
-// Side diplomacy — opFor-aligned factions cooperate regardless of side
+// Side diplomacy — set once, explicitly, in BOTH directions
 // ============================================================================
-// Faction profile maps opFor/opForPartner/irregulars to potentially different
-// engine sides (east vs independent). Default A3 diplomacy makes east hostile
-// to independent, so partner/irregular units gun each other down on sight.
-// Lock cooperation between east and independent for the whole session. Player
-// (west) stays hostile to both via the default matrix.
+// Arma diplomacy is side-level, so the three engine sides have to carry the
+// whole faction model. Role sides are normalized through `fnc_resolveRoleSide`
+// in `fnc_initServer` before any of them reach runtime state, which guarantees
+// the split:
 //
-// NOTE: Mission cleanup also calls setFriend to reset diplomacy. Once the
-// mission system and presence coexist long-term we may need to coordinate
-// these — for now mission setFriend overrides during active missions and
-// presence sets a stable baseline.
-east     setFriend [independent, 1];
-independent setFriend [east, 1];
-// Civilians stay neutral to both — no changes needed there.
-INFO("presenceManager - Locked east<->independent friendly (opFor partner cooperation)");
+//     west        = player + bluFor
+//     independent = bluForPartner  (allies)
+//     east        = opFor + opForPartner + irregulars  (all hostile)
+//
+// Every pair is stated explicitly and symmetrically. The previous code set
+// only `east setFriend [independent, 1]` and left west<->independent to
+// whatever the mission.sqm default happened to be, which produced a playtest
+// where enemy units engaged the player while the player's squad refused to
+// return fire because west still considered that side friendly.
+//
+// setFriend is DIRECTIONAL. Both directions are required or the AI's
+// targeting and its threat evaluation disagree.
+west        setFriend [independent, 1];
+independent setFriend [west, 1];
+
+east        setFriend [independent, 0];
+independent setFriend [east, 0];
+
+west        setFriend [east, 0];
+east        setFriend [west, 0];
+
+// opFor / opForPartner / irregulars now literally share the east side, so
+// their cooperation needs no diplomacy at all.
+INFO("presenceManager - Diplomacy locked (west+indep allied, east hostile to both)");
+
+// TEMPORARY DIAGNOSTIC (August 2026) — remove with the faction overhaul.
+// mission.sqm sets independent allegiance (confirmed: independent friendly to
+// BLUFOR there) and the block above ALSO sets it at runtime. Dump the matrix
+// immediately after our writes so we can see the final state and prove which
+// authority won. Read-back is essential: setFriend can be overridden by a
+// later client-side JIP apply, and a value we "set" is not necessarily a value
+// that stuck.
+{
+    _x params ["_aName", "_aSide", "_bName", "_bSide"];
+    private _ab = _aSide getFriend _bSide;
+    private _ba = _bSide getFriend _aSide;
+    private _flag = ["", "  <== ASYMMETRIC"] select (_ab != _ba);
+    diag_log format [
+        "DSCDIAG [initPresence] POST-SETFRIEND  %1->%2 = %3   %2->%1 = %4%5",
+        _aName, _bName, _ab, _ba, _flag
+    ];
+} forEach [
+    ["west",  west,        "east",  east],
+    ["west",  west,        "indep", independent],
+    ["east",  east,        "indep", independent]
+];
 
 // ============================================================================
 // Debug markers — one ELLIPSE per zone, colored by state (DEBUG_MODE_FULL only)
@@ -702,6 +739,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
         ["pausedTotal",          0],   // ACTIVE -> PAUSED transitions
         ["resumedFromPause",     0],   // PAUSED -> ACTIVE (re-entry, instant)
         ["pauseExpired",         0],   // PAUSED -> DORMANT (extended grace ran out, entities deleted)
+        ["combatHeld",           0],   // teardown deferred: C2 response in flight (Sprint F.3)
         ["loopStart",            diag_tickTime]
     ], true];
 
@@ -902,6 +940,21 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                         LOG_3("presence active-duration [%1/%2] %3s (forced by mission AO)",_zoneId,_zType,_forceDur);
                     } else {
                         if (_minDist > _depR) then {
+                            // C2 combat hold (Sprint F.3) — a zone whose node
+                            // has an active response in flight does not tear
+                            // down just because the player stepped outside the
+                            // despawn ring. Deleting a QRF's parent garrison
+                            // mid-response would erase the consequence the
+                            // player just earned, and the responders are the
+                            // reason to still be here.
+                            //
+                            // combatUntil is set by fnc_c2Respond and expires
+                            // on its own, so this can only ever delay teardown
+                            // by a bounded window, never leak a zone forever.
+                            private _combatUntil = _zone getOrDefault ["combatUntil", 0];
+                            if (_combatUntil > serverTime) then {
+                                ["combatHeld"] call _fnc_bumpStat;
+                            } else {
                             private _lifecycle = [_zType, "lifecycle", "delete"] call _fnc_handlerVal;
                             private _activeFor = round (serverTime - (_zone getOrDefault ["stateSince", serverTime]));
                             // Speed-aware: if the player blew past at >35 m/s
@@ -927,6 +980,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                                 _newState = "DESPAWNING";
                                 _zone set ["graceUntil", serverTime + ([_zType, "despawnGrace", 45] call _fnc_handlerNum)];
                                 LOG_4("presence active-duration [%1/%2] %3s (player left, dist=%4m)",_zoneId,_zType,_activeFor,round _minDist);
+                            };
                             };
                         };
                     };
