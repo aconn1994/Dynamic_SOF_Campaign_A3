@@ -506,22 +506,306 @@ persistent cross-session campaign save.
 
 ---
 
-## 11. Open Questions (decide during Phase 0/1)
+## 11. Resolved Design Decisions (owner-approved, August 2026)
 
-1. **Series ownership of scoring** — does a failed mid-series mission fail the
-   whole series, branch, or retry? (Proposed: branch by default, thread defines.)
-2. **Intel persistence scope** — per-deployment only, or across the mission-loop
-   forever? (Proposed: per-deployment; decay handles staleness.)
-3. **How much random?** — when no series is active, keep pure-random fallback, or
-   always wrap random missions in a lightweight one-off "thread"? (Proposed:
-   always wrap, so briefings/intel always have a home; a one-mission thread is
-   cheap.)
-4. **Dryhole frequency** — how often should stale/low-confidence intel send the
-   player to an empty site? Tuning dial; too high frustrates, too low removes the
-   point of intel.
-5. **Tempo dial calibration** — what `intelLevel` values actually produce the
-   "one-night hit" vs "9-month grind" spread without either extreme feeling
-   broken?
+These were the Phase 0/1 open questions; the project owner has ruled on all five.
+They are now **design constraints**, not options.
+
+1. **A failed mid-series mission fails the branch — the subject *diverts*, it does
+   not soft-retry.** A blown DA doesn't respawn the same compound; the HVI / cache
+   / convoy / hostage **relocates** and re-enters the intel pipeline as a future
+   lead. Mechanically: on failure the thread emits a *diversion event* — the
+   subject's live intel tokens are invalidated (or knocked down to low confidence
+   with a new candidate area), and a re-find beat is queued to fire *later*, not
+   immediately. This models real SOF: you tipped your hand, the target went to
+   ground, and you have to re-develop the picture. It also naturally paces the
+   campaign — failure injects a recon lull instead of a frustrating instant redo.
+   *Design note:* the diversion should feel like consequence, not punishment —
+   the re-find is new content (a fresh area, degraded intel), and the subject may
+   surface via a body-search or civ-tip mid-way through unrelated tasking.
+
+2. **Intel is per-deployment.** The ledger is created with the deployment and
+   dies with it; decay (`expiresAt`) handles staleness within a deployment. No
+   cross-deployment intel carryover for MVP. (A future "campaign continuity"
+   feature could seed a new deployment with a few faded tokens, but that is out
+   of scope and must not complicate the per-deployment model.)
+
+3. **Always wrap missions in a thread — even the "random" ones.** There is no
+   pure-random fallback path in the final design; when no *narrative* thread is
+   active, the arbiter starts a lightweight **one-off thread** (a single mission
+   with its own minimal briefing + intel home). Rationale from the owner, and it's
+   sound doctrine: real units in an intel lull get *tasked with other things* —
+   presence patrols, cordon support, a target of opportunity — while the network
+   picture re-develops. So a one-off is not "filler," it's the between-intel
+   tempo, and it can *itself* drop a lead (body-search / civ-tip) that promotes
+   into the next real thread. **Implementation consequence:** briefing composer,
+   intel ledger, and outcome handling never have to special-case a "thread-less"
+   mission — everything always has a `DSC_activeSeries`, even if it's length-1.
+   This deletes an entire class of null-checks from the arbiter.
+
+4. **Dryhole frequency is deliberately HIGH — and a dryhole is not an empty
+   objective.** Imperfect intel is a *feature*, not a failure state. A dryhole
+   means the picture was wrong in an *interesting* way, and it must still be fun:
+   the HVT already left but left SSE behind (a lead to the new location); the
+   compound holds a lower-value target or a cache instead of the named HVI; the
+   layout intel was stale so the assault goes in blind; the "undefended" site is
+   actually reinforced. **Rule for authors:** a dryhole must always yield either
+   (a) a fight, (b) a fresh intel token, or (c) both — never a walk to an empty
+   marker and an anticlimactic auto-complete. This is what lets confidence sit
+   low without feeling broken, and it's the mechanic that makes low-tier "grind"
+   deployments *content-rich* rather than tedious.
+
+5. **Tempo is a function of deployment type (unit budget + battlespace priority),
+   not a free-floating dial.** `unitArchetype` sets the *starting* intel richness
+   and the *quality* of objectives assigned:
+   - **Tier-1 (DEVGRU/Delta):** high-quality intel delivered *now*; short threads;
+     surgical one-night hits; HVT_LOCATION arrives at high confidence. The
+     battlespace commander spends premium ISR on them.
+   - **Tier-2 (Rangers/MARSOC/SEAL):** mixed — some HQ intel, some self-developed;
+     medium threads.
+   - **Lower-tier / SF long-stint (ODA):** low-quality, low-confidence objectives;
+     long grind; the deployment *manufactures* its own intel through recon,
+     body-search, and partner-force reporting before it can act. This is the
+     9-month-teardown feel, and it falls out of the same machinery — it's just a
+     lower starting `intelLevel` and a bias toward SWEEP/SSE-heavy threads.
+
+   So the "dial" is really a **per-archetype preset bundle** (starting intel level
+   + objective-quality bias + thread-length tendency + mission-pool weighting),
+   authored once per unit voice. No global tuning number to balance.
+
+---
+
+## 12. Reality Check — This Vision vs. the Arma 3 Engine
+
+Constructive criticism, so the scope stays *fun and shippable* rather than
+aspirational. The vision is genuinely well-suited to Arma 3 — the good news
+first, then the honest risks and where to cut.
+
+### 12.1 What Arma 3 does *well* here (lean into these)
+
+- **The intel-shapes-difficulty loop is a perfect fit.** Fuzzy markers, dryholes,
+  "go in blind," troop-estimate fuzz — these are cheap in SQF (they're mostly
+  *withholding* information the engine already has) and they map exactly onto how
+  Arma missions already feel tense. You are not fighting the engine; you're
+  gating information, which is free.
+- **Text-templated briefings are ideal for Arma.** No engine limits, trivial to
+  author, and the player's imagination does the heavy lifting. This pillar is
+  almost pure upside.
+- **You already solved the hard part.** The presence manager, C2 network, faction
+  pipeline, and yielding-spawner performance discipline are the genuinely
+  difficult Arma systems, and they exist and work. The campaign layer is
+  *orchestration* — hashmaps, state machines, string composition — which is
+  exactly what SQF is comfortable with and what stays off the render/sim
+  hot-path.
+- **DRO-style SSE-off-any-body is proven in Arma.** DRO ships it; it's an
+  `addAction` + a hashmap write. Very low risk.
+
+### 12.2 Where Arma 3 will fight you (design *around* these, don't fight them)
+
+- **AI is the ceiling on every "immersion" mission type, and it's a hard ceiling.**
+  This is the single biggest realism check. Several catalog types lean on AI
+  behaving like competent humans, and Arma's AI does not:
+  - **Special Recon / stealth (SWEEP):** `knowsAbout` and the detection model are
+    binary-ish and twitchy — AI either hasn't noticed you or is laser-accurate.
+    "Sneak past a patrol" gameplay is *possible* but fragile; expect to spend real
+    tuning on detection thresholds, and design SWEEP so that *getting spotted
+    converts the mission* rather than failing it (you already specced this — keep
+    it, it's the pressure valve for bad AI perception).
+  - **UW/FID partner-force AI as squadmates or the "unit doing the fighting":**
+    friendly AI is Arma's weakest link. They path badly, clump, and die in the
+    open. "Advise an AI squad that fights competently while you overwatch" (FID,
+    JTAC, sniper overwatch) is the *highest-risk* set of mission types in the
+    whole catalog. **Recommendation: treat FID/UW/SUPPORT as Phase 3+ and keep
+    them *simple* — the AI element holds/patrols a small area and you plug gaps,
+    rather than the AI conducting a real assault you merely support.** Don't build
+    a thread that *depends* on friendly AI winning a firefight on its own.
+  - **HVT surrender/flee behavior:** `setCaptive` + disabling AI is reliable;
+    scripted "flee and hide among civilians" is janky (pathfinding, civilian AI).
+    Keep flee behavior *coarse* — the HVT relocates to a room/building, not a
+    cinematic chase through a crowd.
+- **CSAR carry / escort-a-wounded-survivor:** carrying/dragging AI, AI keeping up
+  while escorted, and AI in vehicles are all historically buggy. ACE helps if
+  present. Keep MOVEMENT missions tolerant of AI escort jank (allow vehicle evac,
+  don't require a flawless on-foot drag across 2km).
+- **Convoy / ambush AI driving:** you already documented `fnc_buildRoadRoute`
+  pain and vehicle-patrol dismount being deferred. Convoys that path reliably to
+  a destination are non-trivial. Ambush (J) is worth it but budget for driving-AI
+  frustration; prefer shorter, road-simple convoy routes.
+- **Performance is a standing tax, not a solved problem.** You have excellent
+  discipline (yielding spawner, dynamic sim, budgets), but *every* new layer adds
+  ambient entities the player expects to interact with. The campaign layer itself
+  is cheap; the risk is that "a living world" + "SSE off every encounter" + "recon
+  targets everywhere" tempts you to keep more units alive at once. Hold the line
+  on the presence/roving budgets — the campaign should feel bigger through
+  *information and narrative*, not through more simultaneous AI.
+- **No real save/continuity.** Arma SP/coop persistence is painful. Per-deployment
+  intel (decision #2) is the *right* call partly *because* it sidesteps this. Do
+  not let scope creep toward cross-session campaign saves — it's a swamp.
+
+### 12.3 Mission types to prioritize vs. approach with caution
+
+Ranked by *fun-per-engine-risk* in Arma specifically:
+
+| Tier | Types | Why |
+|---|---|---|
+| **Green — build freely** | DA, CT/HR, SSE, cache interdiction, sabotage, HVT kill/capture, intel-gather/dryhole | All RAID; you already ship them; AI-as-static-defenders is Arma's strongest mode. |
+| **Yellow — build, but scope AI carefully** | SR/SWEEP, sniper overwatch, ambush/interdiction, CSAR, airfield seizure/DEFEND | Fun and iconic, but each leans on a shaky AI behavior (detection, driving, escort, waves). Ship with the "convert on failure" and "keep it coarse" mitigations. |
+| **Red — defer & keep minimal** | UW train-up, FID/COIN advise, JTAC pairing, VBSS/maritime | Depend on *competent friendly AI* and/or assets Arma handles poorly. Huge immersion payoff *if* they work, high chance of feeling broken. Do them last, keep the AI's job trivial, never make a thread *require* them. |
+
+### 12.4 The honest bottom line
+
+**The vision is realistic for Arma 3 — with one reframe.** The parts that make
+this special (the *why*, the intel economy, the branching narrative, the
+deployment identity) are all **information and orchestration**, which Arma
+handles beautifully and cheaply. The parts that are risky are the ones that ask
+**Arma's AI to be a competent human teammate or a stealthy adversary**, which it
+isn't. So the winning strategy is: **let the campaign layer carry the immersion,
+and let the moment-to-moment gameplay stay in Arma's wheelhouse — assaulting
+static-ish defenders with good intel-driven setup.** A DEVGRU one-night raid with
+a sharp, intel-shaped briefing and an SSE that opens the next thread is *both*
+maximally fun *and* squarely inside what the engine does well. Chase that first;
+treat FID/UW/maritime as ambitious garnish, not load-bearing pillars.
+
+One concrete cut to protect the fun: **do not let "realism" push you toward
+mission types whose fun depends on friendly AI competence.** The single fastest
+way to make this feel broken is a signature UW mission where the partner force
+faceplants. Model those relationships through *intel, briefing, and light
+scripting* (the partner force "reports" a lead; a friendly element "secured" an
+area off-screen) far more than through actual AI-vs-AI firefights the player
+watches. Immersion sold through tasking text and consequence is bulletproof;
+immersion sold through AI theater is at the mercy of the engine.
+
+---
+
+## 13. Objective Abstraction — Interaction Sites over Scattered Objects (approved)
+
+Owner proposal (August 2026): stop building cache/intel/SSE objectives by
+scattering physical objects (ammo boxes, laptops) at `buildingPos`, and instead
+define the objective as a **trigger/area sized to the structure or site plus a
+player action** ("Conduct SSE", "Verify Cache"). Physical objects become
+*optional set-dressing* (Zeus, Eden Interiors, hand-placed compositions), never
+the load-bearing mechanic. **Agreed — with refinements below. This supersedes
+the object-scatter default in `mission-archetypes.md`.**
+
+### 13.1 Why this is the right call
+
+The object-scatter approach fights the engine at exactly the point the reality
+check (§12) warns about — it depends on finicky engine features for its *core
+mechanic*, not its flavor:
+
+- `buildingPos -1` returns `[]` for non-enterable buildings, so placement
+  silently fails on huge swaths of the map (documented gotcha).
+- Objects clip, float, fall through floors, get knocked around by explosions,
+  and require per-object collision rejection.
+- Interior placement is fiddly per-building and varies wildly by mod.
+- Mass `createVehicle` is a frame-spike source needing yield discipline.
+- Completion polls object state, which is fragile (an object deleted by an
+  explosion reads the same as one destroyed on purpose).
+
+The interaction-site model leans on Arma's **most robust** primitives instead —
+triggers, `addAction`, distance checks — the same category of "withhold/gate
+information and interaction" work that §12.1 flagged as pure upside. It is also
+**building- and mod-agnostic by construction**: any structure or area works,
+because the objective is "do the action *here*," not "touch *this* object."
+
+### 13.2 The model — "interaction site" as a first-class objective primitive
+
+Generalize cache / intel / SSE / sabotage / dryhole into one archetype:
+
+```
+interactionSite = createHashMapFromArray [
+  ["pos",           _sitePosition],        // structure center or area anchor
+  ["radius",        _r],                    // sized to the structure/compound
+  ["action",        "Conduct SSE"],         // player-facing verb
+  ["duration",      [20, 60]],              // hold/timer — tension, QRF pressure
+  ["onComplete",    { /* grant intel token / mark destroyed / etc. */ }],
+  ["dressing",      ""],                     // OPTIONAL Eden composition / Zeus spawn
+  ["requireCount",  [1, 1]]                  // N-of-M sites for movement missions
+]
+```
+
+**No completion gate — deliberately.** The action is available whenever the
+player is in range; clearing the site first is the *smart* play, but that's the
+player's call, not a scripted precondition. This is a direct application of the
+"build smart around AI" principle (§12): an `AREA_CLEAR`-style gate would hand a
+single stray defender — one AI clipped into terrain, stuck on a ladder, or lost
+under a building — the power to soft-lock the entire objective. We never let AI
+state block mission progress. The only availability condition is distance to the
+site (§13.3); risk from remaining enemies is emergent (they can interrupt or kill
+you mid-search), never a hard lock.
+
+Completion is "action fired" (clean, event-driven), not "object destroyed"
+(polled, fragile). This slots straight into the existing `completionExpr` system
+and `fnc_buildMissionOutcome`.
+
+### 13.3 Refinements (the "better way" details)
+
+- **Put the action on the player, gated by distance** (`player distance _site <
+  radius`), *not* on a placed object — this avoids `buildingPos`/object placement
+  entirely. Optionally add an inside-building or LOS check. One cheap per-frame
+  condition, no spawned entity, works in any structure.
+- **Make it timed** (hold action or a "searching…" timer). Instant pickup is
+  weak; a 20–60s exploitation window creates real tension and lets the QRF/C2
+  response matter. This is more fun *and* simpler than object interaction.
+- **N-of-M sites** force movement across a compound without scattering props —
+  "search 2 of 3 buildings," "verify both cache points." One trigger per site.
+- **Destroy/"Verify Cache-and-deny" variant** = a "Plant Charge" action → scripted
+  explosion FX + `setDamage` on any dressing present. No real destructible object
+  required; if a composition *is* present, blow it for the money shot.
+- **Progressive enhancement, three tiers, all optional above the first:**
+  1. **Abstract (default, always works):** trigger + action, zero objects.
+  2. **Focal prop (cheap middle ground):** a *single* hero object at the site
+     anchor (one laptop / one crate) — trivial, no collision-rejection scatter,
+     gives the player something to look at. Optional.
+  3. **Composition (force multiplier):** an Eden/Zeus interior composition via the
+     archetype's `dressing`/`compositionPath` field. This is exactly the deferred
+     "Eden Composition Integration" already noted in `mission-archetypes.md` — the
+     abstraction is what makes it a clean opt-in rather than a rewrite.
+- **Markers tie into the intel pillar:** with `AREA_LAYOUT` intel you get the
+  precise "search here" marker on the right building; without it you get a broad
+  "SSE somewhere in this area" circle and must sweep. Free difficulty gradient,
+  no extra content.
+
+### 13.4 Unifies the intel economy (bonus, not incidental)
+
+The **body/site search on any encounter** intel source (§4.3 #2) is *the same
+interaction-site pattern* — a "Search" action gated by distance to a dead group,
+firing an `onComplete` that grants tokens. Building the interaction-site
+primitive once gives you mission-site SSE *and* world-encounter SSE from one code
+path. This is a real simplification of Pillars 1 and 3 together.
+
+### 13.5 What changes in the plan
+
+- **Demote, don't delete, the object-placement strategies.**
+  `fnc_placeInterior` / `fnc_placeOnGround` / `fnc_placeOutdoorPile` /
+  `fnc_placeObjects` stay available as the *focal-prop* and *legacy* tiers, but
+  the **default** for cache/intel/SSE objectives becomes the abstract interaction
+  site. Entities that genuinely must be physical (HVTs, hostages — units, not
+  props) are unaffected; they keep `fnc_placeInDeepBuilding`.
+- **Add an `INTERACTION_SITE` completion/objective archetype** and route
+  `SUPPLY_DESTROY` / `INTEL_GATHER` / SSE tack-ons through it. This is a small
+  addition, not a rework — the raid generator already dispatches by archetype.
+- **Fold into the §8 foundation work:** build the interaction-site primitive
+  alongside the SWEEP archetype and the Intel Ledger, since all three share the
+  action→token seam.
+
+### 13.6 Honest cost (so it's a real decision, not a rubber stamp)
+
+A purely abstract site — an empty Arma room you "search" with nothing in it — can
+feel hollow. Mitigations: (1) the fiction carries it (a sharp intel-shaped
+briefing makes "exploit the site" meaningful even in a bare room); (2) most Arma
+buildings already have some interior clutter; (3) the focal-prop tier is one
+cheap object away from tangible; (4) the composition tier makes it rich wherever
+you invest the authoring time. The key insight: **tangibility becomes an
+*optional quality layer* you can add per-site over time, instead of a mandatory
+problem you must solve before the mission type works at all.** That is exactly
+the "workable now, expandable later" tradeoff you're after, and it keeps the core
+mechanic off the engine's fragile paths.
+
+**Verdict:** adopt the interaction-site model as the default; keep object
+placement as opt-in dressing. Simpler to ship, more robust, mod-agnostic,
+strengthens the intel economy, and expansion (Eden/Zeus interiors) becomes
+additive rather than blocking.
 
 ---
 
