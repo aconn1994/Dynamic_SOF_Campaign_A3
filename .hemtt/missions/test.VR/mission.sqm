@@ -38,14 +38,13 @@ addons[]=
 	"A3_Weapons_F_Exp",
 	"A3_Weapons_F",
 	"A3_Weapons_F_Items",
-	"A3_Characters_F_Exp",
 	"A3_Ui_F"
 };
 class AddonsMetaData
 {
 	class List
 	{
-		items=7;
+		items=6;
 		class Item0
 		{
 			className="A3_Characters_F";
@@ -83,23 +82,12 @@ class AddonsMetaData
 		};
 		class Item5
 		{
-			className="A3_Characters_F_Exp";
-			name="Arma 3 Apex - Characters and Clothing";
-			author="Bohemia Interactive";
-			url="https://www.arma3.com";
-		};
-		class Item6
-		{
 			className="A3_Ui_F";
 			name="Arma 3 - User Interface";
 			author="Bohemia Interactive";
 			url="https://www.arma3.com";
 		};
 	};
-};
-dlcs[]=
-{
-	"Expansion"
 };
 randomSeed=4921750;
 class ScenarioData
@@ -186,8 +174,8 @@ class CustomAttributes
 		};
 		class Attribute4
 		{
-			property="ReviveRequiredItems";
-			expression="false";
+			property="ENH_respawnTickets_independent";
+			expression="if (!is3DEN && isMultiplayer && isServer) then {[independent, _value] call BIS_fnc_respawnTickets}";
 			class Value
 			{
 				class data
@@ -199,8 +187,8 @@ class CustomAttributes
 		};
 		class Attribute5
 		{
-			property="ENH_respawnTickets_independent";
-			expression="if (!is3DEN && isMultiplayer && isServer) then {[independent, _value] call BIS_fnc_respawnTickets}";
+			property="ReviveRequiredItems";
+			expression="false";
 			class Value
 			{
 				class data
@@ -273,7 +261,7 @@ class Mission
 	};
 	class Entities
 	{
-		items=3;
+		items=2;
 		class Item0
 		{
 			dataType="Group";
@@ -355,35 +343,6 @@ class Mission
 			id=53;
 		};
 		class Item1
-		{
-			dataType="Group";
-			side="East";
-			class Entities
-			{
-				items=1;
-				class Item0
-				{
-					dataType="Object";
-					class PositionInfo
-					{
-						position[]={7660.9189,5.0014391,5277.6196};
-						angles[]={0,4.6993051,0};
-					};
-					side="East";
-					flags=7;
-					class Attributes
-					{
-					};
-					id=77;
-					type="O_V_Soldier_TL_hex_F";
-				};
-			};
-			class Attributes
-			{
-			};
-			id=76;
-		};
-		class Item2
 		{
 			dataType="Marker";
 			position[]={7294.9678,5,5284.1279};

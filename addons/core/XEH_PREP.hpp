@@ -42,6 +42,7 @@ PREP_SUB(data,getStructureTypes);
 // faction overhaul (Plan A). See .crush/faction-sides.md.
 PREP_SUB(debug,diagSideDump);
 PREP_SUB(debug,diagSideSample);
+PREP_SUB(debug,runTests);
 
 // Faction
 PREP_SUB(faction,extractAssets);
@@ -57,6 +58,7 @@ PREP_SUB(faction,spawnGroupYielding);
 PREP_SUB(init,initBases);
 PREP_SUB(init,initServer);
 PREP_SUB(init,initServerDebug);
+PREP_SUB(init,initTestScenario);
 PREP_SUB(init,initPlayerLocal);
 PREP_SUB(init,initPlayerLocalDebug);
 PREP_SUB(init,setupBase);

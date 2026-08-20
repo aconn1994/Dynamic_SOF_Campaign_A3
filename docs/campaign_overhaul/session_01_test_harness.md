@@ -144,7 +144,17 @@ the spec is complete; build it, don't redesign it.
 
 ## Results log (fill in after the session)
 
-- Build: _pending_
-- Tier-1: _pending_
-- Playtest: _pending_
-- Follow-ups / new gotchas: _pending_
+- Build: `hemtt check` clean (160 sqf files compiled, 0 errors/warnings).
+- Tier-1: `fnc_runTests` + `DSC_testSuites` registry implemented;
+  `harness_selftest` registered in `fnc_initServerDebug` with one
+  trivially-true and one trivially-false assertion. Not yet run in-engine
+  (requires `hemtt launch` — human playtest step, see below).
+- Playtest: _pending_ — human to launch `test.VR` with the commented
+  `fnc_runTests` line enabled (see `.hemtt/missions/test.VR/initServer.sqf`),
+  then the Tier-2 `DSC_testConfig` against a real terrain per
+  `docs/test_harness/02_tier2_altis_forced_kill_capture.sqf`.
+- Follow-ups / new gotchas: none surfaced during build. Note for the next
+  session: `fnc_initTestScenario`'s harness-owned faction profile currently
+  only defines `"vanilla"`; add `"rhs"`/`"aegis"` keys the same way if a
+  future feature test needs mod factions.
+

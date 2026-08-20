@@ -77,4 +77,25 @@ if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
     INFO_2("tablet abort requested from %1 [%2]",_name,_uid);
 }] call CBA_fnc_addEventHandler;
 
+// ----------------------------------------------------------------------------
+// Tier-1 test harness: suite registry + self-test
+// ----------------------------------------------------------------------------
+// Proves fnc_runTests correctly tallies passes/fails. Later sessions
+// register their own suites the same way (DSC_testSuites set [name, code]);
+// see fnc_runTests header for the registration contract.
+if (isNil "DSC_testSuites") then {
+    missionNamespace setVariable ["DSC_testSuites", createHashMap];
+};
+
+private _testSuites = missionNamespace getVariable ["DSC_testSuites", createHashMap];
+
+_testSuites set ["harness_selftest", {
+    [
+        ["trivially true", (1 == 1)],
+        ["trivially false (expected FAIL - proves the runner reports failures)", (1 == 2)]
+    ]
+}];
+
+INFO("Registered test suite: harness_selftest (fnc_runTests self-check)");
+
 INFO("Server debug layer initialized (tablet events registered)");

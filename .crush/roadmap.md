@@ -312,6 +312,16 @@ multiplier, reach gate, echo suppression) are confirmed working in-game. F.4
 awaits playtest. F.5 (counterplay) is designed but not started. See
 `.crush/c2-network.md`.
 
+**Test Harness (Campaign Overhaul Session 1)** — shipped August 2026.
+`fnc_runTests` (Tier-1 headless suite runner, `DSC_testSuites` registry,
+`harness_selftest` proves PASS/FAIL/summary reporting) and
+`fnc_initTestScenario` (Tier-2 single-mission harness: whitelisted init
+steps, forced template, single-shot debrief, deterministic time/weather,
+player spawn near objective) are live. Both call the real init/generation
+functions — no forked logic. Example `DSC_testConfig` blocks under
+`docs/test_harness/`. See `.crush/agentic-workflow-and-testing.md` Part B
+and `docs/campaign_overhaul/session_01_test_harness.md`.
+
 ---
 
 ## Next up
