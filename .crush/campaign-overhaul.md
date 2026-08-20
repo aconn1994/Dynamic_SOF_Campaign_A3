@@ -480,6 +480,55 @@ tracker panel, present-2-3-mission-choice, save/load campaign state.
 combat-diver (needs coastal basing + boat infil, roving boats already stubbed);
 persistent cross-session campaign save.
 
+### 9.1 The First Increment — START HERE (fresh session entry point)
+
+**Do not run a formal PI (Program Increment) ceremony.** This is a solo
+engineer + agent project where Arma only reveals the truth in-game — story
+points and committed quarterly objectives would lock in estimates that can't
+honestly be made until each feature is *felt* on the terrain. The phase list
+above is the sequence; that is enough structure. Instead, commit to **one
+vertical increment** with a hard, testable exit criterion, then build.
+
+**Increment scope:** Phase 0 (seams) + the Phase 1 vertical slice, as one unit.
+
+**Exit criterion (write nothing more elaborate than this):**
+
+> A `DISMANTLE_CELL` thread runs end-to-end: a SWEEP recon drops a
+> `NETWORK_LINK` token into the Intel Ledger, which unlocks a follow-on DA whose
+> paragraph briefing cites the recon beat — and it is fun enough to want a
+> second lap.
+
+That is the smallest thing that proves all five pillars coexist. Everything
+after it is *breadth* (more mission types, unit voices, threads, token types,
+briefing phrasings) layered onto proven plumbing.
+
+**Build order within the increment (each step gates the next):**
+
+1. **Test harness first — `fnc_initTestScenario` + `fnc_runTests`** (Part B of
+   `.crush/agentic-workflow-and-testing.md`). *Not a campaign feature*, but the
+   highest-leverage first move: small, deterministic, mostly headless-testable
+   (the agent can own it), and it makes every subsequent step cheaper to iterate.
+   Build the ruler before you measure.
+2. **Intel Ledger** (§4.5) — the first real seam. Keystone, pure data/logic, no
+   dependencies, *perfectly* headless-testable — so it immediately exercises the
+   harness from step 1. Retrofit the existing `intelTokens` / `intelGathered`
+   into it.
+3. **Series arbiter with random fallback wired in** (`fnc_advanceCampaign`, §5.2)
+   — one thin insertion in the loop. Ships **invisible**: the current random loop
+   still behaves, so this merges without breaking anything. (Per resolved
+   decision #3, "random" is really a length-1 one-off thread.)
+4. **The vertical slice** — SWEEP archetype (§3) + `DISMANTLE_CELL` thread +
+   briefing composer refactor (§6) + intel chaining SR → DA. This is where the
+   exit criterion is met.
+
+**Model split (per `.crush/agentic-workflow-and-testing.md` §A.2):** steps 1–3
+are Phase-0 plumbing — Sonnet-friendly once each is spec'd. Step 4 is the
+integration risk; spend Opus to write the slice spec *first*, then execute.
+
+**Sequencing logic:** build the ruler before you measure (harness), the keystone
+before the arch (ledger), and keep the existing scenario working the whole way
+(invisible arbiter). Do not start step 4 until steps 1–3 pass their Tier-1 tests.
+
 ---
 
 ## 10. Integration Landmines (respect existing systems)
