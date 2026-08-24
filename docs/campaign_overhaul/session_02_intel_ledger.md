@@ -141,4 +141,23 @@ Sonnet scope — the spec is complete.
 
 ## Results log
 
-- Build: _pending_ · Tier-1: _pending_ · Playtest: _pending_ · Gotchas: _pending_
+- Build: `hemtt check` clean (165 sqf files compiled, 0 errors/warnings).
+- Tier-1: `intel_ledger` suite registered in `fnc_initServerDebug.sqf` — add
+  fills defaults + clamps confidence + returns id; query filters by
+  type/subjectRef/scope; best returns the highest-confidence live token and
+  ignores a higher-confidence expired one; decay drops expired tokens and
+  keeps live ones. Not yet run in-engine (requires `hemtt launch` + `test.VR`
+  with `fnc_runTests` enabled — human playtest step).
+- Retrofit: `fnc_buildMissionOutcome`'s `intelGathered` now feeds
+  `fnc_intelAdd` at the mission-loop outcome site (`fnc_initServer.sqf`,
+  STEP `if (!_aborted)` block) and the harness single-shot path
+  (`fnc_initTestScenario.sqf`). `fnc_intelInit` is called once at server
+  boot (STEP 0, before location scanning) and once per harness "globals"
+  step.
+- Playtest: _pending_ — human to run `fnc_runTests` in `test.VR` and confirm
+  `intel_ledger/*` all PASS, then harness single-shot an
+  `ANY_INTERACTED`/intel mission and confirm one token appears in
+  `DSC_intelLedger` with correct `type`/`source`/`confidence`/`expiresAt`.
+- Follow-ups / new gotchas: none surfaced during build. Docs: `.crush/intel-ledger.md`
+  added, `.crush/roadmap.md` Phase 3 Intel System section updated.
+

@@ -295,6 +295,13 @@ enableDynamicSimulationSystem true;
 INFO("Dynamic simulation enabled (Group=1500, Vehicle=2000, Empty=500, Prop=300)");
 
 // ============================================================================
+// Intel Ledger — per-deployment persistent store (.crush/campaign-overhaul.md
+// §4). Created once here, at session/deployment start; dies with it. Must
+// exist before any mission can retrofit intelGathered into it.
+// ============================================================================
+[] call DSC_core_fnc_intelInit;
+
+// ============================================================================
 // STEP 1: Scan World - One pass, all locations with structures + tags
 // ============================================================================
 INFO("=============== Initializing Location Data =================");
@@ -587,6 +594,15 @@ while { true } do {
         // Build standardized outcome.
         private _outcome = [_mission, _completionResult, createHashMap] call DSC_core_fnc_buildMissionOutcome;
         missionNamespace setVariable ["DSC_lastMissionOutcome", _outcome, true];
+
+        // Retrofit bridge — feed mission-produced intel into the persistent
+        // ledger. fnc_intelAdd fills every missing field, so this also
+        // normalizes the legacy sentinel token ({"type":"generic"}) into a
+        // schema-valid one. Kept out of fnc_buildMissionOutcome so it stays
+        // a pure builder (.crush/campaign-overhaul.md §4.5, §8 item 1).
+        {
+            [_x] call DSC_core_fnc_intelAdd;
+        } forEach (_outcome getOrDefault ["intelGathered", []]);
 
         private _success = _outcome get "success";
         private _outcomeMsg = _outcome get "message";

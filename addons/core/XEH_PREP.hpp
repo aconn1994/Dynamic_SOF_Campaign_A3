@@ -145,6 +145,13 @@ PREP_SUB(missions,resolveMissionConfig);
 PREP_SUB(missions,selectMission);
 PREP_SUB(missions,cleanupMission);
 
+// Intel Ledger (Campaign Overhaul Session 2 — .crush/campaign-overhaul.md §4)
+PREP_SUB(intel,intelInit);
+PREP_SUB(intel,intelAdd);
+PREP_SUB(intel,intelQuery);
+PREP_SUB(intel,intelBest);
+PREP_SUB(intel,intelDecay);
+
 // Location
 PREP_SUB(locations,getMapStructures);
 PREP_SUB(locations,initInfluence);

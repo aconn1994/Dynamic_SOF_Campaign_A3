@@ -197,6 +197,8 @@ if ("globals" in _steps) then {
 
     missionNamespace setVariable ["initGlobalsComplete", true, true];
 
+    [] call DSC_core_fnc_intelInit;
+
     enableDynamicSimulationSystem true;
     "Group"        setDynamicSimulationDistance 1500;
     "Vehicle"      setDynamicSimulationDistance 2000;
@@ -364,6 +366,12 @@ if (_singleShot) then {
 
     _outcome = [_mission, _completionResult, createHashMap] call DSC_core_fnc_buildMissionOutcome;
     missionNamespace setVariable ["DSC_lastMissionOutcome", _outcome, true];
+
+    // Retrofit bridge — same as the mission loop's outcome site in
+    // fnc_initServer.sqf. Not inside fnc_buildMissionOutcome (keep it pure).
+    {
+        [_x] call DSC_core_fnc_intelAdd;
+    } forEach (_outcome getOrDefault ["intelGathered", []]);
 
     INFO_1("initTestScenario - single-shot debrief complete: %1",_outcome get "message");
 } else {

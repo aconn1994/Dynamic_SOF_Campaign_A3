@@ -96,11 +96,14 @@
 - [x] **SOF raid-style intel** — Contact_circle4 on garrison cluster anchors, black dot markers with alpha-numeric callouts (A1, A2, B1...)
 - [x] **Scale-aware marking** — large locations (cities/towns) mark only buildings within 30m of anchor; small/isolated locations mark all buildings in cluster
 
-## Phase 3: Intel & Campaign Loop — PLANNED
+## Phase 3: Intel & Campaign Loop — IN PROGRESS
 
-### Intel System
-- [ ] Intelligence shapes follow-on missions
-- [ ] Intel objects discoverable at mission sites
+### Intel System (Campaign Overhaul Session 2 — Design: `.crush/intel-ledger.md`)
+- [x] **Intel Ledger** (`DSC_intelLedger` + `fnc_intelInit`/`fnc_intelAdd`/`fnc_intelQuery`/`fnc_intelBest`/`fnc_intelDecay`) — persistent per-deployment token store, created/wiped in `fnc_initServer` STEP 0. Query/best/decay are pure over a passed-in ledger (Tier-1 testable); add is the sole global-writing call and fills every schema default (`.crush/campaign-overhaul.md` §4.1).
+- [x] **Retrofit bridge** — `fnc_buildMissionOutcome`'s `intelGathered` (including the legacy `{"type":"generic"}` sentinel) now lands in the ledger via `fnc_intelAdd` at the mission-loop outcome site (`fnc_initServer.sqf`) and the harness single-shot path (`fnc_initTestScenario.sqf`).
+- [x] **Tier-1 suite** — `intel_ledger` registered in `fnc_initServerDebug`, covers add-fills-defaults/clamp, query by type/subjectRef/scope, best-ignores-expired, decay-drops-expired-keeps-live.
+- [ ] Intelligence shapes follow-on missions (resolver reads the ledger — Session 3+)
+- [ ] Intel objects discoverable at mission sites (Session 5 — interaction-site primitive)
 - [ ] Intel as currency — every location has potential intel
 
 ### Map Influence Dynamics

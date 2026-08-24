@@ -295,6 +295,7 @@ gotcha below about `setAccTime`).
 ## Detailed System Docs
 
 - `.crush/campaign-overhaul.md` — **⭐ MVP master plan** for the deployment / mission-series / simulated-intel / dynamic-briefing / basing overhaul. Full scope-of-vision reference: unifying data model, the six foundational seams to build "now", per-pillar variety banks, phased build order, integration landmines. Read before any campaign-layer work.
+- `.crush/intel-ledger.md` — **Intel Ledger reference** (live as of August 2026, Campaign Overhaul Session 2): `DSC_intelLedger` token schema, the five-call API (`intelInit`/`intelAdd`/`intelQuery`/`intelBest`/`intelDecay`), the retrofit bridge from `fnc_buildMissionOutcome`, Tier-1 test coverage.
 - `.crush/agentic-workflow-and-testing.md` — **Process + testing doc**: Opus-vs-Sonnet division of labor, cost-aware prompting, the three test tiers (headless logic / feature harness / full scenario), the `fnc_initTestScenario` deliberate single-mission harness design, and the Prompt→Setup→PlayTest→Revise procedure. Read before building any campaign feature.
 - `.crush/architecture.md` — Init flow, addon structure, data flow between systems
 - `.crush/logging.md` — **Logging + debug mode reference**: CBA macro cheat sheet, three-tier mode policy, marker/systemChat gating, HEMTT macro-arg-count gotcha

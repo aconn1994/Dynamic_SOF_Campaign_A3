@@ -129,8 +129,8 @@ catch.
 
 | Session | Status | Tier-1 pass | Playtest verdict | Notes |
 |---|---|---|---|---|
-| 1 — Test harness | ⬜ not started | — | — | |
-| 2 — Intel Ledger | ⬜ not started | — | — | |
+| 1 — Test harness | ✅ done | pass | — | |
+| 2 — Intel Ledger | ✅ done | pass (build-time; in-engine run pending) | — | |
 | 3 — Series arbiter | ⬜ not started | — | — | |
 | 4 — Briefing composer | ⬜ not started | — | — | |
 | 5 — Interaction site | ⬜ not started | — | — | |

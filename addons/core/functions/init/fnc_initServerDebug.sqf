@@ -98,4 +98,103 @@ _testSuites set ["harness_selftest", {
 
 INFO("Registered test suite: harness_selftest (fnc_runTests self-check)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Intel Ledger (Campaign Overhaul Session 2)
+// ----------------------------------------------------------------------------
+// intelQuery/intelBest/intelDecay are exercised against hand-built local
+// ledgers (never DSC_intelLedger) so this suite is fully deterministic and
+// touches no global state except for the intelAdd assertions, which are the
+// one function whose contract IS "write to DSC_intelLedger".
+_testSuites set ["intel_ledger", {
+    private _results = [];
+
+    // ---- intelAdd: fills defaults, clamps confidence, returns id ----
+    [] call DSC_core_fnc_intelInit;
+
+    private _addedId = [createHashMapFromArray [
+        ["type", "HVT_LOCATION"],
+        ["subjectRef", "hvt_test"],
+        ["confidence", 1.5],
+        ["source", "SSE"]
+    ]] call DSC_core_fnc_intelAdd;
+
+    _results pushBack ["intelAdd returns a non-empty id", (_addedId isEqualType "" && {_addedId != ""})];
+
+    private _ledgerGlobal = missionNamespace getVariable ["DSC_intelLedger", createHashMap];
+    private _addedToken = _ledgerGlobal getOrDefault [_addedId, createHashMap];
+
+    _results pushBack ["intelAdd stores the token under its id", (_addedToken isNotEqualTo createHashMap)];
+    _results pushBack ["intelAdd fills subjectKind default", ((_addedToken getOrDefault ["subjectKind", ""]) == "AREA")];
+    _results pushBack ["intelAdd fills scope default", ((_addedToken getOrDefault ["scope", ""]) == "AREA")];
+    _results pushBack ["intelAdd clamps confidence to 1.0", ((_addedToken getOrDefault ["confidence", -1]) == 1)];
+    _results pushBack ["intelAdd sets expiresAt after discoveredAt", ((_addedToken get "expiresAt") > (_addedToken get "discoveredAt"))];
+
+    // ---- Hand-built ledger for query/best/decay (pure, no global touch) ----
+    private _now = 100000;
+
+    private _tokenA = createHashMapFromArray [
+        ["id", "tokA"], ["type", "HVT_LOCATION"], ["subjectKind", "ENTITY"],
+        ["subjectRef", "subjX"], ["confidence", 0.4], ["source", "SSE"],
+        ["scope", "AREA"], ["discoveredAt", _now - 10], ["expiresAt", _now + 1000],
+        ["payload", createHashMap]
+    ];
+    private _tokenB = createHashMapFromArray [
+        ["id", "tokB"], ["type", "ENEMY_STRENGTH"], ["subjectKind", "LOCATION"],
+        ["subjectRef", "subjX"], ["confidence", 0.9], ["source", "RECON"],
+        ["scope", "LOCATION"], ["discoveredAt", _now - 10], ["expiresAt", _now + 1000],
+        ["payload", createHashMap]
+    ];
+    private _tokenC = createHashMapFromArray [
+        ["id", "tokC"], ["type", "HVT_LOCATION"], ["subjectKind", "ENTITY"],
+        ["subjectRef", "subjY"], ["confidence", 0.7], ["source", "HQ"],
+        ["scope", "SERIES"], ["discoveredAt", _now - 10], ["expiresAt", _now + 1000],
+        ["payload", createHashMap]
+    ];
+    // Already-expired — must never surface from query/best.
+    private _tokenExpired = createHashMapFromArray [
+        ["id", "tokExpired"], ["type", "HVT_LOCATION"], ["subjectKind", "ENTITY"],
+        ["subjectRef", "subjX"], ["confidence", 0.99], ["source", "SIGINT"],
+        ["scope", "AREA"], ["discoveredAt", _now - 2000], ["expiresAt", _now - 1000],
+        ["payload", createHashMap]
+    ];
+
+    private _testLedger = createHashMapFromArray [
+        ["tokA", _tokenA], ["tokB", _tokenB], ["tokC", _tokenC], ["tokExpired", _tokenExpired]
+    ];
+
+    // ---- intelQuery: filter by type / subjectRef / scope ----
+    private _byType = [_testLedger, createHashMapFromArray [["type", "HVT_LOCATION"]], _now] call DSC_core_fnc_intelQuery;
+    _results pushBack ["intelQuery filters by type", ((count _byType) == 2)];
+
+    private _bySubject = [_testLedger, createHashMapFromArray [["subjectRef", "subjX"]], _now] call DSC_core_fnc_intelQuery;
+    _results pushBack ["intelQuery filters by subjectRef", ((count _bySubject) == 2)];
+
+    private _byScope = [_testLedger, createHashMapFromArray [["scope", "SERIES"]], _now] call DSC_core_fnc_intelQuery;
+    _results pushBack ["intelQuery filters by scope", ((count _byScope) == 1 && {(_byScope select 0) get "id" == "tokC"})];
+
+    private _byExpiredSubject = [_testLedger, createHashMapFromArray [["subjectRef", "subjX"], ["type", "HVT_LOCATION"]], _now] call DSC_core_fnc_intelQuery;
+    _results pushBack ["intelQuery excludes an expired token even when criteria match", ((count _byExpiredSubject) == 1 && {(_byExpiredSubject findIf { (_x get "id") == "tokExpired" }) == -1})];
+
+    // ---- intelBest: highest-confidence LIVE token ----
+    private _best = [_testLedger, "subjX", "HVT_LOCATION", _now] call DSC_core_fnc_intelBest;
+    _results pushBack ["intelBest returns the highest-confidence live token (ignores expired higher one)", ((_best get "id") == "tokA")];
+
+    private _bestNone = [_testLedger, "subjZZZ", "NOTHING", _now] call DSC_core_fnc_intelBest;
+    _results pushBack ["intelBest returns empty sentinel when nothing matches", (_bestNone isEqualTo createHashMap)];
+
+    // ---- intelDecay: drops expired, keeps live ----
+    private _decayLedger = createHashMapFromArray [
+        ["tokA", _tokenA], ["tokB", _tokenB], ["tokC", _tokenC], ["tokExpired", _tokenExpired]
+    ];
+    private _dropped = [_decayLedger, _now] call DSC_core_fnc_intelDecay;
+
+    _results pushBack ["intelDecay drops exactly the expired token", (_dropped == 1)];
+    _results pushBack ["intelDecay keeps live tokens", ((count _decayLedger) == 3)];
+    _results pushBack ["intelDecay actually removed the expired id", !("tokExpired" in (keys _decayLedger))];
+
+    _results
+}];
+
+INFO("Registered test suite: intel_ledger (Intel Ledger add/query/best/decay)");
+
 INFO("Server debug layer initialized (tablet events registered)");
