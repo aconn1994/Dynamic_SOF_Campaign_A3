@@ -7,8 +7,8 @@ workshop = [
 #   test.VR          -> Tier-1 headless suites (fnc_runTests, seconds, no terrain)
 #   DSC_Altis.Altis  -> Tier-2/3 (fnc_initTestScenario harness or full scenario)
 
-mission = "test.VR"
-# mission = "DSC_Altis.Altis"
+# mission = "test.VR"
+mission = "DSC_Altis.Altis"
 # mission = "DSC_Livonia.enoch"
 # mission = "DSC_Malden.Malden"
 # mission = "DSC_Stratis.Stratis"

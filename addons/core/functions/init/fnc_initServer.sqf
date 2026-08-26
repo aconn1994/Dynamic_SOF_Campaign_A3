@@ -521,6 +521,12 @@ if (isNil { missionNamespace getVariable "DSC_missionQueue" }) then {
 if (isNil { missionNamespace getVariable "DSC_missionAbortRequested" }) then {
     missionNamespace setVariable ["DSC_missionAbortRequested", false, true];
 };
+// DSC_activeSeries — Campaign Overhaul Session 3 (.crush/campaign-overhaul.md
+// §5.2). createHashMap sentinel means "no series active yet"; the arbiter
+// starts a ONE_OFF thread on the first SELECT call.
+if (isNil { missionNamespace getVariable "DSC_activeSeries" }) then {
+    missionNamespace setVariable ["DSC_activeSeries", createHashMap, true];
+};
 
 [_factionData, _influenceData] spawn {
     params ["_factionData", "_influenceData"];
@@ -536,6 +542,22 @@ while { true } do {
         missionNamespace setVariable ["DSC_missionQueue", _queue, true];
         TRACE_1("Mission loop consumed queued template",_template);
     };
+
+    // --- Series Arbiter: select template (Campaign Overhaul Session 3) ---
+    // Tablet queue precedence is unchanged (handled above, untouched). When
+    // the queue was empty, the arbiter reads DSC_activeSeries' current stage
+    // (or starts a fresh ONE_OFF thread — §11 decision 3) and hands its
+    // missionTemplate to fnc_selectMission exactly like a queued template
+    // would be. See .crush/campaign-overhaul.md §5.2.
+    private _activeSeries = missionNamespace getVariable ["DSC_activeSeries", createHashMap];
+    private _selectResult = ["SELECT", _template, _activeSeries] call DSC_core_fnc_advanceCampaign;
+    _selectResult params ["_selectedTemplate", "_selectedSeries"];
+    _template = _selectedTemplate;
+    missionNamespace setVariable ["DSC_activeSeries", _selectedSeries, true];
+
+    private _seriesThreadType = _selectedSeries getOrDefault ["threadType", "NONE"];
+    private _seriesStageIndex = _selectedSeries getOrDefault ["stageIndex", -1];
+    INFO_2("Mission wrapped in series thread=%1 stageIndex=%2",_seriesThreadType,_seriesStageIndex);
 
     private _missionConfig = [_influenceData, _factionData, _template] call DSC_core_fnc_selectMission;
 
@@ -603,6 +625,22 @@ while { true } do {
         {
             [_x] call DSC_core_fnc_intelAdd;
         } forEach (_outcome getOrDefault ["intelGathered", []]);
+
+        // --- Series Arbiter: post-outcome advance (Campaign Overhaul Session 3) ---
+        // Advances DSC_activeSeries' stage per the outcome (onSuccess/onFailure,
+        // §11 decision 1), grants the completed stage's intelReward, and
+        // clears the series when its stages are exhausted (a ONE_OFF thread
+        // clears after its single stage — §11 decision 3). The abort branch
+        // above never reaches here, so an aborted mission never advances the
+        // series, per .crush/campaign-overhaul.md §10.
+        private _seriesForOutcome = missionNamespace getVariable ["DSC_activeSeries", createHashMap];
+        private _ledgerForOutcome = missionNamespace getVariable ["DSC_intelLedger", createHashMap];
+        private _outcomeResult = ["OUTCOME", _outcome, _seriesForOutcome, _ledgerForOutcome] call DSC_core_fnc_advanceCampaign;
+        _outcomeResult params ["_advancedSeries", "_seriesIntelReward"];
+        missionNamespace setVariable ["DSC_activeSeries", _advancedSeries, true];
+        {
+            [_x] call DSC_core_fnc_intelAdd;
+        } forEach _seriesIntelReward;
 
         private _success = _outcome get "success";
         private _outcomeMsg = _outcome get "message";

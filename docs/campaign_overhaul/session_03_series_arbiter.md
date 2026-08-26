@@ -147,4 +147,18 @@ meet every Definition-of-Done checkbox. Ship this invisibly. Sonnet scope.
 
 ## Results log
 
-- Build: _pending_ · Tier-1: _pending_ · Playtest/regression: _pending_ · Gotchas: _pending_
+- Build: `hemtt check` + `hemtt build` clean (167 sqf files compiled, 4 PBOs).
+- Tier-1: `series_arbiter` suite registered in `fnc_initServerDebug.sqf`
+  (13 assertions — ONE_OFF template parity, tablet-queue precedence,
+  2-stage mock success/failure branching + branchState, intelReward lands in
+  `DSC_intelLedger`, series clears on exhaustion for both a synthetic
+  terminal stage and the real `fnc_startSeries` ONE_OFF output). Run via
+  `fnc_runTests` in-game / on a headless server to confirm PASS.
+- Playtest/regression: _pending human verification_ — full `DSC_Altis.Altis`
+  run to confirm the mission loop still generates back-to-back missions
+  identically, and RPT shows `Mission wrapped in series thread=ONE_OFF
+  stageIndex=0` per mission.
+- Gotchas found: HashMap shallow-copy for test isolation is `+_hashmap`
+  (mirrors array `+`), not a named `copy`/`clone` command — used in the
+  Tier-1 suite so mutating one `advanceCampaign(OUTCOME)` call doesn't
+  corrupt a mock reused by a later assertion.

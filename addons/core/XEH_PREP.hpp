@@ -152,6 +152,10 @@ PREP_SUB(intel,intelQuery);
 PREP_SUB(intel,intelBest);
 PREP_SUB(intel,intelDecay);
 
+// Campaign (Campaign Overhaul Session 3 — .crush/campaign-overhaul.md §5)
+PREP_SUB(campaign,startSeries);
+PREP_SUB(campaign,advanceCampaign);
+
 // Location
 PREP_SUB(locations,getMapStructures);
 PREP_SUB(locations,initInfluence);

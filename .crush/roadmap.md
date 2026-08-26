@@ -160,13 +160,15 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
 - [ ] **Phase C — BFT/Squad/Intel panels** — live unit positions, squad commands, intel browser
 - [ ] **Mission preset save/load** — store favorite playtest configs in profileNamespace
 
-### Mission Series Framework (NEXT — foundation now in place)
-- [ ] **`fnc_initMissionSeries`** — register a series of templates with branching logic
-- [ ] **`DSC_activeSeries`** — mission loop checks active series before random generation
-- [ ] **Series state hashmap** — `DSC_lastMissionOutcome` already provides standardized inputs; series consumes them
-- [ ] **Conditional branching** — template selection based on prior outcome (HVT escaped → chase mission)
+### Mission Series Framework (Campaign Overhaul Session 3 — Series Arbiter SHIPPED)
+- [x] **`fnc_startSeries`** — builds `DSC_activeSeries` (`.crush/campaign-overhaul.md` §2 shape); ONE_OFF thread factory emits a single stage whose `missionTemplate` is byte-for-byte today's random template (KILL_CAPTURE / AFO_rural — §11 decision 3)
+- [x] **`fnc_advanceCampaign`** — pure arbiter (`[mode, payload, activeSeries, intelLedger] -> result`), two modes: `SELECT` (tablet queue > active series' current stage > fresh ONE_OFF) and `OUTCOME` (branches onSuccess/onFailure per §11 decision 1, grants `intelReward` via the caller, clears the series when stages are exhausted)
+- [x] **Loop insertion** — `fnc_initServer.sqf` mission loop: SELECT call between queue-consume and `fnc_selectMission`, OUTCOME call after `fnc_buildMissionOutcome`'s intel retrofit bridge. Queue-consume, abort, influence-update, cleanup are byte-for-byte unchanged. Ships **invisibly** — a run with no thread configured produces identical missions to before this session.
+- [x] **Tier-1 suite `series_arbiter`** — ONE_OFF template parity, tablet-queue precedence, 2-stage mock series success/failure branching, intelReward lands in `DSC_intelLedger`, series clears when exhausted (both a synthetic terminal stage and the real ONE_OFF wrapper)
+- [ ] **Real narrative threads** (Session 5+) — `fnc_startSeries` called with an explicit `threadType` + stage DAG instead of the ONE_OFF default
+- [ ] **`entryConditions` evaluation** — `_intelLedger` is threaded through `fnc_advanceCampaign` but not yet read; stage gating on ledger tokens is future work
 - [ ] **Series briefing** — overarching narrative beyond individual mission briefings
-- [ ] **Intel as currency** — `intelTokens` already populated by interaction handler; selector reads them to seed next template
+- [ ] **Diversion event on failure** — §11 decision 1's "subject relocates, re-find beat queued later" is a future thread's job; this session only wires the onFailure branch target
 
 ### Mission Archetypes (live)
 - [x] **RAID** archetype — single AO, attacker

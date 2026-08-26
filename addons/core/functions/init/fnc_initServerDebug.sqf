@@ -197,4 +197,148 @@ _testSuites set ["intel_ledger", {
 
 INFO("Registered test suite: intel_ledger (Intel Ledger add/query/best/decay)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Series Arbiter (Campaign Overhaul Session 3)
+// ----------------------------------------------------------------------------
+// fnc_startSeries / fnc_advanceCampaign are fully pure (no global reads other
+// than fnc_intelAdd's ledger write, which the "intelReward lands in the
+// ledger" assertions exercise deliberately, same pattern as intel_ledger's
+// intelAdd checks above). Mock series/outcomes are hand-built locals.
+_testSuites set ["series_arbiter", {
+    private _results = [];
+
+    // ---- startSeries: ONE_OFF factory equals today's random template ----
+    private _oneOffSeries = [] call DSC_core_fnc_startSeries;
+    private _oneOffStages = _oneOffSeries get "stages";
+
+    _results pushBack ["startSeries ONE_OFF produces exactly one stage", (count _oneOffStages == 1)];
+
+    private _oneOffTemplate = (_oneOffStages select 0) get "missionTemplate";
+    private _todaysRandomTemplate = createHashMapFromArray [
+        ["type", "KILL_CAPTURE"],
+        ["missionProfile", "AFO_rural"]
+    ];
+
+    _results pushBack ["startSeries ONE_OFF template matches today's random template", (_oneOffTemplate isEqualTo _todaysRandomTemplate)];
+    _results pushBack ["startSeries ONE_OFF has no branch targets (always terminal)", (((_oneOffStages select 0) get "onSuccess") == "" && {((_oneOffStages select 0) get "onFailure") == ""})];
+
+    // ---- advanceCampaign SELECT: no thread -> one-off template ----
+    private _selectNoThread = ["SELECT", createHashMap, createHashMap] call DSC_core_fnc_advanceCampaign;
+    _selectNoThread params ["_selNoThreadTemplate", "_selNoThreadSeries"];
+
+    _results pushBack ["advanceCampaign(SELECT) with no thread returns today's random template", (_selNoThreadTemplate isEqualTo _todaysRandomTemplate)];
+    _results pushBack ["advanceCampaign(SELECT) with no thread starts a ONE_OFF series", ((_selNoThreadSeries get "threadType") == "ONE_OFF")];
+
+    // ---- advanceCampaign SELECT: tablet queue outranks series ----
+    private _queuedTemplate = createHashMapFromArray [["type", "QUEUED_TEMPLATE"]];
+    private _mockActiveSeries = createHashMapFromArray [
+        ["threadType", "TEST_THREAD"],
+        ["stages", [createHashMapFromArray [["id", "irrelevant"], ["missionTemplate", createHashMapFromArray [["type", "SERIES_TEMPLATE"]]]]]],
+        ["stageIndex", 0],
+        ["branchState", createHashMap],
+        ["subjectRefs", createHashMap],
+        ["narrative", createHashMap],
+        ["intelRequirements", []]
+    ];
+    private _selectWithQueue = ["SELECT", _queuedTemplate, _mockActiveSeries] call DSC_core_fnc_advanceCampaign;
+    _selectWithQueue params ["_selQueueTemplate", "_selQueueSeries"];
+
+    _results pushBack ["advanceCampaign(SELECT) tablet queue outranks active series", (_selQueueTemplate isEqualTo _queuedTemplate)];
+    _results pushBack ["advanceCampaign(SELECT) leaves the active series untouched when queue wins", (_selQueueSeries isEqualTo _mockActiveSeries)];
+
+    // ---- Mock 2-branch series for OUTCOME tests ----
+    // stageA -> onSuccess: stageB (terminal) / onFailure: stageA_fail (terminal)
+    private _stageA = createHashMapFromArray [
+        ["id", "stageA"],
+        ["entryConditions", []],
+        ["missionTemplate", createHashMapFromArray [["type", "STAGE_A"]]],
+        ["onSuccess", "stageB"],
+        ["onFailure", "stageA_fail"],
+        ["intelReward", [createHashMapFromArray [["type", "HVT_LOCATION"], ["subjectRef", "arbiter_test_subject"], ["confidence", 0.8], ["source", "HQ"]]]],
+        ["narrativeBeat", ""]
+    ];
+    private _stageB = createHashMapFromArray [
+        ["id", "stageB"],
+        ["entryConditions", []],
+        ["missionTemplate", createHashMapFromArray [["type", "STAGE_B"]]],
+        ["onSuccess", ""],
+        ["onFailure", ""],
+        ["intelReward", []],
+        ["narrativeBeat", ""]
+    ];
+    private _stageAFail = createHashMapFromArray [
+        ["id", "stageA_fail"],
+        ["entryConditions", []],
+        ["missionTemplate", createHashMapFromArray [["type", "STAGE_A_FAIL"]]],
+        ["onSuccess", ""],
+        ["onFailure", ""],
+        ["intelReward", []],
+        ["narrativeBeat", ""]
+    ];
+
+    private _twoStageSeries = createHashMapFromArray [
+        ["threadType", "TEST_THREAD"],
+        ["stages", [_stageA, _stageB, _stageAFail]],
+        ["stageIndex", 0],
+        ["branchState", createHashMap],
+        ["subjectRefs", createHashMap],
+        ["narrative", createHashMap],
+        ["intelRequirements", []]
+    ];
+
+    // ---- OUTCOME: success advances to onSuccess target ----
+    private _successOutcome = createHashMapFromArray [["success", true]];
+    private _outcomeSuccessResult = ["OUTCOME", _successOutcome, +_twoStageSeries, createHashMap] call DSC_core_fnc_advanceCampaign;
+    _outcomeSuccessResult params ["_seriesAfterSuccess", "_rewardAfterSuccess"];
+
+    _results pushBack ["advanceCampaign(OUTCOME) success advances stageIndex to onSuccess target", ((_seriesAfterSuccess get "stageIndex") == 1)];
+    _results pushBack ["advanceCampaign(OUTCOME) success records branchState", (((_seriesAfterSuccess get "branchState") getOrDefault ["stageA", ""]) == "success")];
+    _results pushBack ["advanceCampaign(OUTCOME) success returns the completed stage's intelReward", ((count _rewardAfterSuccess) == 1 && {(_rewardAfterSuccess select 0) get "subjectRef" == "arbiter_test_subject"})];
+
+    // ---- OUTCOME: failure takes onFailure target ----
+    private _failureOutcome = createHashMapFromArray [["success", false]];
+    private _outcomeFailureResult = ["OUTCOME", _failureOutcome, +_twoStageSeries, createHashMap] call DSC_core_fnc_advanceCampaign;
+    _outcomeFailureResult params ["_seriesAfterFailure", "_rewardAfterFailure"];
+
+    _results pushBack ["advanceCampaign(OUTCOME) failure advances stageIndex to onFailure target", ((_seriesAfterFailure get "stageIndex") == 2)];
+    _results pushBack ["advanceCampaign(OUTCOME) failure records branchState", (((_seriesAfterFailure get "branchState") getOrDefault ["stageA", ""]) == "failure")];
+
+    // ---- intelReward tokens actually land in the ledger on stage completion ----
+    [] call DSC_core_fnc_intelInit;
+    {
+        [_x] call DSC_core_fnc_intelAdd;
+    } forEach _rewardAfterSuccess;
+    private _ledgerAfterReward = missionNamespace getVariable ["DSC_intelLedger", createHashMap];
+    private _rewardQuery = [_ledgerAfterReward, createHashMapFromArray [["subjectRef", "arbiter_test_subject"]]] call DSC_core_fnc_intelQuery;
+    private _rewardLanded = (count _rewardQuery) > 0;
+
+    _results pushBack ["OUTCOME intelReward tokens land in DSC_intelLedger via fnc_intelAdd", _rewardLanded];
+
+    // ---- series clears when exhausted (terminal stage, e.g. ONE_OFF or stageB) ----
+    private _terminalSeries = createHashMapFromArray [
+        ["threadType", "TEST_THREAD"],
+        ["stages", [_stageB]],
+        ["stageIndex", 0],
+        ["branchState", createHashMap],
+        ["subjectRefs", createHashMap],
+        ["narrative", createHashMap],
+        ["intelRequirements", []]
+    ];
+    private _outcomeTerminalResult = ["OUTCOME", _successOutcome, _terminalSeries, createHashMap] call DSC_core_fnc_advanceCampaign;
+    _outcomeTerminalResult params ["_seriesAfterTerminal", "_rewardAfterTerminal"];
+
+    _results pushBack ["advanceCampaign(OUTCOME) clears the series when its stages are exhausted", (_seriesAfterTerminal isEqualTo createHashMap)];
+
+    // ---- one-off wrapper (real fnc_startSeries output) clears after one stage ----
+    private _outcomeOneOffResult = ["OUTCOME", _successOutcome, _oneOffSeries, createHashMap] call DSC_core_fnc_advanceCampaign;
+    _outcomeOneOffResult params ["_seriesAfterOneOff", "_rewardAfterOneOff"];
+
+    _results pushBack ["advanceCampaign(OUTCOME) clears a ONE_OFF thread after its single stage", (_seriesAfterOneOff isEqualTo createHashMap)];
+
+    _results
+}];
+
+INFO("Registered test suite: series_arbiter (startSeries ONE_OFF factory + advanceCampaign SELECT/OUTCOME)");
+
 INFO("Server debug layer initialized (tablet events registered)");
+
