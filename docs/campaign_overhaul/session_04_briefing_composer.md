@@ -125,4 +125,19 @@ meet every Definition-of-Done checkbox. Sonnet scope.
 
 ## Results log
 
-- Build: _pending_ · Tier-1: _pending_ · Parity playtest: _pending_ · Gotchas: _pending_
+- Build: shipped — `fnc_composeBriefing` + `fnc_getBriefingBanks` added,
+  `fnc_createMissionBriefing` rewired (signature/return unchanged), both
+  registered in `XEH_PREP.hpp`. `hemtt check` clean.
+- Tier-1: `briefing_composer` suite added to `fnc_initServerDebug` — five
+  sections present, titlePrefix/taskIcon carried through, slot interpolation
+  leaves no unfilled `%slot` placeholders, fixed KILL_CAPTURE context
+  reproduces pre-refactor output byte-for-byte (verified by manual
+  reconstruction against the pre-refactor format string; run `fnc_runTests`
+  in-game to confirm PASS in RPT).
+- Parity playtest: _pending_ (needs a human launch — generate a KILL_CAPTURE
+  mission and confirm the task briefing reads the same as before).
+- Gotchas: composer join order is legacy-shaped (MISSION, SITUATION, INTEL,
+  EXECUTION, SUPPORT) rather than the canonical SITUATION-first §6.1 order,
+  to keep the visible text byte-identical to today's; SUPPORT section is
+  empty today (no `deployment.supportAssets` model exists yet). Named-slot
+  interpolation uses `CBA_fnc_replace` (`[_string, _find, _replace]`).

@@ -29,6 +29,7 @@ PREP_SUB(classification,classifyGroup);
 PREP_SUB(classification,classifyGroups);
 
 // Data
+PREP_SUB(data,getBriefingBanks);
 PREP_SUB(data,getBriefingFragments);
 PREP_SUB(data,getC2Archetypes);
 PREP_SUB(data,getCompletionTypes);
@@ -137,6 +138,7 @@ PREP_SUB(placement,placeOutdoorPile);
 // Missions
 PREP_SUB(missions,addInteractionHandler);
 PREP_SUB(missions,buildMissionOutcome);
+PREP_SUB(missions,composeBriefing);
 PREP_SUB(missions,createMissionBriefing);
 PREP_SUB(missions,evaluateCompletion);
 PREP_SUB(missions,generateMission);

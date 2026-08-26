@@ -170,6 +170,14 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
 - [ ] **Series briefing** — overarching narrative beyond individual mission briefings
 - [ ] **Diversion event on failure** — §11 decision 1's "subject relocates, re-find beat queued later" is a future thread's job; this session only wires the onFailure branch target
 
+### Briefing Composer Refactor (Campaign Overhaul Session 4 — parity, SHIPPED)
+- [x] **`fnc_composeBriefing`** — pure `context -> string` seam (`.crush/campaign-overhaul.md` §6.1/§6.2/§6.4); composes SITUATION/MISSION/EXECUTION/INTEL/SUPPORT from bank phrasings + named `%slot` interpolation (via `CBA_fnc_replace`). No global/world reads — fully Tier-1 testable with a mock context.
+- [x] **`fnc_getBriefingBanks`** — sectioned sentence-bank registry keyed by `(missionType × unitVoice)`; wraps the existing `fnc_getBriefingFragments` fields into the five-section shape. One voice (`GENERIC`) seeded, single-entry pools per section for parity.
+- [x] **`fnc_createMissionBriefing` rewired** — still computes the runtime-derived pieces (relative-location description, target block, fuzzy troop estimates, threat detection, area description) since composer must stay pure, packs them into a context hashmap, and calls `fnc_composeBriefing` for the body. Signature/return (task id) unchanged.
+- [x] **Tier-1 suite `briefing_composer`** — all five sections present in the bank, titlePrefix/taskIcon carried through, slot interpolation leaves no unfilled `%slot` placeholders, and a fixed KILL_CAPTURE context reproduces the pre-refactor output byte-for-byte.
+- [ ] **Intel-conditioned inserts** (Session 7) — the `ledger` context key is carried but not read yet; per-section inserts gated on ledger tokens are future work.
+- [ ] **Additional unit voices / multi-entry pools** — banks currently hold exactly one phrasing per section; variety banks are authored over time (§6.3).
+
 ### Mission Archetypes (live)
 - [x] **RAID** archetype — single AO, attacker
   - [x] Kill/capture HVT (KILL_CAPTURE)

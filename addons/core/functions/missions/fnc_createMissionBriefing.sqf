@@ -2,14 +2,19 @@
 /*
  * Function: DSC_core_fnc_createMissionBriefing
  * Description:
- *     Creates a task with an intel-style briefing assembled from briefing
- *     fragments + runtime context.
+ *     Creates a task with an intel-style briefing. The mission's
+ *     "briefingArchetype" field selects a bank entry from
+ *     fnc_getBriefingBanks (titlePrefix, taskIcon). The briefing BODY is
+ *     assembled by fnc_composeBriefing (Campaign Overhaul Session 4,
+ *     .crush/campaign-overhaul.md §6) from a context hashmap built here.
  *
- *     The mission's "briefingArchetype" field selects a fragment from
- *     fnc_getBriefingFragments which supplies the title prefix, objective
- *     statement, ROE, and task icon. The intel/area/threat blocks are
- *     composed at runtime from location data, AO tags, and any entity/
- *     object archetypes attached to the mission.
+ *     The relative-location description, target block from entity/object
+ *     archetypes, fuzzy troop estimates, threat detection, and area
+ *     description are still computed in this function — they need the real
+ *     _mission/_ao/_location game objects — and are passed into the
+ *     context's "slots" as plain values. That split is what keeps
+ *     fnc_composeBriefing a pure, Tier-1-testable context -> string
+ *     function with no global/world reads of its own.
  *
  *     If the mission has no briefingArchetype (or one that doesn't match
  *     the registry), a generic fallback briefing is composed.
@@ -54,15 +59,13 @@ private _aoTags = _ao getOrDefault ["tags", []];
 private _totalUnits = _mission getOrDefault ["units", []];
 
 // ============================================================================
-// Resolve briefing fragment
+// Resolve briefing bank entry (titlePrefix / taskIcon)
 // ============================================================================
-private _fragments = call DSC_core_fnc_getBriefingFragments;
-private _fragment = _fragments getOrDefault [_briefingArchetype, createHashMap];
+private _banks = call DSC_core_fnc_getBriefingBanks;
+private _bankEntry = _banks getOrDefault [_briefingArchetype, createHashMap];
 
-private _titlePrefix = _fragment getOrDefault ["titlePrefix", "Mission"];
-private _objective = _fragment getOrDefault ["objective", "Proceed to the area of operations and assess."];
-private _roe = _fragment getOrDefault ["roe", "Exercise caution and report findings."];
-private _taskIcon = _fragment getOrDefault ["taskIcon", "run"];
+private _titlePrefix = _bankEntry getOrDefault ["titlePrefix", "Mission"];
+private _taskIcon = _bankEntry getOrDefault ["taskIcon", "run"];
 
 // ============================================================================
 // Build relative location description
@@ -204,32 +207,27 @@ private _areaDesc = switch (true) do {
 };
 
 // ============================================================================
-// Compose briefing
+// Compose briefing (fnc_composeBriefing - Session 4 seam)
 // ============================================================================
 private _title = format ["%1 - %2", _titlePrefix, _locationName];
 
-private _description = format [
-    "<t size='1.2'>MISSION BRIEFING</t><br/><br/>" +
-    "<t font='PuristaBold'>OBJECTIVE:</t> %1<br/><br/>" +
-    "<t font='PuristaBold'>LOCATION:</t> %2, %3.<br/><br/>" +
-    "<t font='PuristaBold'>AREA:</t> Operating from a %4, %5.<br/><br/>" +
-    "%6" +
-    "<t font='PuristaBold'>INTEL:</t><br/>" +
-    "- %7<br/>" +
-    "- %8<br/><br/>" +
-    "<t font='PuristaBold'>THREATS:</t><br/>%9<br/><br/>" +
-    "<t font='PuristaBold'>RULES OF ENGAGEMENT:</t> %10",
-    _objective,
-    _locationName,
-    _relativeDesc,
-    _areaDesc,
-    _strengthEstimate,
-    _targetBlock,
-    _garrisonEstimate,
-    _patrolEstimate,
-    _threatText,
-    _roe
+private _context = createHashMapFromArray [
+    ["missionType", _briefingArchetype],
+    ["unitVoice", "GENERIC"],
+    ["ledger", missionNamespace getVariable ["DSC_intelLedger", createHashMap]],
+    ["slots", createHashMapFromArray [
+        ["locationName", _locationName],
+        ["relativeDesc", _relativeDesc],
+        ["areaDesc", _areaDesc],
+        ["strengthEstimate", _strengthEstimate],
+        ["targetBlock", _targetBlock],
+        ["garrisonEstimate", _garrisonEstimate],
+        ["patrolEstimate", _patrolEstimate],
+        ["threatText", _threatText]
+    ]]
 ];
+
+private _description = [_context] call DSC_core_fnc_composeBriefing;
 
 // ============================================================================
 // Create task (no map position - uses marker instead)

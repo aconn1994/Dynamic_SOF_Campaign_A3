@@ -340,5 +340,109 @@ _testSuites set ["series_arbiter", {
 
 INFO("Registered test suite: series_arbiter (startSeries ONE_OFF factory + advanceCampaign SELECT/OUTCOME)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Briefing Composer (Campaign Overhaul Session 4)
+// ----------------------------------------------------------------------------
+// fnc_composeBriefing is pure (context -> string, no global/world reads), so
+// every case here uses a hand-built mock context. The parity case captures
+// fnc_createMissionBriefing's pre-refactor output for a fixed KILL_CAPTURE
+// context and asserts the refactored composer reproduces it byte-for-byte.
+_testSuites set ["briefing_composer", {
+    private _results = [];
+
+    // ---- getBriefingBanks: all five sections exist per (missionType, GENERIC) ----
+    private _banks = call DSC_core_fnc_getBriefingBanks;
+    private _kcEntry = _banks getOrDefault ["raid_kill_capture", createHashMap];
+    private _kcVoices = _kcEntry getOrDefault ["voices", createHashMap];
+    private _kcGeneric = _kcVoices getOrDefault ["GENERIC", createHashMap];
+    private _sectionKeys = keys _kcGeneric;
+
+    _results pushBack ["getBriefingBanks seeds all five sections (situation/mission/execution/intel/support)", (
+        ("situation" in _sectionKeys) &&
+        {"mission" in _sectionKeys} &&
+        {"execution" in _sectionKeys} &&
+        {"intel" in _sectionKeys} &&
+        {"support" in _sectionKeys}
+    )];
+
+    _results pushBack ["getBriefingBanks carries titlePrefix/taskIcon through from the existing fragments", (
+        ((_kcEntry getOrDefault ["titlePrefix", ""]) == "Eliminate HVT") &&
+        {(_kcEntry getOrDefault ["taskIcon", ""]) == "kill"}
+    )];
+
+    // ---- composeBriefing: named slot interpolation ----
+    private _slotContext = createHashMapFromArray [
+        ["missionType", "raid_kill_capture"],
+        ["unitVoice", "GENERIC"],
+        ["slots", createHashMapFromArray [
+            ["locationName", "Kavala"],
+            ["relativeDesc", "in Kavala"],
+            ["areaDesc", "urban area"],
+            ["strengthEstimate", "estimated light resistance"],
+            ["targetBlock", ""],
+            ["garrisonEstimate", "Light garrison presence (fireteam-sized)"],
+            ["patrolEstimate", "No patrol activity reported"],
+            ["threatText", "No special threats identified."]
+        ]]
+    ];
+    private _slotBody = [_slotContext] call DSC_core_fnc_composeBriefing;
+
+    _results pushBack ["composeBriefing interpolates %locationName", ("Kavala" in _slotBody)];
+
+    private _hasUnfilledSlot = (
+        ("%locationName" in _slotBody) ||
+        {"%relativeDesc" in _slotBody} ||
+        {"%areaDesc" in _slotBody} ||
+        {"%strengthEstimate" in _slotBody} ||
+        {"%targetBlock" in _slotBody} ||
+        {"%garrisonEstimate" in _slotBody} ||
+        {"%patrolEstimate" in _slotBody} ||
+        {"%threatText" in _slotBody}
+    );
+    _results pushBack ["composeBriefing leaves no unfilled %slot placeholders", !_hasUnfilledSlot];
+
+    // ---- composeBriefing: emits recognizable content for all five sections ----
+    _results pushBack ["composeBriefing body contains the MISSION section (OBJECTIVE)", ("OBJECTIVE:" in _slotBody)];
+    _results pushBack ["composeBriefing body contains the SITUATION section (LOCATION/AREA)", ("LOCATION:" in _slotBody && {"AREA:" in _slotBody})];
+    _results pushBack ["composeBriefing body contains the INTEL section (INTEL/THREATS)", ("INTEL:" in _slotBody && {"THREATS:" in _slotBody})];
+    _results pushBack ["composeBriefing body contains the EXECUTION section (RULES OF ENGAGEMENT)", ("RULES OF ENGAGEMENT:" in _slotBody)];
+
+    // ---- Parity: fixed KILL_CAPTURE context reproduces pre-refactor output ----
+    private _parityContext = createHashMapFromArray [
+        ["missionType", "raid_kill_capture"],
+        ["unitVoice", "GENERIC"],
+        ["slots", createHashMapFromArray [
+            ["locationName", "Kavala"],
+            ["relativeDesc", "in Kavala"],
+            ["areaDesc", "urban area"],
+            ["strengthEstimate", "estimated light resistance"],
+            ["targetBlock", "<t font='PuristaBold'>TARGETS:</t><br/>- Officer: A high ranking officer<br/><br/>"],
+            ["garrisonEstimate", "Light garrison presence (fireteam-sized)"],
+            ["patrolEstimate", "No patrol activity reported"],
+            ["threatText", "No special threats identified."]
+        ]]
+    ];
+
+    private _expectedBody =
+        "<t size='1.2'>MISSION BRIEFING</t><br/><br/>" +
+        "<t font='PuristaBold'>OBJECTIVE:</t> Locate and eliminate or capture a high-value target.<br/><br/>" +
+        "<t font='PuristaBold'>LOCATION:</t> Kavala, in Kavala.<br/><br/>" +
+        "<t font='PuristaBold'>AREA:</t> Operating from a urban area, estimated light resistance.<br/><br/>" +
+        "<t font='PuristaBold'>TARGETS:</t><br/>- Officer: A high ranking officer<br/><br/>" +
+        "<t font='PuristaBold'>INTEL:</t><br/>" +
+        "- Light garrison presence (fireteam-sized)<br/>" +
+        "- No patrol activity reported<br/><br/>" +
+        "<t font='PuristaBold'>THREATS:</t><br/>No special threats identified.<br/><br/>" +
+        "<t font='PuristaBold'>RULES OF ENGAGEMENT:</t> Weapons free. Eliminate or capture the HVT and RTB for debrief.";
+
+    private _actualBody = [_parityContext] call DSC_core_fnc_composeBriefing;
+
+    _results pushBack ["composeBriefing parity: fixed KILL_CAPTURE context matches pre-refactor byte-for-byte output", (_actualBody == _expectedBody)];
+
+    _results
+}];
+
+INFO("Registered test suite: briefing_composer (fnc_composeBriefing sections + slot interpolation + parity)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 
