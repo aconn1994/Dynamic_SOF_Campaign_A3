@@ -152,6 +152,25 @@ switch (_missionType) do {
     // case "SABOTAGE": { ... };
     // case "DIRECT_ACTION": { ... };
     // case "DEFEND": { ... };
+    case "RAID": {
+        // Generic raid pass-through (Session 5) — the caller supplies a
+        // (partial or full) raidConfig directly via the template's
+        // "raidConfig" key. Used by the interaction-site test harness and
+        // any future hand-authored raid that doesn't warrant its own named
+        // case above. Missing fields default the same way the named cases
+        // do; targetFaction/targetSide fall back to the resolved mission
+        // config unless the raidConfig overrides them.
+        private _raidConfig = _missionConfig getOrDefault ["raidConfig", createHashMap];
+        if !("entities" in _raidConfig) then { _raidConfig set ["entities", []] };
+        if !("objects" in _raidConfig) then { _raidConfig set ["objects", []] };
+        if !("interactionSites" in _raidConfig) then { _raidConfig set ["interactionSites", []] };
+        if !("completion" in _raidConfig) then { _raidConfig set ["completion", "KILL_CAPTURE"] };
+        if !("markerStyle" in _raidConfig) then { _raidConfig set ["markerStyle", "compound"] };
+        if !("briefingArchetype" in _raidConfig) then { _raidConfig set ["briefingArchetype", ""] };
+        if !("targetFaction" in _raidConfig) then { _raidConfig set ["targetFaction", _targetFaction] };
+        if !("targetSide" in _raidConfig) then { _raidConfig set ["targetSide", _missionConfig get "targetSide"] };
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
+    };
     default {
         diag_log format ["DSC: fnc_generateMission - Unknown mission type: %1", _missionType];
     };

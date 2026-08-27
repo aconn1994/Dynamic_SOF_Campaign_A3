@@ -94,5 +94,18 @@ createHashMapFromArray [
         ["successMsg", "Area secured"],
         ["partialMsg", "Resistance still active"],
         ["stateKeys", ["defenders"]]
+    ]],
+
+    // Session 5 (interaction-site primitive) — N-of-M sites exploited.
+    // sitesCompleted is maintained by fnc_interactionSiteFire; nothing
+    // needs to poll site state directly.
+    ["SITES_INTERACTED", createHashMapFromArray [
+        ["check", {
+            params ["_state"];
+            (_state getOrDefault ["sitesCompleted", 0]) >= (_state getOrDefault ["sitesRequired", 1])
+        }],
+        ["successMsg", "Site(s) exploited"],
+        ["partialMsg", "Site(s) not exploited"],
+        ["stateKeys", ["sitesCompleted", "sitesRequired"]]
     ]]
 ]

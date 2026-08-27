@@ -27,6 +27,11 @@ waitUntil { missionNamespace getVariable ["initGlobalsComplete", false]; };
 } forEach (units group player);
 
 // ============================================================================
+// Interaction Sites (Session 5) — client-local addAction arming
+// ============================================================================
+[] call DSC_core_fnc_initInteractionSites;
+
+// ============================================================================
 // Mission Actions (on Joint Operations Center flagpole)
 // ============================================================================
 jointOperationCenter addAction [

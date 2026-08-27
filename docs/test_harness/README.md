@@ -1,6 +1,6 @@
 # Test Harness — Example Configs
 
-Two example `DSC_testConfig` blocks for the Tier-1/Tier-2 test harness
+Example `DSC_testConfig` blocks for the Tier-1/Tier-2 test harness
 (`DSC_core_fnc_runTests` + `DSC_core_fnc_initTestScenario`). See
 `.crush/agentic-workflow-and-testing.md` Part B and
 `docs/campaign_overhaul/session_01_test_harness.md` for the full design.
@@ -22,6 +22,22 @@ Two example `DSC_testConfig` blocks for the Tier-1/Tier-2 test harness
   (dump `DSC_locations` once with `steps: ["globals","locations"]` and no
   forced location to find one), or delete the `"location"` key entirely to
   let `regionCenter`/`regionRadius` (or full auto-selection) pick one.
+- `03_tier2_altis_interaction_site_sse.sqf` — Tier-2 feature harness for the
+  interaction-site primitive (Campaign Overhaul Session 5). Forces the
+  generic `"RAID"` mission type with a `raidConfig` containing one
+  `SSE_INTEL` interaction site and `SITES_INTERACTED` completion, left
+  `ACTIVE` (`singleShot: false`) so a human can walk into range, run
+  "Conduct SSE", and confirm it (a) fires the completion event and (b)
+  drops an intel token into `DSC_intelLedger`. Note that `completion` and
+  `interactionSites` live INSIDE `raidConfig`, not at the top level of
+  `missionTemplate` — `raidConfig` is an opaque pass-through
+  `fnc_generateMission`'s `"RAID"` case forwards straight to
+  `fnc_generateRaidMission`.
+- `04_tier2_altis_universal_search.sqf` — Tier-2 feature harness for the
+  universal "Search" hook (Session 5). Boots `presence` + `roving` for
+  ambient hostile groups near the player; kill one and confirm a
+  "Search Body" action appears at the death position once the whole
+  group is dead, with no extra entities spawned to support it.
 
 ## Usage
 
@@ -35,3 +51,4 @@ Two example `DSC_testConfig` blocks for the Tier-1/Tier-2 test harness
 3. Read the filtered `DSC:` lines in the RPT for `PASS`/`FAIL`/summary
    (Tier-1) or `initTestScenario - ...` step banners + the single generated
    mission (Tier-2).
+

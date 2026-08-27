@@ -444,5 +444,98 @@ _testSuites set ["briefing_composer", {
 
 INFO("Registered test suite: briefing_composer (fnc_composeBriefing sections + slot interpolation + parity)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Interaction Sites (Campaign Overhaul Session 5)
+// ----------------------------------------------------------------------------
+// Pure-function tests only — no world objects, no addAction, no network, per
+// docs/campaign_overhaul/session_05_interaction_site.md's Tier-1 test plan.
+_testSuites set ["interaction_site", {
+    private _results = [];
+
+    // ---- buildInteractionSiteConfig: defaults on empty input ----
+    private _emptySite = [createHashMap] call DSC_core_fnc_buildInteractionSiteConfig;
+
+    _results pushBack ["buildInteractionSiteConfig fills a non-empty id", ((_emptySite get "id") isEqualType "" && {(_emptySite get "id") != ""})];
+    _results pushBack ["buildInteractionSiteConfig defaults radius > 0", ((_emptySite get "radius") > 0)];
+
+    private _emptyDuration = _emptySite get "duration";
+    _results pushBack ["buildInteractionSiteConfig duration is a 2-element ascending pair", (_emptyDuration isEqualType [] && {count _emptyDuration == 2} && {(_emptyDuration select 0) <= (_emptyDuration select 1)})];
+
+    _results pushBack ["buildInteractionSiteConfig defaults tangibility to abstract", ((_emptySite get "tangibility") == "abstract")];
+    _results pushBack ["buildInteractionSiteConfig defaults requireCount to [1,1]", ((_emptySite get "requireCount") isEqualTo [1, 1])];
+    _results pushBack ["buildInteractionSiteConfig defaults state to ARMED", ((_emptySite get "state") == "ARMED")];
+
+    // ---- buildInteractionSiteConfig: caller-supplied fields preserved verbatim ----
+    private _customRaw = createHashMapFromArray [
+        ["id", "my_custom_id"],
+        ["action", "Custom Action"],
+        ["radius", 25],
+        ["tangibility", "focalProp"]
+    ];
+    private _customSite = [_customRaw] call DSC_core_fnc_buildInteractionSiteConfig;
+
+    _results pushBack ["buildInteractionSiteConfig preserves caller id", ((_customSite get "id") == "my_custom_id")];
+    _results pushBack ["buildInteractionSiteConfig preserves caller action", ((_customSite get "action") == "Custom Action")];
+    _results pushBack ["buildInteractionSiteConfig preserves caller radius", ((_customSite get "radius") == 25)];
+    _results pushBack ["buildInteractionSiteConfig preserves caller tangibility", ((_customSite get "tangibility") == "focalProp")];
+
+    // ---- SITES_INTERACTED completion logic (via fnc_evaluateCompletion, same as other named types) ----
+    private _stateIncomplete = createHashMapFromArray [["sitesCompleted", 0], ["sitesRequired", 1]];
+    private _resultIncomplete = ["SITES_INTERACTED", _stateIncomplete] call DSC_core_fnc_evaluateCompletion;
+    _results pushBack ["SITES_INTERACTED: 0/1 is incomplete", !(_resultIncomplete get "complete")];
+
+    private _stateComplete = createHashMapFromArray [["sitesCompleted", 1], ["sitesRequired", 1]];
+    private _resultComplete = ["SITES_INTERACTED", _stateComplete] call DSC_core_fnc_evaluateCompletion;
+    _results pushBack ["SITES_INTERACTED: 1/1 is complete", (_resultComplete get "complete")];
+
+    private _stateNofM1 = createHashMapFromArray [["sitesCompleted", 2], ["sitesRequired", 3]];
+    private _resultNofM1 = ["SITES_INTERACTED", _stateNofM1] call DSC_core_fnc_evaluateCompletion;
+    _results pushBack ["SITES_INTERACTED: 2/3 is incomplete (N-of-M not yet met)", !(_resultNofM1 get "complete")];
+
+    private _stateNofM2 = createHashMapFromArray [["sitesCompleted", 3], ["sitesRequired", 3]];
+    private _resultNofM2 = ["SITES_INTERACTED", _stateNofM2] call DSC_core_fnc_evaluateCompletion;
+    _results pushBack ["SITES_INTERACTED: 3/3 is complete", (_resultNofM2 get "complete")];
+
+    private _resultMissingKeys = ["SITES_INTERACTED", createHashMap] call DSC_core_fnc_evaluateCompletion;
+    _results pushBack ["SITES_INTERACTED: missing keys default to incomplete, no error", !(_resultMissingKeys get "complete")];
+
+    // ---- buildIntelTokenFromSite ----
+    private _mockSite = createHashMapFromArray [["id", "site_test_1"], ["pos", [1000, 2000, 0]]];
+    private _mockContext = createHashMapFromArray [
+        ["type", "HVT_LOCATION"],
+        ["source", "SSE"],
+        ["confidence", 0.6]
+    ];
+    private _builtToken = [_mockContext, _mockSite] call DSC_core_fnc_buildIntelTokenFromSite;
+
+    _results pushBack ["buildIntelTokenFromSite preserves type/source/confidence", ((_builtToken get "type") == "HVT_LOCATION" && {(_builtToken get "source") == "SSE"} && {(_builtToken get "confidence") == 0.6})];
+
+    private _builtPayload = _builtToken get "payload";
+    _results pushBack ["buildIntelTokenFromSite seeds payload from site pos", ((_builtPayload get "pos") isEqualTo [1000, 2000, 0])];
+    _results pushBack ["buildIntelTokenFromSite seeds payload with site id", ((_builtPayload get "siteId") == "site_test_1")];
+
+    // Confidence clamping is intelAdd's job, not the builder's — an
+    // out-of-range value must pass through unclamped here.
+    private _outOfRangeContext = createHashMapFromArray [["type", "generic"], ["confidence", 1.5]];
+    private _outOfRangeToken = [_outOfRangeContext, _mockSite] call DSC_core_fnc_buildIntelTokenFromSite;
+    _results pushBack ["buildIntelTokenFromSite does not clamp confidence (that's intelAdd's job)", ((_outOfRangeToken get "confidence") == 1.5)];
+
+    // ---- resolveSearchYield ----
+    private _yieldMatch = ["opFor", "opFor"] call DSC_core_fnc_resolveSearchYield;
+    private _yieldBaseline = ["opFor", ""] call DSC_core_fnc_resolveSearchYield;
+    _results pushBack ["resolveSearchYield: matching roles yield SERIES", ((_yieldMatch get "scope") == "SERIES")];
+    _results pushBack ["resolveSearchYield: matching roles yield confidence above the AREA baseline", ((_yieldMatch get "confidence") > (_yieldBaseline get "confidence"))];
+
+    private _yieldMismatch = ["opFor", "irregulars"] call DSC_core_fnc_resolveSearchYield;
+    _results pushBack ["resolveSearchYield: mismatched roles yield AREA", ((_yieldMismatch get "scope") == "AREA")];
+
+    private _yieldNoSeries = ["opFor", ""] call DSC_core_fnc_resolveSearchYield;
+    _results pushBack ["resolveSearchYield: no active series always yields AREA regardless of victim role", ((_yieldNoSeries get "scope") == "AREA")];
+
+    _results
+}];
+
+INFO("Registered test suite: interaction_site (site config defaults + SITES_INTERACTED + token builder + search yield)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 

@@ -61,6 +61,15 @@ private _marker = _mission getOrDefault ["marker", ""];
     };
 } forEach _groups;
 
+// Session 5 — remove every mission-scoped interaction site so a generated
+// site never outlives its mission (its addAction would stay armed on every
+// client with a dangling missionScoped reference into a mission hashmap
+// that's already gone).
+private _interactionSites = _mission getOrDefault ["interactionSites", []];
+{
+    [_x] call DSC_core_fnc_removeInteractionSite;
+} forEach _interactionSites;
+
 // Delete mission marker
 if (_marker isEqualType "") then {
     if (_marker != "") then {

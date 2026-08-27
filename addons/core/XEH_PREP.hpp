@@ -34,6 +34,7 @@ PREP_SUB(data,getBriefingFragments);
 PREP_SUB(data,getC2Archetypes);
 PREP_SUB(data,getCompletionTypes);
 PREP_SUB(data,getEntityArchetypes);
+PREP_SUB(data,getInteractionSiteArchetypes);
 PREP_SUB(data,getMissionProfiles);
 PREP_SUB(data,getObjectArchetypes);
 PREP_SUB(data,getStructureTypes);
@@ -153,6 +154,19 @@ PREP_SUB(intel,intelAdd);
 PREP_SUB(intel,intelQuery);
 PREP_SUB(intel,intelBest);
 PREP_SUB(intel,intelDecay);
+PREP_SUB(intel,buildIntelTokenFromSite);
+
+// Interaction Sites (Campaign Overhaul Session 5 — .crush/campaign-overhaul.md §13)
+PREP_SUB(interaction,buildInteractionSiteConfig);
+PREP_SUB(interaction,createInteractionSite);
+PREP_SUB(interaction,removeInteractionSite);
+PREP_SUB(interaction,interactionSiteFire);
+PREP_SUB(interaction,initInteractionSites);
+PREP_SUB(interaction,interactionSiteArmLocal);
+PREP_SUB(interaction,interactionSiteDisarmLocal);
+PREP_SUB(interaction,interactionSiteHold);
+PREP_SUB(interaction,interactionSiteOnCompleteIntel);
+PREP_SUB(interaction,resolveSearchYield);
 
 // Campaign (Campaign Overhaul Session 3 — .crush/campaign-overhaul.md §5)
 PREP_SUB(campaign,startSeries);

@@ -51,6 +51,7 @@
 - [ ] **QRF can dispatch to an LKP a few metres from its own node** — `QRF DISPATCHED [DELTA-2] - 4 foot units toward LKP 7m out`. Responders spawn essentially on top of their destination and arrive instantly, so the response reads as a garrison shuffle rather than a reinforcement. Add a minimum travel distance below which the node should recall instead of dispatching.
 - [ ] **Roving foot rovers occasionally spawn ~21 km from the player and despawn 8s later** — observed `roving spawned [foot] BUS_InfSentry src=base/loc_65 spawn=21110m` followed 8s later by `roving despawned dist=21108m`. The spawn-position search in `fnc_rovingSpawnFoot` is picking a point far outside the despawn ring, so the whole spawn is wasted work and briefly consumes rover budget. Clamp the search to the despawn radius, or reject and retry before spawning.
 - [ ] **`fnc_buildRoadRoute` returns 0m on airfield concrete** — ground rovers spawning near `player_base_0` / an airbase log `start candidate 0-3 unusable (0m dead-end)` on every attempt, because runway and taxiway segments are `Road` objects that carry no `roadsConnectedTo` graph links. Self-recovers via the "3 route failures → move toward patrol center" fallback, so this is log noise rather than a stall — but ground rovers arguably should not pick airfield spawn points at all.
+- [ ] **Universal Search body despawns seconds before its own interaction site does** — playtest-confirmed (August 2026): a roving patrol wiped near the objective had its corpses culled by `fnc_rovingDespawnSweep`'s ungated foot "group dead" branch (~8s, no distance/age check) while the "Search Body" site it spawned stayed armed, so the player finds an empty patch of ground to search. Deliberately deferred rather than hotfixed on the spot — needs the despawn sweep to hold a body's zone/group alive while an unfired interaction site still references its death position, and to only release once the player has left the area, which touches presence/roving teardown timing as much as the interaction-site primitive itself.
 - [x] **Side allocation regression (`.crush/faction-sides.md`)** — FIXED. Rather than convert the ~10 individual side-resolution call sites (the partial migration that caused the regression), role sides are now normalized **once** in `fnc_initServer` at profile selection, before the profile reaches `missionNamespace`. Since `fnc_initFactionData` copies `side` verbatim, both runtime sources are correct by construction and no downstream site needs changing. Follow-up cleanup (deleting the now-dead `side` entries from the profile literals) is tracked as Phase 0 in `.crush/faction-autoscan.md`.
 - [x] **`fnc_buildRoadRoute` frequently returned a single stationary waypoint** — FIXED. Three causes: (1) the walk started from the single nearest road, which is often a driveway/bridge-ramp/isolated stub with no graph neighbours, so it died on iteration one — now tries up to 4 nearest roads as start candidates; (2) any dead end terminated the whole route — now backtracks (bounded DFS, 12 pops) and tries another branch; (3) a 1-point route at the caller's own position was returned as success, and both patrol loops then set a MOVE waypoint the vehicle was already inside, fired arrival instantly, and re-planned in place forever — routes shorter than 25% of target now return `[]` so the caller retries. `roadsConnectedTo` is also filtered for nulls and self-references. Termination reason is logged.
 - [x] **Rotary rovers dying seconds after spawn** — FIXED. `fnc_rovingSpawnAir` computed a desired *above-ground* altitude (rotary 100-150m) and passed it straight to `setPosASL` as a sea-level coordinate, so helicopters spawned underground anywhere terrain exceeded that — which is most of the Altis interior. Spawn altitude and all waypoint altitudes are now `getTerrainHeightASL + altitude` (clamped at 0 for water). Also: initial velocity is now set along the heading after crew creation (`setPosASL` + `setDir` don't rotate the momentum `createVehicle ... "FLY"` starts with, so rotaries wallowed and settled into terrain), and the transit/loiter roll was inverted against its own doc comment — `random 1 < 0.05` gave ~95% loiter, meaning nearly every rotary orbited low and slow near the player instead of transiting. Now 55% transit as documented.
@@ -334,6 +335,29 @@ player spawn near objective) are live. Both call the real init/generation
 functions — no forked logic. Example `DSC_testConfig` blocks under
 `docs/test_harness/`. See `.crush/agentic-workflow-and-testing.md` Part B
 and `docs/campaign_overhaul/session_01_test_harness.md`.
+
+**Interaction Sites (Campaign Overhaul Session 5)** — shipped August 2026.
+Objectives that used to be scattered physical objects (laptops, ammo
+crates) are now a **trigger/area sized to the site plus a player action**
+(`fnc_createInteractionSite`), distance-gated on the player rather than an
+`addAction` on a placed object, with a timed hold and server-authoritative
+completion (`fnc_interactionSiteFire`). `SITES_INTERACTED` supports N-of-M
+via `sitesCompleted`/`sitesRequired`. The raid generator gained a parallel
+`"interactionSites"` spec array (`SSE_INTEL`, `SUPPLY_DESTROY_SITE`,
+`CACHE_VERIFY`, `SABOTAGE_SITE`), and any hostile group wiped anywhere in
+the world — mission objective or purely ambient presence/roving — now
+spawns a "Search Body" site at its death position with **no extra
+entities**, yielding a low-confidence AREA intel token or (if it matches
+the active narrative thread's subject faction) a higher-confidence SERIES
+token. `onComplete` is a shared function
+(`fnc_interactionSiteOnCompleteIntel`) that feeds the Intel Ledger through
+the same pure builder + `fnc_intelAdd` pattern used elsewhere. Legacy
+object-scatter placement (`fnc_placeInterior`/`fnc_placeOnGround`/
+`fnc_placeOutdoorPile`) is demoted to an optional `focalProp` dressing
+tier — scenery only, never wired back to `addAction`. Tier-1 suite
+`interaction_site` covers config defaults, N-of-M completion logic, the
+token builder, and search-yield matching. See
+`docs/campaign_overhaul/session_05_interaction_site.md`.
 
 ---
 

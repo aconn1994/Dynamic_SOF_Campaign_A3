@@ -736,6 +736,13 @@ player action** ("Conduct SSE", "Verify Cache"). Physical objects become
 the load-bearing mechanic. **Agreed — with refinements below. This supersedes
 the object-scatter default in `mission-archetypes.md`.**
 
+> **Status: SHIPPED (Campaign Overhaul Session 5, August 2026).**
+> `fnc_createInteractionSite` + `SITES_INTERACTED` + the universal Search hook
+> are live; object-scatter placement (`fnc_placeInterior`/`fnc_placeOnGround`/
+> `fnc_placeOutdoorPile`) is demoted to the optional `tangibility: "focalProp"`
+> dressing tier described below, never wired back to `fnc_addInteractionHandler`.
+> See `docs/campaign_overhaul/session_05_interaction_site.md`.
+
 ### 13.1 Why this is the right call
 
 The object-scatter approach fights the engine at exactly the point the reality

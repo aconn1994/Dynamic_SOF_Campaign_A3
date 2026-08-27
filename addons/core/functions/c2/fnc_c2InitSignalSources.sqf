@@ -186,6 +186,76 @@ addMissionEventHandler ["EntityKilled", {
             [_victimGroup] spawn DSC_core_fnc_c2ContactReport;
         };
     };
+
+    // ------------------------------------------------------------------
+    // Universal Search hook (Session 5 — interaction-site primitive,
+    // .crush/campaign-overhaul.md §13.4 / §4.3 #2)
+    // ------------------------------------------------------------------
+    // Extends THIS handler rather than adding a second EntityKilled
+    // listener — it already has _victimGroup and the silent-class
+    // exclusion above. Spawns NOTHING: attaches a distance-gated
+    // interaction site to the death position of a group that is now
+    // fully dead. Civilian groups are never eligible (same filter C2
+    // stamping already applies) — a dead civilian is not an intel source.
+    if (!isNull _victimGroup && {side _victimGroup != civilian}) then {
+        private _alreadySearched = _victimGroup getVariable ["DSC_searchSiteCreated", false];
+        private _stillAlive = (units _victimGroup) findIf { alive _x } != -1;
+
+        if (!_alreadySearched && !_stillAlive) then {
+            _victimGroup setVariable ["DSC_searchSiteCreated", true];
+
+            // Resolve the victim's faction ROLE (opFor/irregulars/...) from
+            // its config faction via the normalized runtime profile — the
+            // same lookup fnc_resolveMissionConfig uses for target/area
+            // faction resolution, just walked in the opposite direction
+            // (classname -> role instead of role -> classname pool).
+            private _victimFaction = getText (configOf _killed >> "faction");
+            private _profile = missionNamespace getVariable ["factionProfileConfig", createHashMap];
+            private _victimRole = "";
+            {
+                private _roleFactions = _y getOrDefault ["factions", []];
+                if (_victimFaction in _roleFactions) exitWith { _victimRole = _x; };
+            } forEach _profile;
+
+            // DSC_activeSeries.subjectRefs carries a "factionRole" key when
+            // a narrative thread is targeting a specific faction (Campaign
+            // Overhaul Session 3+); "" (no active thread) is the common
+            // case today and always yields a low-confidence AREA token.
+            private _activeSeries = missionNamespace getVariable ["DSC_activeSeries", createHashMap];
+            private _seriesSubjects = _activeSeries getOrDefault ["subjectRefs", createHashMap];
+            private _seriesRole = _seriesSubjects getOrDefault ["factionRole", ""];
+
+            private _yield = [_victimRole, _seriesRole] call DSC_core_fnc_resolveSearchYield;
+
+            // Captured NOW, not re-derived later — fnc_rovingDespawnSweep
+            // culls a wiped foot rover within ~8s and fnc_despawnPresenceZone
+            // does similar teardown; the body reference may not survive to
+            // when a player actually walks up.
+            private _searchPos = _pos;
+
+            private _tokenContext = createHashMapFromArray [
+                ["type", "HVT_LOCATION"],
+                ["subjectKind", "AREA"],
+                ["subjectRef", _victimRole],
+                ["confidence", _yield get "confidence"],
+                ["source", "BODY_SEARCH"],
+                ["scope", _yield get "scope"]
+            ];
+
+            [createHashMapFromArray [
+                ["pos", _searchPos],
+                ["radius", 5],
+                ["action", "Search Body"],
+                ["duration", [10, 20]],
+                ["onComplete", DSC_core_fnc_interactionSiteOnCompleteIntel],
+                ["tokenContext", _tokenContext],
+                ["missionScoped", false]
+            ]] call DSC_core_fnc_createInteractionSite;
+
+            LOG_2("universal search - site created for wiped group (role=%1, scope=%2)",_victimRole,_yield get "scope");
+        };
+    };
 }];
 
 INFO("c2 signal sources wired (EntityKilled + client fired relay)");
+

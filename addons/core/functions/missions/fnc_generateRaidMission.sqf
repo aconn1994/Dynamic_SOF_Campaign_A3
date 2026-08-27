@@ -84,6 +84,7 @@ private _targetFaction = _config getOrDefault ["targetFaction", missionNamespace
 private _targetSide = _config getOrDefault ["targetSide", east];
 private _entitySpecs = _config getOrDefault ["entities", []];
 private _objectSpecs = _config getOrDefault ["objects", []];
+private _interactionSiteSpecs = _config getOrDefault ["interactionSites", []];
 private _completion = _config getOrDefault ["completion", "KILL_CAPTURE"];
 private _markerStyle = _config getOrDefault ["markerStyle", "compound"];
 private _briefingArchetype = _config getOrDefault ["briefingArchetype", ""];
@@ -284,6 +285,94 @@ private _objectMeta = [];
 } forEach _objectSpecs;
 
 // ============================================================================
+// Place Interaction Sites (Session 5 — interaction-site primitive)
+// ============================================================================
+// Distance-gated player action, not a placed object (§13.2/§13.3) — position
+// resolution reuses the exact candidate-building cascade fnc_placeOnGround
+// already uses (AO garrison-cluster buildings, then location structures,
+// then the bare location centerpoint) rather than introducing a new
+// buildingPos dependency; only the building's CENTER is read, no interior
+// slot lookup needed since there is no object to place.
+private _createdSiteIds = [];
+private _sitesRequiredTotal = 0;
+private _siteArchetypes = call DSC_core_fnc_getInteractionSiteArchetypes;
+private _seriesId = _config getOrDefault ["seriesId", ""];
+
+private _siteCandidateBuildings = [];
+{ _siteCandidateBuildings append (_x getOrDefault ["buildings", []]) } forEach (_ao getOrDefault ["garrisonClusters", []]);
+if (_siteCandidateBuildings isEqualTo []) then {
+    _siteCandidateBuildings = _location getOrDefault ["structures", []];
+};
+
+{
+    private _spec = _x;
+    private _archetypeName = _spec getOrDefault ["archetype", ""];
+    private _archetype = _siteArchetypes getOrDefault [_archetypeName, createHashMap];
+
+    if (_archetype isEqualTo createHashMap) then {
+        WARNING_1("generateRaidMission - skipping unknown interaction-site archetype '%1'",_archetypeName);
+        continue;
+    };
+
+    private _countSpec = _spec getOrDefault ["count", 1];
+    private _instanceCount = if (_countSpec isEqualType []) then {
+        (_countSpec select 0) + (floor (random ((_countSpec select 1) - (_countSpec select 0) + 1)))
+    } else {
+        _countSpec
+    };
+
+    private _requiredForSpec = _spec getOrDefault ["sitesRequired", _instanceCount];
+    _sitesRequiredTotal = _sitesRequiredTotal + _requiredForSpec;
+
+    private _tokenContextDefault = _archetype getOrDefault ["tokenContext", createHashMap];
+    private _tangibility = _spec getOrDefault ["tangibility", _archetype getOrDefault ["tangibility", "abstract"]];
+    private _dressingClass = _spec getOrDefault ["dressing", ""];
+
+    for "_instance" from 1 to _instanceCount do {
+        private _sitePos = if (_siteCandidateBuildings isNotEqualTo []) then {
+            getPos (selectRandom _siteCandidateBuildings)
+        } else {
+            _locationPos
+        };
+
+        private _tokenContext = createHashMap;
+        { _tokenContext set [_x, _y] } forEach _tokenContextDefault;
+        if (_seriesId != "") then { _tokenContext set ["scope", "SERIES"] };
+
+        private _siteId = [createHashMapFromArray [
+            ["pos", _sitePos],
+            ["radius", _spec getOrDefault ["radius", 10]],
+            ["action", _spec getOrDefault ["action", _archetype getOrDefault ["action", "Conduct SSE"]]],
+            ["duration", _spec getOrDefault ["duration", _archetype getOrDefault ["duration", [20, 60]]]],
+            ["tangibility", _tangibility],
+            ["dressing", _dressingClass],
+            ["onComplete", DSC_core_fnc_interactionSiteOnCompleteIntel],
+            ["tokenContext", _tokenContext],
+            ["missionScoped", true],
+            ["markerLocationId", _location getOrDefault ["id", ""]]
+        ]] call DSC_core_fnc_createInteractionSite;
+
+        _createdSiteIds pushBack _siteId;
+
+        // Tangibility tier 2 (focalProp) — a single non-interactable
+        // dressing object at the same building, scenery only. The
+        // interaction mechanism stays the site's own distance-gated
+        // action; this object never gets fnc_addInteractionHandler
+        // attached (that would reintroduce the object-addAction path
+        // this primitive replaces). Tier 3 ("composition") is a
+        // documented no-op hook — "dressing" is carried on the site but
+        // nothing consumes it yet.
+        if (_tangibility == "focalProp" && {_dressingClass != ""} && {_siteCandidateBuildings isNotEqualTo []}) then {
+            [
+                createHashMapFromArray [["classname", _dressingClass], ["count", 1]],
+                _location, _ao,
+                createHashMapFromArray [["building", selectRandom _siteCandidateBuildings]]
+            ] call DSC_core_fnc_placeInterior;
+        };
+    };
+} forEach _interactionSiteSpecs;
+
+// ============================================================================
 // Markers
 // ============================================================================
 private _missionMarkers = switch (_markerStyle) do {
@@ -310,13 +399,17 @@ if (_extractPos isEqualTo [] && { !isNull (missionNamespace getVariable ["jointO
     _extractPos = getPos (missionNamespace getVariable ["jointOperationCenter", objNull]);
 };
 
+private _sitesRequired = [_sitesRequiredTotal max 1, 1] select (_interactionSiteSpecs isEqualTo []);
+
 private _completionState = createHashMapFromArray [
     ["hvt", _firstEntity],
     ["objects", _placedObjects],
     ["hostages", _placedEntities],          // captive-behavior entities; condition will filter
     ["defenders", _defenderUnits],
     ["intelGathered", false],               // toggled by interaction handler
-    ["extractPos", _extractPos]
+    ["extractPos", _extractPos],
+    ["sitesCompleted", 0],                  // maintained by fnc_interactionSiteFire
+    ["sitesRequired", _sitesRequired]
 ];
 
 // ============================================================================
@@ -345,6 +438,7 @@ private _mission = createHashMapFromArray [
     ["entities", _placedEntities],
     ["objects", _placedObjects],
     ["objectMeta", _objectMeta],
+    ["interactionSites", _createdSiteIds],
     ["groups", _aoGroups],
     ["patrolGroups", _patrolGroups],
     ["defenderUnits", _defenderUnits],
