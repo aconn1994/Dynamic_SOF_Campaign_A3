@@ -236,7 +236,7 @@ private _globalSlot = 0;
                 _entGroup setBehaviour "SAFE";
                 _entGroup setCombatMode "GREEN";
                 _entGroup enableAttack false;
-                if (!(_entGroup in _aoGroups)) then { _aoGroups pushBack _entGroup };
+                _aoGroups pushBackUnique _entGroup;
             };
         };
 

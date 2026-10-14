@@ -162,9 +162,7 @@ _group setVariable ["DSC_c2Reported", false];
 // Register on the node roster. The tick prunes dead entries, so we only
 // need to guard against double-registration here.
 private _roster = _node get "groups";
-if !(_group in _roster) then {
-    _roster pushBack _group;
-};
+_roster pushBackUnique _group;
 
 private _stats = missionNamespace getVariable ["DSC_c2Stats", createHashMap];
 _stats set ["groupsStamped", (_stats getOrDefault ["groupsStamped", 0]) + 1];

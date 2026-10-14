@@ -118,7 +118,7 @@ diag_log format [
 private _sidesPresent = [];
 {
     private _s = side _x;
-    if !(_s in _sidesPresent) then { _sidesPresent pushBack _s };
+    _sidesPresent pushBackUnique _s;
 } forEach _alive;
 
 diag_log format ["DSCDIAG [%1] %2 SIDES-PRESENT %3", _label, _tag, _sidesPresent];

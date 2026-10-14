@@ -74,7 +74,7 @@ if (_armedGroups isNotEqualTo []) then {
     private _diagSides = [];
     {
         private _s = str (side _x);
-        if !(_s in _diagSides) then { _diagSides pushBack _s };
+        _diagSides pushBackUnique _s;
     } forEach _armedGroups;
     private _diagUnitCt = 0;
     { _diagUnitCt = _diagUnitCt + count (units _x) } forEach _armedGroups;

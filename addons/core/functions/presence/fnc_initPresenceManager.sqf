@@ -915,9 +915,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                             if (_hasEntities) then {
                                 // Worker already spawned — schedule cleanup,
                                 // don't drop straight to DORMANT and orphan units.
-                                if !(_zone in _despawnQueue) then {
-                                    _despawnQueue pushBack _zone;
-                                };
+                                _despawnQueue pushBackUnique _zone;
                                 _newState = "DESPAWNING";
                                 _zone set ["graceUntil", serverTime];
                                 ["activatingAbandoned"] call _fnc_bumpStat;
@@ -990,9 +988,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                     // Mission AO forces actual delete via despawn queue.
                     // Grace expiry transitions to DORMANT (entities deleted).
                     if (_missionOverlap) then {
-                        if !(_zone in _despawnQueue) then {
-                            _despawnQueue pushBack _zone;
-                        };
+                        _despawnQueue pushBackUnique _zone;
                         _newState = "DESPAWNING";
                         _zone set ["graceUntil", serverTime];
                         _suspended = _suspended + 1;
@@ -1008,9 +1004,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                         } else {
                             if (serverTime >= (_zone get "graceUntil")) then {
                                 // Pause grace expired — actually delete now.
-                                if !(_zone in _despawnQueue) then {
-                                    _despawnQueue pushBack _zone;
-                                };
+                                _despawnQueue pushBackUnique _zone;
                                 _newState = "DESPAWNING";
                                 _zone set ["graceUntil", serverTime];
                                 ["pauseExpired"] call _fnc_bumpStat;
@@ -1023,9 +1017,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                     if (_missionOverlap) then {
                         // Don't let the player walk into the AO and rescue this zone
                         if (serverTime >= (_zone get "graceUntil")) then {
-                            if !(_zone in _despawnQueue) then {
-                                _despawnQueue pushBack _zone;
-                            };
+                            _despawnQueue pushBackUnique _zone;
                             if (!(_zone getOrDefault ["processed", true])
                                 && {(count (_zone get "units")) == 0}
                                 && {(count (_zone get "vehicles")) == 0}
@@ -1039,9 +1031,7 @@ systemChat format ["DSC presence: %1 zones registered, tick loop starting (20s)"
                             _newState = "ACTIVE";
                         } else {
                             if (serverTime >= (_zone get "graceUntil")) then {
-                                if !(_zone in _despawnQueue) then {
-                                    _despawnQueue pushBack _zone;
-                                };
+                                _despawnQueue pushBackUnique _zone;
                                 if (!(_zone getOrDefault ["processed", true])
                                     && {(count (_zone get "units")) == 0}
                                     && {(count (_zone get "vehicles")) == 0}

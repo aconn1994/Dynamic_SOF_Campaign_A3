@@ -283,8 +283,8 @@ private _fnc_link = {
     private _b = _nodes get _bId;
     private _aLinks = _a get "links";
     private _bLinks = _b get "links";
-    if !(_bId in _aLinks) then { _aLinks pushBack _bId; };
-    if !(_aId in _bLinks) then { _bLinks pushBack _aId; };
+    _aLinks pushBackUnique _bId;
+    _bLinks pushBackUnique _aId;
 };
 
 {
