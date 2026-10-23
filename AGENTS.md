@@ -31,9 +31,10 @@ addons/
 │       ├── intel/           # Intel Ledger: intelInit/intelAdd/intelQuery/intelBest/intelDecay + buildIntelTokenFromSite (see .crush/intel-ledger.md)
 │       ├── campaign/        # Series arbiter: startSeries (ONE_OFF factory) + advanceCampaign (SELECT/OUTCOME)
 │       ├── interaction/     # Interaction-site primitive: distance-gated player action sites (not object-addAction), universal "Search" hook (Session 5)
+│       ├── sweep/           # SWEEP archetype runtime: pure evaluateTick/resolveYield + spawned monitor + detection→convert hook (Session 6)
 │       ├── ai/              # Population, guards, garrison, patrols, combat activation
 │       ├── presence/        # World simulation manager: zones, state machine, lifecycle, + roving entities subsystem (Sprint E) (see .crush/presence-manager.md)
-│       ├── missions/        # Raid generator, mission orchestrator, briefing, completion, outcome, cleanup, interaction
+│       ├── missions/        # Raid generator (also drives SWEEP, Session 6), mission orchestrator, briefing, completion, outcome, cleanup, interaction
 │       ├── placement/       # Strategy library: deep-building, ground, interior, outdoor-pile, object dispatcher
 │       ├── markers/         # Compound marker drawer
 │       ├── base/            # Player actions: HALO, extraction, medic, helo transport
@@ -142,6 +143,7 @@ See `.crush/architecture.md` for the full init flow and system relationships.
 | C2 ISR + player-facing (Sprint F.4) | `fnc_c2IsrCoverage` / `fnc_c2IsrEntryTier` / `fnc_c2IsrBroadcast` / `fnc_c2Telegraph` / `fnc_c2ContactRegister` + `DSC_ui_fnc_panelRadio_*` | Makes the network perceivable. **Coverage tiers**: NONE / BASIC (player within 800m) / ENHANCED (ISR drone on station, weather-degraded radius) / FULL (F.5 SIGINT stub). Coverage is best-of {event position, node LKP, node position}. Live intercepted chatter via `systemChat`, throttled to 1 line per 2.5s. **Diegetic telegraphs, no coverage needed**: illum flare when a node hits RED, forced headlights when a QRF departs — both night-only and gated to 3km of a player. Tablet **Radio Feed** page on the INTEL tab: timestamped scrollback, per-source coloring, live coverage header, alerted-node strip, EARNED/ALL(DEBUG) filter. **Hostile contact fixes on the BFT**: SIGINT (radio DF on transmitting groups, ENHANCED-gated, 240s) + VISUAL (own-force observation, 90s) — snapshots that age, fade and expire, never live tracking. |
 | Interaction Sites (Campaign Overhaul Session 5) | `fnc_createInteractionSite` / `fnc_removeInteractionSite` / `fnc_interactionSiteFire` / `fnc_initInteractionSites` / `fnc_buildInteractionSiteConfig` | Distance-gated player action ("Conduct SSE" etc.) replacing scattered `addAction`-on-object placement for SSE/search-style objectives — see `.crush/campaign-overhaul.md` §13. Action lives on the player, gated purely by `player distance site < radius`, never on AREA_CLEAR or object state. Timed hold (20-60s), server-authoritative completion (`fnc_interactionSiteFire` re-validates range + ARMED state before firing `onComplete`). `SITES_INTERACTED` completion type supports N-of-M (`sitesCompleted`/`sitesRequired`). Raid generator gains a parallel `"interactionSites"` spec array (`fnc_getInteractionSiteArchetypes`: SSE_INTEL, SUPPLY_DESTROY_SITE, CACHE_VERIFY, SABOTAGE_SITE). `onComplete` is the shared `fnc_interactionSiteOnCompleteIntel` → `fnc_buildIntelTokenFromSite` (pure) → `fnc_intelAdd`, so every completed site feeds the Intel Ledger. Legacy object-scatter placement (`fnc_placeInterior`/`fnc_placeOnGround`/`fnc_placeOutdoorPile`) is DEMOTED to the optional `tangibility: "focalProp"` dressing tier — scenery only, never wired to `fnc_addInteractionHandler` again. |
 | Universal Search Hook (Session 5) | `fnc_resolveSearchYield` + the `EntityKilled` extension in `fnc_c2InitSignalSources` | "Search Body" interaction site auto-attached to ANY hostile group's death position once every unit in it is dead — mission objective or purely ambient presence/roving. Spawns nothing (§10); attaches only to the already-recorded death position. Yield (AREA vs. higher-confidence SERIES) depends on whether the victim's faction role matches the active narrative thread's subject role. Extends the existing C2 `EntityKilled` handler rather than adding a second listener. |
+| SWEEP Archetype (Campaign Overhaul Session 6) — **⏸ DEFERRED, see below** | `fnc_sweepEvaluateTick` (pure) / `fnc_resolveSweepYield` (pure) / `fnc_sweepMonitor` (spawned) / `fnc_sweepConvert` / `fnc_getSweepArchetypes` | Observe/sweep mission — the intel-*producing* half of "find, then finish". Config-on-existing-generator: rides `fnc_generateRaidMission` via `["archetype","SWEEP"]`, not a sibling. Three new completion conditions (`OBSERVED`/`AREA_SWEPT`/`TARGET_IDENTIFIED`) read only player-driven accumulators, never AI state — a stuck defender can never soft-lock a SWEEP. `fnc_sweepMonitor` is the one spawned world-sampling loop (LOS once per tick, `knowsAbout` over the mission's own bounded unit list, never `allUnits`); it mutates `completionState` in place and keeps `intelGathered` current every tick via `fnc_resolveSweepYield` + the Session 5 `fnc_buildIntelTokenFromSite` builder — no direct `fnc_intelAdd` call, the existing retrofit bridge is the only ledger writer. Getting spotted is a complication, not a fail: `fnc_sweepConvert` fires once on a streak-latched `knowsAbout` threshold, swaps the completion condition to a `RAID`/`EXFIL` disjunction that preserves the original success path, and reveals full compound markers — C2 handles the enemy reaction organically, no bespoke chase. Markers are intel-gated (`markerStyle: "search_area"` / `"intel_gated"`) — full compound markers only unlock once a live `AREA_LAYOUT` token clears `DSC_markerIntelThreshold`. See `docs/campaign_overhaul/session_06_sweep_archetype.md`. |
 
 ## SQF Conventions
 
@@ -306,10 +308,71 @@ gotcha below about `setAccTime`).
 - **The universal Search hook resolves a faction ROLE from a classname, in the opposite direction from everything else** — `fnc_resolveMissionConfig` walks role→factions to pick a target; the `EntityKilled` extension in `fnc_c2InitSignalSources` has only the dead unit's classname and must walk the same `factionProfileConfig` the other direction (faction→role) to log/token anything role-shaped. If a mod's faction classname isn't in the normalized profile, the role resolves to `""` and the search still fires (just as a low-confidence AREA token) — this is not an error path, don't add a guard that skips the site.
 - **`fnc_cleanupMission` must remove every mission-scoped interaction site, the same way it clears C2 QRFs** — a site created by the raid generator carries `missionScoped: true` and its id lands in `mission.interactionSites`; skipping this leaves a dangling `addAction` armed on every client referencing a `completionState` that no longer exists once `DSC_currentMission` is cleared. Universal-search sites are `missionScoped: false` and are correctly left alone (they clean themselves up via `fnc_interactionSiteFire` → `fnc_removeInteractionSite`, or simply expire when a fresh mission generation overwrites `DSC_interactionSites` — they don't; they persist until fired, which is intended for a purely ambient reward).
 - **⚠ KNOWN GAP (playtest-confirmed, August 2026): a roving/presence body despawns long before its "Search Body" site does, so the player finds an empty patch of ground** — `fnc_rovingDespawnSweep`'s `"group dead"` branch for `type == "foot"` culls a wiped rover on the very next 8s sweep with no distance/age gate (see the sweep-timing gotcha above), but the interaction site the universal Search hook attaches to that death position has no such lifetime coupling — it lives until fired or until mission cleanup, independent of the corpse. Deliberately deferred rather than hotfixed blind (per the session brief, this was flagged as an acceptable feel question, not a bug, until actually observed) — the fix needs the site to track "player still in the area" and only let the corpse-owning zone/rover despawn logic run after the player has left, which touches presence/roving despawn timing, not just the interaction-site primitive. Do not "fix" this by just delaying the despawn sweep globally; scope it to sites with an unfired interaction attached.
+- **HashMap has no binary `+` merge operator** — unary `+_hashmap` is a deep copy; `_hashmapA + _hashmapB` is not a defined operation on two non-trivial hashmaps. The override-on-top-of-base idiom used throughout the codebase (`fnc_generateMission`'s tuning merge, `fnc_interactionSiteFire`'s tokenContext copy, the SWEEP Tier-1 suite's `_withOverride` helper) is: deep-copy the base with `+_base`, then `{ _r set [_x, _y] } forEach _overrides;`. The `merge` command is the other option (`hashMap1 merge [hashMap2, true]`, mutates `hashMap1` in place, second element overwrites on conflict) but is not used elsewhere in this codebase — prefer the copy+set idiom for consistency.
+- **SWEEP's three new completion conditions must never read `compromised` or any other AI/detection state** (§13.2, reaffirmed for Session 6) — getting spotted is a complication handled entirely by `fnc_sweepConvert`, never a completion gate. `OBSERVED` deliberately completes even while `compromised` is true; this is pinned by a Tier-1 assertion specifically so a later pass doesn't "fix" it into a fail condition.
+- **SWEEP compromise detection is a streak-then-latch, not a bare `knowsAbout` threshold check** — `knowsAbout` is binary-ish and twitchy; a single above-threshold tick must NOT convert the mission (anti-twitch), and once the streak reaches `compromiseTicks` and latches `compromised = true`, it must never clear even if `knowsAbout` immediately drops back down. `fnc_sweepEvaluateTick` gates the dwell/proximity accumulation on the INCOMING `compromised` flag (i.e. a tick that transitions false→true this tick still counts its own dwell) — don't reorder this without re-checking the Tier-1 `sweep` suite's latch/anti-twitch assertions.
+- **SWEEP intel yield is a weighted SUM scaled by a stealth multiplier, not a product of factors** — a product collapses (ideal dwell with mediocre proximity would score like a punishment for a safe standoff). Weights renormalize over only the APPLICABLE factors (`covW` drops out entirely when `sweptRequired == 0`), so a pure-observe sweep isn't permanently capped below what a sweep with coverage could reach.
+- **SWEEP's `fnc_sweepMonitor` is the only impure/world-reading piece — `fnc_sweepEvaluateTick` and `fnc_resolveSweepYield` must stay pure** — no `missionNamespace` reads, no object/position reads, inputs only. This is what makes the Tier-1 suite's ~33 assertions sub-second and deterministic with zero Arma world required. If a future change needs more world data, sample it in the monitor and add a field to `_sample`/`_facts`, don't reach into the world from inside either pure function.
+- **SWEEP intel yield never calls `fnc_intelAdd` directly** — `fnc_sweepMonitor` writes its enriched tokens into `completionState.intelGathered` every tick; `fnc_buildMissionOutcome`'s existing array-shaped `intelGathered` handling and the mission loop's/harness's existing retrofit-bridge `forEach { [_x] call DSC_core_fnc_intelAdd }` are the only writers. Adding a direct `fnc_intelAdd` call inside the monitor would double-write and break the Session 2 "one global-writing call" convention.
+- **A SWEEP harness run needs `singleShot: false`** — a single-shot debrief evaluates completion immediately after generation, so `observedSeconds` reads 0 and every dwell-based assertion is meaningless. `fnc_generateMission`'s `"SWEEP"` case WARNs when it detects `DSC_testConfig.singleShot == true`.
+- **A SWEEP harness run needs `"c2"` in `steps`** — without a C2 node in reach, groups are never stamped, and the detection→convert design ("C2 reacts organically, no bespoke chase") has nothing to react with; this looks in the RPT exactly like a broken convert hook, not a missing prerequisite.
+- **`fnc_initTestScenario`'s old hardcoded 150m player-spawn distance is inside every SWEEP archetype's `observeIdeal`** — the harness now exposes `playerSpawnDistance` (default 150, behavior-preserving for non-SWEEP harness configs) specifically so the standoff/proximity dials are actually exercised instead of spawning the player on top of the objective.
+- **⏸ SWEEP mission generation is DEFERRED (post-Session-6 playtest)** — a first human pass found the detection/compromise loop too janky because it leans entirely on Arma 3's native AI sensing (`knowsAbout`/LOS) rather than anything DSC controls. The `"SWEEP"` case in `fnc_generateMission.sqf` is commented out (not deleted) — requesting it now just WARNs and generates no mission. Everything else (`fnc_sweepEvaluateTick`, `fnc_resolveSweepYield`, `fnc_sweepMonitor`, `fnc_sweepConvert`, data registries, Tier-1 suite) is untouched and still correct; only the mission-generation entry point is disabled, pending a redesign of the detection model. See `.crush/roadmap.md`.
 
-## Detailed System Docs
+### SWEEP detection/tuning notes (Campaign Overhaul Session 6)
+
+These are the dials a Tier-2 human playtest pass should turn — values below are
+shipped defaults, not measured-good numbers (no playtest has run yet; see
+`.crush/roadmap.md`'s SWEEP entry for the outstanding Tier-2 item):
+
+- **`compromiseThreshold` (default 0.6) / `compromiseTicks` (default 2)** — resolved
+  in three layers, lowest to highest priority: `DSC_sweepCompromiseThreshold`
+  (global) → the archetype's `tuning.compromiseThreshold` → the mission
+  template's `sweepConfig.compromiseThreshold`. Never hardcode a new magic
+  number anywhere else; add a tunable at one of these three layers instead.
+  Lower `compromiseThreshold` / fewer `compromiseTicks` = twitchier, easier to
+  get "caught"; the harness's commented convert-path variant
+  (`compromiseThreshold: 0.2`, `compromiseTicks: 1`) is deliberately
+  hair-trigger for testing the convert path on demand.
+- **`observeMax` / `observeIdeal` (defaults 600 / 250)** — `observeMax` is the
+  outer edge of "in band" for dwell accumulation; `observeIdeal` is the
+  proximity sweet spot for yield quality (closer than ideal still accumulates
+  dwell, same quality cap — the formula doesn't reward going closer than
+  ideal, only tolerates it). There is deliberately no minimum observe
+  distance — closer is better yield AND higher detection risk, and that
+  tension is meant to be emergent, not gated.
+- **`observeRequired` (default 120s)** — the dwell threshold for `OBSERVED`.
+  `SR_OBSERVE`'s 120s is a guess; the Tier-2 playtest should report whether
+  that reads as "quick recon" or "standing simulator" in practice.
+  `patrolObserveSeconds` (default 180) is a *second*, higher threshold for the
+  bonus `PATROL_PATTERN` token — watching long enough to see the rotation.
+- **`pidDwellRequired` (default 5s) / `pidRange` (default 300m)** — SR_PID's
+  identify-without-engaging window. 5s is short by design (a PID sweep isn't
+  meant to be a standing-still minigame), but has not been played against a
+  real moving target yet.
+- **`sweptRequired` (SR_AREA_SWEEP default `[3,5]`) / `sweptRadius` (default
+  40m)** — sub-points are plain positions (AO garrison-cluster centers,
+  padded with jittered points if the AO has fewer clusters than required);
+  there is no held-dwell per point by design (that's what `SITES_INTERACTED`
+  is for). `sweptRadius` is the "close enough to count as visited" distance —
+  untested against real terrain/vegetation line-of-sight at that radius.
+- **Yield weights (`dwellW` 0.5 / `proxW` 0.3 / `covW` 0.2, `baseConfidence`
+  0.9, `stealthPenalty` 0.5, `confMin` 0.05, `confMax` 0.95)** — these shape
+  how "rewarding" a clean vs. compromised sweep feels. `stealthPenalty` 0.5
+  means getting spotted roughly halves confidence rather than zeroing it
+  (`confMin` guarantees a completed objective always yields *something*).
+  Tier-2 should report whether the compromised path still feels worth
+  completing, or whether players bail once spotted.
+- **`exfilDistance` (default 400m)** — only relevant to `convertOn: "EXFIL"`
+  (SR_OBSERVE's default). This is the "you broke contact" radius checked
+  against every live player's distance from the objective; untested for feel
+  against how fast a compromised player can actually disengage once a QRF or
+  recall is inbound.
+
+
 
 - `docs/campaign_overhaul/session_05_interaction_site.md` — **Interaction-site primitive** (shipped Session 5, August 2026): distance-gated action sites replacing scattered `addAction`-on-object placement, `SITES_INTERACTED` N-of-M completion, the universal "Search" hook on any wiped hostile group, `onComplete` → Intel Ledger seam, Tier-1 suite `interaction_site`.
+- `docs/campaign_overhaul/session_06_sweep_archetype.md` — **SWEEP archetype** (shipped Session 6): config-on-existing-generator design rationale, `OBSERVED`/`AREA_SWEPT`/`TARGET_IDENTIFIED` completion conditions, the intel-yield formula, the detection→convert hook, intel-gated markers, Tier-1 suite `sweep`, SWEEP detection/tuning notes (see this file's gotchas section above).
 
 - `.crush/campaign-overhaul.md` — **⭐ MVP master plan** for the deployment / mission-series / simulated-intel / dynamic-briefing / basing overhaul. Full scope-of-vision reference: unifying data model, the six foundational seams to build "now", per-pillar variety banks, phased build order, integration landmines. Read before any campaign-layer work.
 - `.crush/intel-ledger.md` — **Intel Ledger reference** (live as of August 2026, Campaign Overhaul Session 2): `DSC_intelLedger` token schema, the five-call API (`intelInit`/`intelAdd`/`intelQuery`/`intelBest`/`intelDecay`), the retrofit bridge from `fnc_buildMissionOutcome`, Tier-1 test coverage.

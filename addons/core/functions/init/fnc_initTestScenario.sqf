@@ -61,6 +61,13 @@
  *                                    location, random bearing. Any other
  *                                    value (or omitted): no player
  *                                    placement. Default: "".
+ *       "playerSpawnDistance" <NUMBER> - Distance in meters for "nearSite"
+ *                                    placement (Session 6 — the SWEEP
+ *                                    standoff/proximity dials are
+ *                                    untestable at the old hardcoded 150m,
+ *                                    which sits far inside a typical
+ *                                    observeMax). Default: 150 (preserves
+ *                                    pre-Session-6 behavior).
  *       "timeOfDay" <NUMBER>       - Hour (0-24) to setDate to, applied
  *                                    BEFORE generation so the mission
  *                                    composes against fixed lighting.
@@ -114,6 +121,7 @@ private _steps             = _config getOrDefault ["steps", ["globals"]];
 private _missionTemplate   = _config getOrDefault ["missionTemplate", createHashMap];
 private _singleShot        = _config getOrDefault ["singleShot", true];
 private _playerSpawn       = _config getOrDefault ["playerSpawn", ""];
+private _playerSpawnDistance = _config getOrDefault ["playerSpawnDistance", 150];
 private _timeOfDay         = _config getOrDefault ["timeOfDay", -1];
 private _freezeWeather     = _config getOrDefault ["freezeWeather", false];
 private _extraDebug        = _config getOrDefault ["extraDebug", false];
@@ -345,10 +353,10 @@ if (_playerSpawn == "nearSite") then {
     if (_players isNotEqualTo []) then {
         private _locPos = _location get "position";
         private _bearing = random 360;
-        private _spawnPos = _locPos vectorAdd [150 * sin _bearing, 150 * cos _bearing, 0];
+        private _spawnPos = _locPos vectorAdd [_playerSpawnDistance * sin _bearing, _playerSpawnDistance * cos _bearing, 0];
 
         { _x setPosATL _spawnPos } forEach _players;
-        INFO("initTestScenario - player(s) teleported ~150m from objective");
+        INFO_1("initTestScenario - player(s) teleported ~%1m from objective",_playerSpawnDistance);
     } else {
         WARNING("initTestScenario - playerSpawn 'nearSite' requested but no players present");
     };

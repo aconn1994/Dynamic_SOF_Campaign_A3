@@ -50,6 +50,8 @@
  *        "seriesIndex"         <NUMBER>
  *        "locationId"          <STRING>  Pulled from completionState if set
  *        "locationName"        <STRING>
+ *        "converted"           <BOOL>    SWEEP detection->convert fired (Session 6)
+ *        "convertedTo"         <STRING>  "RAID" | "EXFIL" | "" (Session 6)
  *
  * Example:
  *     private _result = [_mission get "completion", _mission get "completionState"]
@@ -130,5 +132,13 @@ createHashMapFromArray [
     ["evasionRatio", 0],                                          // TODO: requires combat-start tracking
     ["seriesId", _extras getOrDefault ["seriesId", ""]],
     ["seriesIndex", _extras getOrDefault ["seriesIndex", -1]],
-    ["locationName", _mission getOrDefault ["locationName", ""]]
+    ["locationName", _mission getOrDefault ["locationName", ""]],
+    // Session 6 (SWEEP archetype §6.1) — detection->convert passthrough.
+    // Read from _state so this stays pure; fnc_sweepConvert is the only
+    // writer of these completionState keys. This is the SELECT/OUTCOME
+    // seam a converted SWEEP uses to reach the series — conversion is
+    // purely in-mission and must never call fnc_advanceCampaign directly
+    // (§10's decoupling landmine).
+    ["converted", _state getOrDefault ["converted", false]],
+    ["convertedTo", _state getOrDefault ["convertedTo", ""]]
 ]

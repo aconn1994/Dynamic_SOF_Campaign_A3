@@ -38,6 +38,18 @@ Example `DSC_testConfig` blocks for the Tier-1/Tier-2 test harness
   ambient hostile groups near the player; kill one and confirm a
   "Search Body" action appears at the death position once the whole
   group is dead, with no extra entities spawned to support it.
+- `05_tier2_altis_sweep_observe.sqf` — Tier-2 feature harness for the SWEEP
+  archetype (Campaign Overhaul Session 6). Forces a `SWEEP` mission type
+  with the `SR_rural` profile and `SR_OBSERVE` archetype (`OBSERVED`
+  completion) at a fixed location, left `ACTIVE` (`singleShot: false` — a
+  SWEEP needs real elapsed time to accumulate `observedSeconds`) so a human
+  can walk to a vantage, hold line of sight, and confirm the mission
+  completes and drops an intel token into `DSC_intelLedger`. Boots `c2` so
+  the detection->convert path has a network to react through. Sets the new
+  `playerSpawnDistance` key to 450m (default 150 is inside `observeIdeal`).
+  Includes a commented convert-path variant with a low `compromiseThreshold`
+  to deliberately provoke detection and confirm the mission converts to
+  `EXFIL` instead of failing.
 
 ## Usage
 

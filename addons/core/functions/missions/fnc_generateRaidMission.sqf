@@ -380,6 +380,45 @@ private _missionMarkers = switch (_markerStyle) do {
         [_ao getOrDefault ["garrisonClusters", []], _location] call DSC_core_fnc_drawCompoundMarkers
     };
     case "none": { [] };
+    // Session 6 (SWEEP archetype, §5) — SWEEP's own objective marker: a
+    // single broad circle, "you were told roughly where to look."
+    case "search_area": {
+        private _radius = _config getOrDefault ["searchAreaRadius", 400];
+        private _markerName = format ["dsc_sweep_search_%1", floor (random 1000000)];
+        private _searchMarker = createMarker [_markerName, _locationPos];
+        _searchMarker setMarkerShapeLocal "ELLIPSE";
+        _searchMarker setMarkerSizeLocal [_radius, _radius];
+        _searchMarker setMarkerBrushLocal "Border";
+        _searchMarker setMarkerColor "ColorBlue";
+        [_markerName]
+    };
+    // Session 6 (SWEEP archetype, §5 — the blind-assault gradient, §4.4).
+    // Opt-in only, NOT the new default for RAID (Open Decision #2). Reads
+    // DSC_intelLedger once (acceptable — the generator already reads
+    // opForFaction from missionNamespace at L83) for the best live
+    // AREA_LAYOUT token on this location. Full markers only unlock above
+    // DSC_markerIntelThreshold; otherwise a search-area circle narrowed by
+    // (1 - confidence) instead of a binary flip.
+    case "intel_gated": {
+        private _locId = _location getOrDefault ["id", ""];
+        private _ledger = missionNamespace getVariable ["DSC_intelLedger", createHashMap];
+        private _bestLayout = [_ledger, _locId, "AREA_LAYOUT", serverTime] call DSC_core_fnc_intelBest;
+        private _threshold = missionNamespace getVariable ["DSC_markerIntelThreshold", 0.5];
+        if (_bestLayout isNotEqualTo createHashMap && { (_bestLayout get "confidence") >= _threshold }) then {
+            [_ao getOrDefault ["garrisonClusters", []], _location] call DSC_core_fnc_drawCompoundMarkers
+        } else {
+            private _confidence = if (_bestLayout isNotEqualTo createHashMap) then { _bestLayout get "confidence" } else { 0 };
+            private _baseRadius = _config getOrDefault ["searchAreaRadius", 400];
+            private _radius = _baseRadius * (1 - _confidence);
+            private _markerName = format ["dsc_sweep_search_%1", floor (random 1000000)];
+            private _gatedMarker = createMarker [_markerName, _locationPos];
+            _gatedMarker setMarkerShapeLocal "ELLIPSE";
+            _gatedMarker setMarkerSizeLocal [_radius, _radius];
+            _gatedMarker setMarkerBrushLocal "Border";
+            _gatedMarker setMarkerColor "ColorBlue";
+            [_markerName]
+        }
+    };
     default {
         WARNING_1("generateRaidMission - unknown markerStyle '%1', falling back to compound",_markerStyle);
         [_ao getOrDefault ["garrisonClusters", []], _location] call DSC_core_fnc_drawCompoundMarkers
@@ -409,7 +448,20 @@ private _completionState = createHashMapFromArray [
     ["intelGathered", false],               // toggled by interaction handler
     ["extractPos", _extractPos],
     ["sitesCompleted", 0],                  // maintained by fnc_interactionSiteFire
-    ["sitesRequired", _sitesRequired]
+    ["sitesRequired", _sitesRequired],
+    // Session 6 (SWEEP archetype) — accumulator keys, seeded from config.
+    // Harmless to every other mission type, exactly like sitesCompleted is
+    // today. observeRequired defaults sky-high (never spuriously satisfied
+    // by the 0/0 default) rather than 0, which would make OBSERVED complete
+    // instantly on any non-SWEEP mission that happened to reuse the type.
+    ["observedSeconds", _config getOrDefault ["observedSeconds", 0]],
+    ["observeRequired", _config getOrDefault ["observeRequired", 999999]],
+    ["sweptPoints", _config getOrDefault ["sweptPoints", 0]],
+    ["sweptRequired", _config getOrDefault ["sweptRequired", 0]],
+    ["targetIdentified", _config getOrDefault ["targetIdentified", false]],
+    ["compromised", _config getOrDefault ["compromised", false]],
+    ["converted", _config getOrDefault ["converted", false]],
+    ["convertedTo", _config getOrDefault ["convertedTo", ""]]
 ];
 
 // ============================================================================
@@ -426,7 +478,10 @@ private _completionTypeName = if (_completion isEqualType "") then {
 
 private _mission = createHashMapFromArray [
     ["type", _completionTypeName],
-    ["archetype", "RAID"],
+    // Session 6 — config-on-existing-generator (§0 of the mini-spec): a
+    // SWEEP is the same generation shape as a RAID with different data, so
+    // it opts in via this one field rather than forking the generator.
+    ["archetype", _config getOrDefault ["archetype", "RAID"]],
     ["completion", _completion],
     ["completionState", _completionState],
     ["briefingArchetype", _briefingArchetype],

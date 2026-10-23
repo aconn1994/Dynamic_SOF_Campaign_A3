@@ -38,6 +38,7 @@ PREP_SUB(data,getInteractionSiteArchetypes);
 PREP_SUB(data,getMissionProfiles);
 PREP_SUB(data,getObjectArchetypes);
 PREP_SUB(data,getStructureTypes);
+PREP_SUB(data,getSweepArchetypes);
 
 // Debug
 // TEMPORARY (August 2026) — side/faction diagnostics. Remove with the
@@ -171,6 +172,12 @@ PREP_SUB(interaction,resolveSearchYield);
 // Campaign (Campaign Overhaul Session 3 — .crush/campaign-overhaul.md §5)
 PREP_SUB(campaign,startSeries);
 PREP_SUB(campaign,advanceCampaign);
+
+// Sweep (Campaign Overhaul Session 6 — docs/campaign_overhaul/session_06_sweep_archetype.md)
+PREP_SUB(sweep,sweepEvaluateTick);
+PREP_SUB(sweep,resolveSweepYield);
+PREP_SUB(sweep,sweepMonitor);
+PREP_SUB(sweep,sweepConvert);
 
 // Location
 PREP_SUB(locations,getMapStructures);

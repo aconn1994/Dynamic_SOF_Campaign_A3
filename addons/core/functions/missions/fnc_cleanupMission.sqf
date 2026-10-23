@@ -93,6 +93,12 @@ private _markers = _mission getOrDefault ["markers", []];
 // Clear global mission variable
 missionNamespace setVariable ["DSC_currentMission", nil, true];
 
+// Session 6 (SWEEP archetype) — deterministic monitor shutdown. The
+// monitor bails on run-id mismatch; clearing this makes any still-spawned
+// sweepMonitor terminate on its very next tick instead of waiting for the
+// missionInProgress gate alone.
+missionNamespace setVariable ["DSC_sweepRunId", "", true];
+
 // Diplomacy is session-wide and owned by fnc_initPresenceManager — it is
 // deliberately NOT touched here. Mutating it per-mission is what previously
 // left the side matrix in a different state after the first mission than it

@@ -148,6 +148,49 @@ private _profiles = createHashMapFromArray [
         ["maxVehicles", 3],
         ["vehicleArmedChance", 0.5],
         ["description", "Direct action against a fortified target"]
+    ]],
+
+    // SR (Sweep Recon — Campaign Overhaul Session 6)
+    // Standoff observation, not assault. Low footprint by design: a SWEEP
+    // never wants a firefight, it wants intel, so density/guard/patrol
+    // dials sit below even AFO's (the player is deliberately NOT supposed
+    // to get close enough to trigger a garrison encounter).
+    ["SR_rural", createHashMapFromArray [
+        ["requiredTags", []],
+        ["excludeTags", ["military", "urban", "base", "outpost"]],
+        ["density", "light"],
+        ["qrfEnabled", false],
+        ["areaPresenceChance", 0.4],
+        ["targetRoles", ["opForPartner", "irregulars"]],
+        ["garrisonAnchors", [1, 2]],
+        ["garrisonSatellites", [0, 1]],
+        ["guardCoverage", 0.2],
+        ["guardsPerBuilding", [0, 1]],
+        ["patrolCount", [1, 2]],
+        ["maxVehicles", 1],
+        ["vehicleArmedChance", 0.1],
+        ["description", "Standoff reconnaissance against a soft rural target"]
+    ]],
+
+    // The one SR profile that must NOT exclude bases/outposts — observing a
+    // real installation from standoff is where DA-unlocking intel comes
+    // from (§3/§4.3 #3: recon is the primary deliberate intel producer).
+    ["SR_installation", createHashMapFromArray [
+        ["requiredTags", ["military"]],
+        ["excludeTags", []],
+        ["density", "heavy"],
+        ["qrfEnabled", true],
+        ["qrfDelay", [60, 120]],
+        ["areaPresenceChance", 0.8],
+        ["targetRoles", ["opFor"]],
+        ["garrisonAnchors", [1, 3]],
+        ["garrisonSatellites", [0, 2]],
+        ["guardCoverage", 0.4],
+        ["guardsPerBuilding", [1, 2]],
+        ["patrolCount", [1, 3]],
+        ["maxVehicles", 3],
+        ["vehicleArmedChance", 0.5],
+        ["description", "Standoff reconnaissance against a fortified military installation"]
     ]]
 ];
 

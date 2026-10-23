@@ -107,5 +107,48 @@ createHashMapFromArray [
         ["successMsg", "Site(s) exploited"],
         ["partialMsg", "Site(s) not exploited"],
         ["stateKeys", ["sitesCompleted", "sitesRequired"]]
+    ]],
+
+    // Session 6 (SWEEP archetype) — player-driven accumulators only, never
+    // AI state (§13.2 anti-soft-lock rule: a stuck defender can never block
+    // a SWEEP). Deliberately does NOT read "compromised" — getting spotted
+    // is a complication handled by fnc_sweepConvert, not a completion gate.
+    ["OBSERVED", createHashMapFromArray [
+        ["check", {
+            params ["_state"];
+            (_state getOrDefault ["observedSeconds", 0]) >= (_state getOrDefault ["observeRequired", 999999])
+        }],
+        ["successMsg", "Objective observed - intelligence collected"],
+        ["partialMsg", "Insufficient observation time on the objective"],
+        ["stateKeys", ["observedSeconds", "observeRequired"]]
+    ]],
+
+    // Proximity/movement-driven, not dwell-driven — sweeping a sector is
+    // "get eyes in that treeline", not "stand here for 40 seconds". The
+    // sweptRequired > 0 guard mirrors ALL_DESTROYED's empty-array guard: no
+    // sub-points must never auto-complete.
+    ["AREA_SWEPT", createHashMapFromArray [
+        ["check", {
+            params ["_state"];
+            private _required = _state getOrDefault ["sweptRequired", 0];
+            if (_required <= 0) exitWith { false };
+            (_state getOrDefault ["sweptPoints", 0]) >= _required
+        }],
+        ["successMsg", "Search area swept"],
+        ["partialMsg", "Search area not fully swept"],
+        ["stateKeys", ["sweptPoints", "sweptRequired"]]
+    ]],
+
+    // Same shape as ANY_INTERACTED — a bool maintained outside the check,
+    // latched by fnc_sweepMonitor once a player holds LOS within pidRange
+    // of pidTarget for pidDwellRequired cumulative seconds.
+    ["TARGET_IDENTIFIED", createHashMapFromArray [
+        ["check", {
+            params ["_state"];
+            _state getOrDefault ["targetIdentified", false]
+        }],
+        ["successMsg", "Target positively identified"],
+        ["partialMsg", "Target not identified"],
+        ["stateKeys", ["targetIdentified"]]
     ]]
 ]

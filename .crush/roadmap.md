@@ -179,6 +179,22 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
 - [ ] **Intel-conditioned inserts** (Session 7) — the `ledger` context key is carried but not read yet; per-section inserts gated on ledger tokens are future work.
 - [ ] **Additional unit voices / multi-entry pools** — banks currently hold exactly one phrasing per section; variety banks are authored over time (§6.3).
 
+### SWEEP Archetype (Campaign Overhaul Session 6 — SHIPPED)
+- [x] **Config-on-existing-generator** — SWEEP rides `fnc_generateRaidMission` via one new `"archetype"` config field (default `"RAID"`) plus two new `markerStyle` cases; no sibling generator (`docs/campaign_overhaul/session_06_sweep_archetype.md` §0)
+- [x] **New completion conditions** (`fnc_getCompletionTypes`) — `OBSERVED` (dwell vs. requirement), `AREA_SWEPT` (N-of-M sub-points, movement-driven not dwell-driven), `TARGET_IDENTIFIED` (latched bool). None read AI state — a stuck defender can never soft-lock a SWEEP.
+- [x] **`fnc_sweepEvaluateTick`** (pure) — per-tick dwell/proximity/compromise-latch/PID/swept accumulator math; streak-then-latch compromise design so a single `knowsAbout` spike can't convert the mission
+- [x] **`fnc_resolveSweepYield`** (pure) — dwell/proximity/coverage weighted-sum formula → `AREA_LAYOUT`/`ENEMY_STRENGTH`/`PATROL_PATTERN`/`HVT_IDENTITY`+`HVT_LOCATION`/`QRF_POSTURE` partial intel tokens; compromise degrades confidence but changes the token mix rather than just scaling it down
+- [x] **`fnc_sweepMonitor`** (spawned) — the one world-sampling loop; LOS checked once per tick (nearest player only), `knowsAbout` sampled over the mission's own bounded unit list, writes back into `completionState` in place, keeps `intelGathered` current every tick via the Session 5 token builder (no direct `fnc_intelAdd` call — reuses the existing retrofit bridge)
+- [x] **`fnc_sweepConvert`** — detection→convert hook, fires once (guarded by `completionState.converted`); swaps the completion condition to a `RAID`/`EXFIL` disjunction that preserves the original success path, reveals full compound markers, lets C2 handle the enemy reaction organically (no bespoke chase)
+- [x] **Intel-gated markers** (`fnc_generateRaidMission` `markerStyle`) — `"search_area"` (broad circle, SWEEP's default) and `"intel_gated"` (opt-in; reads `DSC_intelLedger` for a live `AREA_LAYOUT` token, narrows the circle by `1 - confidence` below threshold instead of a binary flip)
+- [x] **`fnc_getSweepArchetypes`** — `SR_OBSERVE`/`SR_AREA_SWEEP`/`SR_PID` presets; `SR_rural`/`SR_installation` mission profiles (`SR_installation` is the one profile that must NOT exclude bases/outposts)
+- [x] **Outcome passthrough** — `fnc_buildMissionOutcome` gains `converted`/`convertedTo`, read from `completionState` so the series learns about a conversion through the normal OUTCOME seam, never via a mid-mission `fnc_advanceCampaign` call
+- [x] **Tier-1 suite `sweep`** — 33 assertions: all three completion conditions, `fnc_sweepEvaluateTick`'s dwell/no-minimum-distance/compromise-latch/anti-twitch/convertRequested behavior, `fnc_resolveSweepYield`'s factor math/renormalization/token set/round-trip, builder reuse
+- [x] **Harness** — `docs/test_harness/05_tier2_altis_sweep_observe.sqf`, forced `SR_OBSERVE` + a commented convert-path variant
+- [ ] **Tablet Mission Gen panel** — adding SWEEP to the queue UI is a one-line data change, explicitly out of scope for Session 6
+- [ ] **Tier-2 playtest** — detection-feel/threshold-tuning notes pending a human pass (see AGENTS.md's SWEEP detection-tuning notes for the dials to adjust)
+- [ ] **⏸ DEFERRED (post-Session-6 playtest)** — first human Tier-2 pass found the detection/compromise loop too janky in practice, since it leans heavily on Arma 3's native AI sensing (`knowsAbout`/LOS) rather than anything DSC controls directly. The `"SWEEP"` case in `fnc_generateMission.sqf` is commented out (not deleted) pending a redesign of the detection model; the harness (`docs/test_harness/05_tier2_altis_sweep_observe.sqf`) now just logs a warning and generates nothing. All other SWEEP code (`fnc_sweepEvaluateTick`, `fnc_resolveSweepYield`, `fnc_sweepMonitor`, `fnc_sweepConvert`, data registries, Tier-1 suite) is untouched and still passes — only the mission-generation entry point is disabled.
+
 ### Mission Archetypes (live)
 - [x] **RAID** archetype — single AO, attacker
   - [x] Kill/capture HVT (KILL_CAPTURE)
@@ -187,8 +203,11 @@ will grow into the in-mission commander interface (supports/BFT/squad/intel).
   - [x] Intel gathering / dryhole (INTEL_GATHER)
   - [ ] Sabotage (briefing fragment exists; needs config + Eden composition support)
   - [ ] Capture POW (entities=[hvt with surrender flag], completion=ALIVE_AND_EXTRACTED)
-- [ ] **SWEEP** archetype — multi-AO, light pop, observe-or-engage
-  - Recon/surveillance, search & cordon, patrol area
+- [x] **SWEEP** archetype — config-on-existing-generator, observe-or-engage (Session 6, SHIPPED)
+  - [x] Standoff observation (`SR_OBSERVE` → `OBSERVED`)
+  - [x] Area sweep / search & cordon (`SR_AREA_SWEEP` → `AREA_SWEPT`)
+  - [x] PID a specific entity (`SR_PID` → `TARGET_IDENTIFIED`)
+  - [x] Detection→convert to RAID or EXFIL, intel-gated markers
 - [ ] **DEFEND** archetype — single AO, defender role, attack waves
   - Hold position, protect VIP, repel attack
 - [ ] **MOVEMENT** archetype — point A → B with attached entity/object

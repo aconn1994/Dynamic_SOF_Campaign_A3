@@ -60,5 +60,29 @@ createHashMapFromArray [
         ["objective", "Destroy designated equipment and recover any associated intel."],
         ["roe", "Weapons free. Confirm targets destroyed before exfiltrating."],
         ["taskIcon", "destroy"]
+    ]],
+
+    // Session 6 (SWEEP archetype) — information is the objective, not a body
+    // count. ROE is deliberately "weapons tight" across all three; getting
+    // spotted converts the mission rather than failing it (fnc_sweepConvert).
+    ["sweep_observe", createHashMapFromArray [
+        ["titlePrefix", "Recon - Observe"],
+        ["objective", "Establish a standoff vantage and observe the objective without being detected."],
+        ["roe", "Weapons tight. Avoid contact - compromise converts this into an exfil-under-pressure mission."],
+        ["taskIcon", "intel"]
+    ]],
+
+    ["sweep_area", createHashMapFromArray [
+        ["titlePrefix", "Recon - Area Sweep"],
+        ["objective", "Sweep the designated search points and report on enemy disposition."],
+        ["roe", "Weapons tight unless engaged. Avoid contact - compromise converts this into a direct-action mission."],
+        ["taskIcon", "intel"]
+    ]],
+
+    ["sweep_pid", createHashMapFromArray [
+        ["titlePrefix", "Recon - PID"],
+        ["objective", "Positively identify the designated target without engaging."],
+        ["roe", "Weapons tight. Avoid contact - compromise converts this into a direct-action mission."],
+        ["taskIcon", "intel"]
     ]]
 ]

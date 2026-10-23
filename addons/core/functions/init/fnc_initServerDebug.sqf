@@ -537,5 +537,225 @@ _testSuites set ["interaction_site", {
 
 INFO("Registered test suite: interaction_site (site config defaults + SITES_INTERACTED + token builder + search yield)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: SWEEP archetype (Campaign Overhaul Session 6)
+// ----------------------------------------------------------------------------
+// fnc_sweepEvaluateTick and fnc_resolveSweepYield are fully PURE (no world
+// reads) per docs/campaign_overhaul/session_06_sweep_archetype.md §8. Every
+// case below uses hand-built samples/tuning/state hashmaps; the one
+// deliberate exception is the intelAdd round-trip, same pattern as the
+// intel_ledger/series_arbiter suites' intentional ledger-write assertions.
+_testSuites set ["sweep", {
+    private _results = [];
+
+    // HashMap has no binary "+" merge operator — only unary +_hashmap (deep
+    // copy). This local helper is the override-on-top-of-base idiom used
+    // elsewhere in this codebase (fnc_generateMission's own tuning merge,
+    // fnc_interactionSiteFire's tokenContext copy): deep-copy the base, then
+    // `set` each override key over it.
+    private _withOverride = {
+        params ["_base", "_overrides"];
+        private _r = +_base;
+        { _r set [_x, _y] } forEach _overrides;
+        _r
+    };
+
+    // ================================================================
+    // A. Completion conditions (through fnc_evaluateCompletion)
+    // ================================================================
+    private _observedBelow = createHashMapFromArray [["observedSeconds", 50], ["observeRequired", 120]];
+    _results pushBack ["OBSERVED: false below threshold", !((["OBSERVED", _observedBelow] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    private _observedAt = createHashMapFromArray [["observedSeconds", 120], ["observeRequired", 120]];
+    _results pushBack ["OBSERVED: true at exactly threshold (boundary)", ((["OBSERVED", _observedAt] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    private _observedCompromised = createHashMapFromArray [["observedSeconds", 120], ["observeRequired", 120], ["compromised", true]];
+    _results pushBack ["OBSERVED: completes even when compromised is true (detection is not a fail)", ((["OBSERVED", _observedCompromised] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    private _sweptNMinus1 = createHashMapFromArray [["sweptPoints", 2], ["sweptRequired", 3]];
+    _results pushBack ["AREA_SWEPT: false at N-1 of N", !((["AREA_SWEPT", _sweptNMinus1] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    private _sweptAtN = createHashMapFromArray [["sweptPoints", 3], ["sweptRequired", 3]];
+    private _sweptAboveN = createHashMapFromArray [["sweptPoints", 4], ["sweptRequired", 3]];
+    _results pushBack ["AREA_SWEPT: true at N and N+1", ((["AREA_SWEPT", _sweptAtN] call DSC_core_fnc_evaluateCompletion) get "complete") && {((["AREA_SWEPT", _sweptAboveN] call DSC_core_fnc_evaluateCompletion) get "complete")}];
+
+    private _sweptZeroRequired = createHashMapFromArray [["sweptPoints", 0], ["sweptRequired", 0]];
+    _results pushBack ["AREA_SWEPT: false when sweptRequired == 0 (no spurious auto-complete)", !((["AREA_SWEPT", _sweptZeroRequired] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    _results pushBack ["TARGET_IDENTIFIED: false when the key is absent", !((["TARGET_IDENTIFIED", createHashMap] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    private _targetIdSet = createHashMapFromArray [["targetIdentified", true]];
+    _results pushBack ["TARGET_IDENTIFIED: true when set", ((["TARGET_IDENTIFIED", _targetIdSet] call DSC_core_fnc_evaluateCompletion) get "complete")];
+
+    _results pushBack ["All three return false against an empty state hashmap (no error)", (
+        !((["OBSERVED", createHashMap] call DSC_core_fnc_evaluateCompletion) get "complete") &&
+        {!((["AREA_SWEPT", createHashMap] call DSC_core_fnc_evaluateCompletion) get "complete")} &&
+        {!((["TARGET_IDENTIFIED", createHashMap] call DSC_core_fnc_evaluateCompletion) get "complete")}
+    )];
+
+    // ================================================================
+    // B. fnc_sweepEvaluateTick
+    // ================================================================
+    private _tuningBase = createHashMapFromArray [
+        ["observeMax", 600], ["compromiseThreshold", 0.6], ["compromiseTicks", 2], ["pidDwellRequired", 5]
+    ];
+
+    private _dwellSample = createHashMapFromArray [
+        ["dt", 5], ["observerDistance", 300], ["hasLOS", true], ["maxKnowsAbout", 0], ["newSweptPoints", 0], ["pidInRange", false]
+    ];
+    private _afterDwell = [_dwellSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: dwell accumulates by dt when in band + LOS + not compromised", ((_afterDwell get "observedSeconds") == 5)];
+
+    private _noLosSample = [_dwellSample, createHashMapFromArray [["hasLOS", false]]] call _withOverride;
+    private _afterNoLos = [_noLosSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: no accumulation without LOS", ((_afterNoLos get "observedSeconds") == 0)];
+
+    private _beyondMaxSample = [_dwellSample, createHashMapFromArray [["observerDistance", 700]]] call _withOverride;
+    private _afterBeyondMax = [_beyondMaxSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: no accumulation beyond observeMax", ((_afterBeyondMax get "observedSeconds") == 0)];
+
+    private _closeSample = [_dwellSample, createHashMapFromArray [["observerDistance", 5]]] call _withOverride;
+    private _afterClose = [_closeSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: accumulation DOES occur at very close range (no minimum distance)", ((_afterClose get "observedSeconds") == 5)];
+
+    private _compromisedState = createHashMapFromArray [["compromised", true]];
+    private _afterWhileCompromised = [_dwellSample, _tuningBase, _compromisedState] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: no accumulation while compromised", ((_afterWhileCompromised get "observedSeconds") == 0)];
+
+    // Latch: two above-threshold ticks (compromiseTicks=2) compromises; a
+    // subsequent below-threshold tick leaves it true (never clears).
+    private _hotSample = createHashMapFromArray [["dt", 1], ["observerDistance", -1], ["hasLOS", false], ["maxKnowsAbout", 0.8], ["newSweptPoints", 0], ["pidInRange", false]];
+    private _coldSample = [_hotSample, createHashMapFromArray [["maxKnowsAbout", 0.1]]] call _withOverride;
+    private _latchTick1 = [_hotSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    private _latchTick2 = [_hotSample, _tuningBase, _latchTick1] call DSC_core_fnc_sweepEvaluateTick;
+    private _latchTick3 = [_coldSample, _tuningBase, _latchTick2] call DSC_core_fnc_sweepEvaluateTick;
+
+    _results pushBack ["sweepEvaluateTick: latch sets compromised at compromiseTicks", ((_latchTick1 get "compromised") == false) && {(_latchTick2 get "compromised") == true}];
+    _results pushBack ["sweepEvaluateTick: latch never clears on a subsequent below-threshold tick", ((_latchTick3 get "compromised") == true)];
+
+    // Anti-twitch: a single above-threshold tick with compromiseTicks=2 does
+    // not compromise; the streak resets on a below-threshold tick.
+    _results pushBack ["sweepEvaluateTick: anti-twitch - single above-threshold tick does not compromise", ((_latchTick1 get "compromised") == false)];
+    private _resetTick = [_coldSample, _tuningBase, _latchTick1] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: anti-twitch - streak resets on a below-threshold tick", ((_resetTick get "compromiseStreak") == 0) && {(_resetTick get "compromised") == false}];
+
+    // bestProximity monotone non-increasing across ticks.
+    private _proxTick1 = [_dwellSample, _tuningBase, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    private _fartherSample = [_dwellSample, createHashMapFromArray [["observerDistance", 500]]] call _withOverride;
+    private _proxTick2 = [_fartherSample, _tuningBase, _proxTick1] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: bestProximity is monotone non-increasing across ticks", ((_proxTick1 get "bestProximity") == 300) && {(_proxTick2 get "bestProximity") == 300}];
+
+    // Threshold honored from tuning — identical sample, two thresholds, two outcomes.
+    private _midSample = [_hotSample, createHashMapFromArray [["maxKnowsAbout", 0.5]]] call _withOverride;
+    private _tuningLowThresh = [_tuningBase, createHashMapFromArray [["compromiseThreshold", 0.3], ["compromiseTicks", 1]]] call _withOverride;
+    private _tuningHighThresh = [_tuningBase, createHashMapFromArray [["compromiseThreshold", 0.9], ["compromiseTicks", 1]]] call _withOverride;
+    private _lowThreshResult = [_midSample, _tuningLowThresh, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    private _highThreshResult = [_midSample, _tuningHighThresh, createHashMap] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: threshold is honored from tuning (same sample, different thresholds, different outcomes)", ((_lowThreshResult get "compromised") == true) && {(_highThreshResult get "compromised") == false}];
+
+    // convertRequested true only on the latching tick.
+    _results pushBack ["sweepEvaluateTick: convertRequested is false on a non-latching tick", ((_latchTick1 get "convertRequested") == false)];
+    _results pushBack ["sweepEvaluateTick: convertRequested is true only on the latching tick", ((_latchTick2 get "convertRequested") == true) && {(_latchTick3 get "convertRequested") == false}];
+
+    // convertRequested false when an already-compromised state is passed in (idempotent).
+    private _alreadyCompromised = createHashMapFromArray [["compromised", true], ["compromiseStreak", 5]];
+    private _idempotentTick = [_hotSample, _tuningBase, _alreadyCompromised] call DSC_core_fnc_sweepEvaluateTick;
+    _results pushBack ["sweepEvaluateTick: convertRequested is false when an already-compromised state is passed in", ((_idempotentTick get "convertRequested") == false)];
+
+    // ================================================================
+    // C. fnc_resolveSweepYield
+    // ================================================================
+    private _yieldTuningObserve = createHashMapFromArray [
+        ["observeRequired", 120], ["observeMax", 600], ["observeIdeal", 250], ["sweptRequired", 0],
+        ["patrolObserveSeconds", 180], ["dwellW", 0.5], ["proxW", 0.3], ["covW", 0.2],
+        ["baseConfidence", 0.9], ["stealthPenalty", 0.5], ["confMin", 0.05], ["confMax", 0.95]
+    ];
+
+    private _noCollectionFacts = createHashMapFromArray [["observedSeconds", 0], ["sweptPoints", 0], ["targetIdentified", false]];
+    _results pushBack ["resolveSweepYield: no collection at all returns []", ([_noCollectionFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield) isEqualTo []];
+
+    private _cleanFacts = createHashMapFromArray [
+        ["observedSeconds", 120], ["bestProximity", 250], ["compromised", false],
+        ["sweptPoints", 0], ["targetIdentified", false], ["locationId", "loc_test"], ["pidSubjectRef", ""], ["seriesId", ""]
+    ];
+    private _cleanTokens = [_cleanFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield;
+    private _cleanLayout = _cleanTokens select { (_x get "type") == "AREA_LAYOUT" };
+    _results pushBack ["resolveSweepYield: full dwell + ideal proximity + undetected yields AREA_LAYOUT with confidence >= 0.7", (count _cleanLayout == 1) && {((_cleanLayout select 0) get "confidence") >= 0.7}];
+
+    private _compromisedFacts = [_cleanFacts, createHashMapFromArray [["compromised", true]]] call _withOverride;
+    private _compromisedTokens = [_compromisedFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield;
+    private _compromisedLayout = _compromisedTokens select { (_x get "type") == "AREA_LAYOUT" };
+    private _cleanConfidence = (_cleanLayout select 0) get "confidence";
+    private _compromisedConfidence = (_compromisedLayout select 0) get "confidence";
+    _results pushBack ["resolveSweepYield: compromised run - AREA_LAYOUT confidence strictly lower and still > 0", (_compromisedConfidence < _cleanConfidence) && {_compromisedConfidence > 0}];
+
+    private _compromisedHasQrf = (_compromisedTokens findIf { (_x get "type") == "QRF_POSTURE" }) != -1;
+    private _cleanHasQrf = (_cleanTokens findIf { (_x get "type") == "QRF_POSTURE" }) != -1;
+    _results pushBack ["resolveSweepYield: compromised run emits QRF_POSTURE, clean run does not", _compromisedHasQrf && {!_cleanHasQrf}];
+
+    private _closerFacts = [_cleanFacts, createHashMapFromArray [["bestProximity", 250]]] call _withOverride;
+    private _fartherFacts = [_cleanFacts, createHashMapFromArray [["bestProximity", 500]]] call _withOverride;
+    private _closerConfidence = ((([_closerFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield) select { (_x get "type") == "AREA_LAYOUT" }) select 0) get "confidence";
+    private _fartherConfidence = ((([_fartherFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield) select { (_x get "type") == "AREA_LAYOUT" }) select 0) get "confidence";
+    _results pushBack ["resolveSweepYield: proximity monotonicity - closer bestProximity yields confidence >=", (_closerConfidence >= _fartherConfidence)];
+
+    private _halfDwellFacts = [_cleanFacts, createHashMapFromArray [["observedSeconds", 60]]] call _withOverride;
+    private _doubleDwellFacts = [_cleanFacts, createHashMapFromArray [["observedSeconds", 240]]] call _withOverride;
+    private _halfDwellConfidence = ((([_halfDwellFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield) select { (_x get "type") == "AREA_LAYOUT" }) select 0) get "confidence";
+    private _doubleDwellConfidence = ((([_doubleDwellFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield) select { (_x get "type") == "AREA_LAYOUT" }) select 0) get "confidence";
+    _results pushBack ["resolveSweepYield: dwell monotonicity + saturation - 2x observeRequired scores same as 1x, both >= half-dwell", (_doubleDwellConfidence == _cleanConfidence) && {_doubleDwellConfidence >= _halfDwellConfidence}];
+
+    private _pidFacts = [_cleanFacts, createHashMapFromArray [["targetIdentified", true], ["pidSubjectRef", "hvt_test_subject"]]] call _withOverride;
+    private _pidTokens = [_pidFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield;
+    private _hvtIdentityTokens = _pidTokens select { (_x get "type") == "HVT_IDENTITY" };
+    _results pushBack ["resolveSweepYield: targetIdentified emits HVT_IDENTITY with the supplied subjectRef", (count _hvtIdentityTokens == 1) && {((_hvtIdentityTokens select 0) get "subjectRef") == "hvt_test_subject"}];
+    _results pushBack ["resolveSweepYield: HVT_IDENTITY absent when targetIdentified is false", (_cleanTokens findIf { (_x get "type") == "HVT_IDENTITY" }) == -1];
+
+    // sweptRequired == 0 -> weights renormalize, no divide-by-zero, strictly
+    // greater than the naive un-renormalized value.
+    private _dwellFactorNaive = 0 max (1 min (120 / 120));
+    private _proxFactorNaive = 0 max (1 min ((600 - 250) / (600 - 250)));
+    private _naiveQuality = (0.5 * _dwellFactorNaive + 0.3 * _proxFactorNaive + 0.2 * 0) / 1.0;
+    private _naiveConfidence = 0.05 max (0.95 min (0.9 * _naiveQuality * 1.0));
+    _results pushBack ["resolveSweepYield: sweptRequired == 0 renormalizes weights (no divide-by-zero, strictly greater than naive)", (_cleanConfidence > _naiveConfidence) && {_cleanConfidence >= 0.05} && {_cleanConfidence <= 0.95}];
+
+    private _allTokensInRange = (_pidTokens findIf { ((_x get "confidence") < 0.05) || ((_x get "confidence") > 0.95) }) == -1;
+    _results pushBack ["resolveSweepYield: every emitted confidence within [confMin, confMax]", _allTokensInRange];
+
+    private _seriesFacts = [_cleanFacts, createHashMapFromArray [["seriesId", "series_test"]]] call _withOverride;
+    private _seriesTokens = [_seriesFacts, _yieldTuningObserve] call DSC_core_fnc_resolveSweepYield;
+    private _allSeriesScope = (_seriesTokens findIf { (_x get "scope") != "SERIES" }) == -1;
+    private _allLocationScope = (_cleanTokens findIf { (_x get "scope") != "LOCATION" }) == -1;
+    _results pushBack ["resolveSweepYield: seriesId != '' -> all tokens scope SERIES, '' -> LOCATION", _allSeriesScope && _allLocationScope];
+
+    _results pushBack ["resolveSweepYield: AREA_LAYOUT.subjectRef equals the location id passed in", ((_cleanLayout select 0) get "subjectRef") == "loc_test"];
+
+    // Round-trip: one emitted token through fnc_intelAdd then fnc_intelQuery
+    // lands in DSC_intelLedger (deliberate impure assertion).
+    [] call DSC_core_fnc_intelInit;
+    {
+        [_x] call DSC_core_fnc_intelAdd;
+    } forEach _cleanTokens;
+    private _ledgerAfterSweep = missionNamespace getVariable ["DSC_intelLedger", createHashMap];
+    private _sweepRoundTrip = [_ledgerAfterSweep, createHashMapFromArray [["subjectRef", "loc_test"], ["type", "AREA_LAYOUT"]]] call DSC_core_fnc_intelQuery;
+    _results pushBack ["resolveSweepYield: emitted token round-trips through fnc_intelAdd/fnc_intelQuery into DSC_intelLedger", (count _sweepRoundTrip) > 0];
+
+    // ================================================================
+    // D. Builder reuse (fnc_buildIntelTokenFromSite with a synthetic site)
+    // ================================================================
+    private _syntheticSite = createHashMapFromArray [["pos", [5000, 6000, 0]], ["id", "sweep_run_test_1"]];
+    private _syntheticToken = [createHashMapFromArray [["type", "AREA_LAYOUT"], ["confidence", 0.8]], _syntheticSite] call DSC_core_fnc_buildIntelTokenFromSite;
+    private _syntheticPayload = _syntheticToken get "payload";
+    _results pushBack ["buildIntelTokenFromSite: synthetic site (pos+id only) enriches payload.pos/grid/siteId", (
+        ((_syntheticPayload get "pos") isEqualTo [5000, 6000, 0]) &&
+        {(_syntheticPayload get "siteId") == "sweep_run_test_1"} &&
+        {(_syntheticPayload get "grid") isEqualType ""}
+    )];
+
+    _results
+}];
+
+INFO("Registered test suite: sweep (completion conditions + evaluateTick + resolveSweepYield + builder reuse)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 

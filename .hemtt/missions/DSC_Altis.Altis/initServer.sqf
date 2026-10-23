@@ -3,25 +3,27 @@
 
 DSC_testConfig = createHashMapFromArray [
     ["factionProfile", "vanilla"],
-    ["steps", ["globals", "locations", "factions", "influence", "c2", "presence", "roving"]],
-    ["missionTemplate", createHashMap],
+    ["steps", ["globals", "locations", "factions", "influence", "c2"]],
+    ["missionTemplate", createHashMapFromArray [
+        ["type", "SWEEP"],
+        ["missionProfile", "SR_rural"],
+        ["location", "loc_replace_with_real_id"],
+        ["sweepConfig", createHashMapFromArray [
+            ["archetype", "SR_OBSERVE"],
+            ["completion", "OBSERVED"],
+            ["observeRequired", 90],
+            ["observeMax", 600],
+            ["observeIdeal", 250],
+            ["compromiseThreshold", 0.6],
+            ["compromiseTicks", 2],
+            ["markerStyle", "search_area"]
+        ]]
+    ]],
     ["singleShot", false],
-    ["playerSpawn", ""],
-    ["timeOfDay", 10],
+    ["playerSpawn", "nearSite"],
+    ["playerSpawnDistance", 450],
+    ["timeOfDay", 5],
     ["freezeWeather", true],
     ["extraDebug", true]
 ];
-
-// PlayTest Notes
-// - "Search Bodies" to "Search Body"
-// - Make activation radius smaller
-// - Roving should not cleanup bodies immediately - Maybe defer
-
-// ---- Tier-1 headless test harness (see .crush/agentic-workflow-and-testing.md Part B, docs/test_harness/) ----
-// fnc_initServerDebug already registers the "harness_selftest" suite. Register
-// any additional DSC_testSuites entries above this line, then uncomment the
-// call below and launch with `mission = "test.VR"` active in .hemtt/launch.toml
-// to see PASS/FAIL/summary lines in the RPT.
-
-[] call DSC_core_fnc_initTestScenario; // optional — only if a suite needs booted globals
-// [] call DSC_core_fnc_runTests;
+[] call DSC_core_fnc_initTestScenario;

@@ -171,6 +171,166 @@ switch (_missionType) do {
         if !("targetSide" in _raidConfig) then { _raidConfig set ["targetSide", _missionConfig get "targetSide"] };
         _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
     };
+
+    // Session 6 (SWEEP archetype) — config-on-existing-generator (see the
+    // mini-spec §0): same raid-generator shape, different data. (a) reads
+    // an optional sweepConfig off the resolved mission config, same
+    // opaque-passthrough pattern as the "RAID" case's raidConfig above;
+    // (b) merges archetype tuning/yield-weight defaults under it
+    // (template overrides always win); (c) builds the raid config with
+    // archetype "SWEEP", the resolved completion, markerStyle defaulting
+    // to "search_area", briefingArchetype "sweep_*"; (d) calls
+    // fnc_generateRaidMission; (e) resolves AREA_SWEPT sub-point positions
+    // from the AO's garrisonClusters centers (positions only — nothing
+    // spawned, §10 budget rule); (f) spawns fnc_sweepMonitor, the same
+    // place the orchestrator already spawns fnc_persistentUAV.
+    // ⏸ DEFERRED (post-Session-6 playtest) — SWEEP/Observe is disabled.
+    // Early playtesting showed the detection/compromise loop leans too
+    // hard on Arma 3's AI sensing (knowsAbout/LOS) and feels janky in
+    // practice. The implementation below is preserved as-is (commented
+    // out, not deleted) for a future revisit with a different detection
+    // model. See .crush/roadmap.md for the deferral note. SWEEP is not
+    // reachable from any random-selection surface, so this only affects
+    // explicit test-harness templates.
+    case "SWEEP": {
+        WARNING("generateMission SWEEP - SWEEP/Observe mission type is deferred (see roadmap.md); no mission generated");
+        /*
+        private _sweepArchetypes = call DSC_core_fnc_getSweepArchetypes;
+        private _sweepConfig = _missionConfig getOrDefault ["sweepConfig", createHashMap];
+        private _sweepArchetypeName = _sweepConfig getOrDefault ["archetype", "SR_OBSERVE"];
+        private _sweepArchetype = _sweepArchetypes getOrDefault [_sweepArchetypeName, _sweepArchetypes get "SR_OBSERVE"];
+
+        // §9 harness requirement: singleShot MUST be false for a SWEEP run,
+        // or observedSeconds reads 0 at the immediate debrief and the run
+        // asserts nothing.
+        if (!isNil "DSC_testConfig") then {
+            private _tc = missionNamespace getVariable ["DSC_testConfig", createHashMap];
+            if (_tc getOrDefault ["singleShot", true]) then {
+                WARNING("generateMission SWEEP - DSC_testConfig.singleShot is true; observedSeconds will read 0 at the immediate debrief, use singleShot:false for a SWEEP harness run");
+            };
+        };
+
+        private _completionType = _sweepConfig getOrDefault ["completion", _sweepArchetype getOrDefault ["completion", "OBSERVED"]];
+        private _convertOn = _sweepConfig getOrDefault ["convertOn", _sweepArchetype getOrDefault ["convertOn", "RAID"]];
+
+        // Tuning: archetype defaults, template keys override (gotcha 1 —
+        // expose the compromise threshold at three levels: global ->
+        // archetype -> template, resolved in that order).
+        private _tuning = createHashMap;
+        { _tuning set [_x, _y] } forEach (_sweepArchetype getOrDefault ["tuning", createHashMap]);
+        { if !(_x in ["archetype", "completion", "convertOn", "markerStyle", "searchAreaRadius"]) then { _tuning set [_x, _y] } } forEach _sweepConfig;
+
+        private _globalThreshold = missionNamespace getVariable ["DSC_sweepCompromiseThreshold", -1];
+        if (_globalThreshold >= 0 && !("compromiseThreshold" in _sweepConfig)) then {
+            _tuning set ["compromiseThreshold", _globalThreshold];
+        };
+        private _resolvedThreshold = _tuning getOrDefault ["compromiseThreshold", -1];
+        LOG_2("generateMission SWEEP - archetype=%1 compromiseThreshold=%2",_sweepArchetypeName,_resolvedThreshold);
+
+        private _sweptRequiredSpec = _sweepArchetype getOrDefault ["sweptRequired", 0];
+        private _sweptRequired = if (_sweptRequiredSpec isEqualType []) then {
+            (_sweptRequiredSpec select 0) + (floor (random ((_sweptRequiredSpec select 1) - (_sweptRequiredSpec select 0) + 1)))
+        } else {
+            _sweptRequiredSpec
+        };
+
+        private _yieldTuning = createHashMap;
+        { _yieldTuning set [_x, _y] } forEach (_sweepArchetype getOrDefault ["yieldWeights", createHashMap]);
+        _yieldTuning set ["observeRequired", _tuning getOrDefault ["observeRequired", 120]];
+        _yieldTuning set ["observeMax", _tuning getOrDefault ["observeMax", 600]];
+        _yieldTuning set ["observeIdeal", _tuning getOrDefault ["observeIdeal", 250]];
+        _yieldTuning set ["patrolObserveSeconds", _tuning getOrDefault ["patrolObserveSeconds", 180]];
+        _yieldTuning set ["sweptRequired", _sweptRequired];
+
+        private _sweptRadius = _sweepArchetype getOrDefault ["sweptRadius", 40];
+        private _pidRange = _sweepArchetype getOrDefault ["pidRange", 300];
+
+        // TARGET_IDENTIFIED reuses the existing entity-spec path so a PID
+        // sweep stays inside the AO budget; every other completion places
+        // zero entities.
+        private _sweepEntities = if (_completionType == "TARGET_IDENTIFIED") then {
+            [createHashMapFromArray [["archetype", "OFFICER"]]]
+        } else {
+            []
+        };
+
+        private _sweepBriefingArchetype = switch (_completionType) do {
+            case "AREA_SWEPT": { "sweep_area" };
+            case "TARGET_IDENTIFIED": { "sweep_pid" };
+            default { "sweep_observe" };
+        };
+
+        private _raidConfig = createHashMapFromArray [
+            ["archetype", "SWEEP"],
+            ["entities", _sweepEntities],
+            ["objects", []],
+            ["completion", _completionType],
+            ["markerStyle", _sweepConfig getOrDefault ["markerStyle", "search_area"]],
+            ["searchAreaRadius", _sweepConfig getOrDefault ["searchAreaRadius", 400]],
+            ["briefingArchetype", _sweepBriefingArchetype],
+            ["targetFaction", _targetFaction],
+            ["targetSide", _missionConfig get "targetSide"],
+            ["observeRequired", _tuning getOrDefault ["observeRequired", 120]],
+            ["sweptRequired", _sweptRequired]
+        ];
+        _mission = [_location, _ao, _raidConfig] call DSC_core_fnc_generateRaidMission;
+
+        if (_mission isNotEqualTo createHashMap) then {
+            private _objectivePos = _location get "position";
+            private _garrisonClusters = _ao getOrDefault ["garrisonClusters", []];
+
+            // Sub-point positions for AREA_SWEPT — AO garrisonCluster
+            // centers first, padded with jittered points around the
+            // objective if the AO has fewer clusters than required
+            // (positions only, zero entities spawned — §10 budget rule).
+            private _subPoints = [];
+            if (_sweptRequired > 0) then {
+                { _subPoints pushBack (_x get "center") } forEach _garrisonClusters;
+                while { count _subPoints < _sweptRequired } do {
+                    private _ang = random 360;
+                    private _dist = 60 + random 150;
+                    _subPoints pushBack (_objectivePos vectorAdd [_dist * sin _ang, _dist * cos _ang, 0]);
+                };
+                if (count _subPoints > _sweptRequired) then {
+                    _subPoints = _subPoints select [0, _sweptRequired];
+                };
+            };
+
+            private _pidTarget = _mission getOrDefault ["entity", objNull];
+            private _pidSubjectRef = if (!isNull _pidTarget) then {
+                _pidTarget getVariable ["DSC_entityName", "pid_target"]
+            } else {
+                ""
+            };
+
+            private _runId = format ["sweep_%1_%2", floor (diag_tickTime * 1000), floor (random 1000000)];
+            missionNamespace setVariable ["DSC_sweepRunId", _runId, true];
+
+            private _monitorCtx = createHashMapFromArray [
+                ["runId", _runId],
+                ["objectivePos", _objectivePos],
+                ["subPoints", _subPoints],
+                ["sweptRadius", _sweptRadius],
+                ["pidTarget", _pidTarget],
+                ["pidRange", _pidRange],
+                ["pidSubjectRef", _pidSubjectRef],
+                ["enemyUnits", _mission getOrDefault ["units", []]],
+                ["tuning", _tuning],
+                ["yieldTuning", _yieldTuning],
+                ["locationId", _location getOrDefault ["id", ""]],
+                ["seriesId", _raidConfig getOrDefault ["seriesId", ""]],
+                ["convertOn", _convertOn],
+                ["exfilDistance", _tuning getOrDefault ["exfilDistance", 400]],
+                ["garrisonClusters", _garrisonClusters],
+                ["location", _location]
+            ];
+
+            [_monitorCtx] spawn DSC_core_fnc_sweepMonitor;
+
+            INFO_3("generateMission SWEEP - monitor spawned (archetype=%1, completion=%2, runId=%3)",_sweepArchetypeName,_completionType,_runId);
+        };
+        */
+    };
     default {
         diag_log format ["DSC: fnc_generateMission - Unknown mission type: %1", _missionType];
     };
