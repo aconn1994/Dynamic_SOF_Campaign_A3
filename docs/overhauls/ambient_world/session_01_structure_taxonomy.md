@@ -5,10 +5,15 @@
 **Ships:** A category / subtype / flag table covering every structure class DSC
 knows about, with derived reverse indices that keep every existing consumer
 working.
-**Status:** 🟨 **spec approved** — Q1–Q5 answered in the README Decision Log
-(B15–B19); the mini-spec is approved and written up below as
-*"Approved Mini-Spec (Session 01)"* (§A0–§A10). **Ready for a Sonnet build
-session** — see the paste-ready prompt.
+**Status:** ✅ **built** — the Sonnet build session transcribed the approved
+mini-spec (§A0–§A10) into `fnc_getStructureCatalog`/`fnc_getStructureSubtypes`/
+`fnc_resolveStructureInfo`, reduced `fnc_getStructureTypes` to a shim, and
+registered the `structure_catalog` Tier-1 suite (25 assertions). `hemtt check`
+and `hemtt build` are clean. **Not yet playtested in-engine** (Tier-1 suite
+has not been run via `test.VR`/`fnc_runTests`, and the RPT regression check
+from the work order's playtest checklist is outstanding). 41 Table 2 rows
+still carry `// REVIEW` — see `session_01_ambiguities.md` for the
+hand-editing backlog, which is the long pole before Session 02.
 
 ---
 

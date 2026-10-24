@@ -37,8 +37,11 @@ PREP_SUB(data,getEntityArchetypes);
 PREP_SUB(data,getInteractionSiteArchetypes);
 PREP_SUB(data,getMissionProfiles);
 PREP_SUB(data,getObjectArchetypes);
+PREP_SUB(data,getStructureCatalog);
+PREP_SUB(data,getStructureSubtypes);
 PREP_SUB(data,getStructureTypes);
 PREP_SUB(data,getSweepArchetypes);
+PREP_SUB(data,resolveStructureInfo);
 
 // Debug
 // TEMPORARY (August 2026) — side/faction diagnostics. Remove with the

@@ -1,29 +1,20 @@
-// [] call DSC_core_fnc_initServer;
-// [] call DSC_core_fnc_initServerDebug;
+[] call DSC_core_fnc_initServer;
+[] call DSC_core_fnc_initServerDebug;
 
-DSC_testConfig = createHashMapFromArray [
-    ["factionProfile", "vanilla"],
-    ["steps", ["globals", "locations", "factions", "influence", "c2"]],
-    ["missionTemplate", createHashMapFromArray [
-        ["type", "SWEEP"],
-        ["missionProfile", "SR_rural"],
-        ["location", "loc_replace_with_real_id"],
-        ["sweepConfig", createHashMapFromArray [
-            ["archetype", "SR_OBSERVE"],
-            ["completion", "OBSERVED"],
-            ["observeRequired", 90],
-            ["observeMax", 600],
-            ["observeIdeal", 250],
-            ["compromiseThreshold", 0.6],
-            ["compromiseTicks", 2],
-            ["markerStyle", "search_area"]
-        ]]
-    ]],
-    ["singleShot", false],
-    ["playerSpawn", "nearSite"],
-    ["playerSpawnDistance", 450],
-    ["timeOfDay", 5],
-    ["freezeWeather", true],
-    ["extraDebug", true]
-];
-[] call DSC_core_fnc_initTestScenario;
+// private _className = "Land_PowerLine_01_pole_transformer_F"; // change to your structure class
+
+// // nearestObjects is faster; nearestTerrainObjects only works for terrain-baked objects
+// private _structures = nearestObjects [
+//     [worldSize / 2, worldSize / 2],
+//     [_className],
+//     worldSize * 0.75 // radius large enough to cover the whole map from center
+// ];
+
+// {
+//     private _markerName = format ["structMarker_%1", _forEachIndex];
+//     private _marker = createMarker [_markerName, getPosATL _x];
+//     _marker setMarkerShape "ICON";
+//     _marker setMarkerType "mil_dot";
+//     _marker setMarkerSize [0.5, 0.5];
+//     _marker setMarkerColor "ColorRed";
+// } forEach _structures;

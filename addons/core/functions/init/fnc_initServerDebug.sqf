@@ -757,5 +757,284 @@ _testSuites set ["sweep", {
 
 INFO("Registered test suite: sweep (completion conditions + evaluateTick + resolveSweepYield + builder reuse)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Structure Taxonomy (Ambient World Overhaul, Session 01)
+// ----------------------------------------------------------------------------
+// docs/overhauls/ambient_world/session_01_structure_taxonomy.md "Approved
+// Mini-Spec" §A7 — 25 assertions. The catalog is forcibly rebuilt once at the
+// top (deterministic baseline for this run) and then re-fetched uncached to
+// exercise the cache probe (assertion 12).
+_testSuites set ["structure_catalog", {
+    private _results = [];
+
+    private _knownCategories = [
+        "residential", "commercial", "industrial", "agricultural", "medical",
+        "religious", "infrastructure", "port", "airport", "law_enforcement", "military"
+    ];
+    private _knownFlags = [
+        "occupiable", "anchor", "satellite", "military", "sentry_only",
+        "hvt_suitable", "hostage_suitable", "ruined", "landmark",
+        "infrastructure_node", "sabotage_target", "hackable",
+        "workplace", "public_access", "civilian_home"
+    ];
+
+    private _subtypes = call DSC_core_fnc_getStructureSubtypes;
+    private _catalog = [true] call DSC_core_fnc_getStructureCatalog;
+
+    private _byClass = _catalog get "byClass";
+    private _bySubtype = _catalog get "bySubtype";
+    private _byCategory = _catalog get "byCategory";
+    private _byFlag = _catalog get "byFlag";
+    private _main = _catalog get "main";
+    private _side = _catalog get "side";
+    private _functionalCategories = _catalog get "functionalCategories";
+    private _functionalLookup = _catalog get "functionalLookup";
+    private _nonOccupiable = _catalog get "nonOccupiable";
+    private _nonOccupiableLookup = _catalog get "nonOccupiableLookup";
+    private _classKeys = keys _byClass;
+
+    // ================================================================
+    // Vocabulary & table integrity
+    // ================================================================
+
+    // 1. Every Table 2 class maps to a subtype that exists in Table 1.
+    private _subtypeInfoKeys = _catalog get "subtypeInfo";
+    private _badSubtypeRef = _classKeys findIf { !(((_byClass get _x) get "subtype") in _subtypeInfoKeys) };
+    _results pushBack ["every Table 2 class maps to a subtype that exists in Table 1", (_badSubtypeRef == -1)];
+
+    // 2. Every Table 1 category is in the fixed 11-category vocabulary.
+    private _badCategory = _subtypes findIf { !((_x select 1) in _knownCategories) };
+    _results pushBack ["every Table 1 subtype's category is in the known 11-category vocabulary", (_badCategory == -1)];
+
+    // 3. Every flag in Table 1, and every override token applied in Table 2, is in the known flag vocabulary.
+    private _badTable1Flag = -1;
+    {
+        private _rowFlags = _x select 3;
+        private _hit = _rowFlags findIf { !(_x in _knownFlags) };
+        if (_hit != -1) exitWith { _badTable1Flag = _hit };
+    } forEach _subtypes;
+    private _badByFlagKey = (keys _byFlag) findIf { !(_x in _knownFlags) };
+    _results pushBack ["every flag in Table 1 and every byFlag key is in the known flag vocabulary", (_badTable1Flag == -1 && {_badByFlagKey == -1})];
+
+    // 4. No classname appears twice in Table 2.
+    _results pushBack ["no classname appears twice in Table 2", ((_catalog get "duplicateClassCount") == 0)];
+
+    // 5. Every subtype has a non-empty displayName.
+    private _badDisplayName = _subtypes findIf { (_x select 2) == "" };
+    _results pushBack ["every subtype has a non-empty displayName", (_badDisplayName == -1)];
+
+    // 6. Every category has >=1 subtype and >=1 class.
+    private _categoryCoverageOk = true;
+    {
+        private _cat = _x;
+        private _subtypeCount = count (_byCategory getOrDefault [_cat, []]);
+        private _classCount = (count (_functionalCategories getOrDefault [_cat, []])) + (count (_nonOccupiable getOrDefault [_cat, []]));
+        if (_subtypeCount == 0 || {_classCount == 0}) exitWith { _categoryCoverageOk = false };
+    } forEach _knownCategories;
+    _results pushBack ["every category has >=1 subtype and >=1 class", _categoryCoverageOk];
+
+    // 21. Every Table 1 subtype is used by >=1 Table 2 class.
+    private _unusedSubtype = _subtypes findIf {
+        private _subtypeName = _x select 0;
+        !(_subtypeName in _bySubtype) || { (count (_bySubtype get _subtypeName)) == 0 }
+    };
+    _results pushBack ["every Table 1 subtype is used by >=1 Table 2 class (no dead subtype)", (_unusedSubtype == -1)];
+
+    // 23. Table 2 class count >= 560.
+    private _tableRowCount = _catalog get "tableRowCount";
+    _results pushBack ["Table 2 class count >= 560", (_tableRowCount >= 560)];
+
+    // ================================================================
+    // Derivation correctness
+    // ================================================================
+
+    // 7. main UNION side covers every occupiable class.
+    private _occupiableClasses = _classKeys select { "occupiable" in ((_byClass get _x) get "flags") };
+    private _uncoveredOccupiable = _occupiableClasses findIf { !(_x in _main) && {!(_x in _side)} };
+    _results pushBack ["main UNION side covers every occupiable class", (_uncoveredOccupiable == -1)];
+
+    // 8. main INTERSECT side is empty.
+    private _mainSideOverlap = _main findIf { _x in _side };
+    _results pushBack ["main INTERSECT side is empty", (_mainSideOverlap == -1)];
+
+    // 9. functionalLookup UNION nonOccupiableLookup is total over Table 2.
+    private _functionallyInvisible = _classKeys findIf { !(_x in _functionalLookup) && {!(_x in _nonOccupiableLookup)} };
+    _results pushBack ["functionalLookup/nonOccupiableLookup together cover every class (no functionally invisible class)", (_functionallyInvisible == -1)];
+
+    // 10. nonOccupiableLookup and functionalLookup are disjoint.
+    private _lookupOverlap = (keys _nonOccupiableLookup) findIf { _x in _functionalLookup };
+    _results pushBack ["nonOccupiableLookup and functionalLookup are disjoint", (_lookupOverlap == -1)];
+
+    // 20. Zero classes resolve to category "" or "unknown".
+    private _badResolvedCategory = _classKeys findIf {
+        private _cat = (_byClass get _x) get "category";
+        (_cat == "") || (_cat == "unknown")
+    };
+    _results pushBack ['zero classes resolve to category "" or "unknown"', (_badResolvedCategory == -1)];
+
+    // 22. The shim returns all 11 legacy keys, correct types, main/side parity.
+    private _shim = call DSC_core_fnc_getStructureTypes;
+    private _shimKeys = keys _shim;
+    private _expectedShimKeys = [
+        "main", "side", "mainMilitary", "mainCivilian", "sideMilitary", "sideCivilian",
+        "exclusions", "functionalCategories", "functionalLookup", "nonOccupiable", "nonOccupiableLookup"
+    ];
+    private _missingShimKey = _expectedShimKeys findIf { !(_x in _shimKeys) };
+    private _shimArrayTypesOk = (
+        (_shim get "main") isEqualType [] && {(_shim get "side") isEqualType []} &&
+        {(_shim get "mainMilitary") isEqualType []} && {(_shim get "mainCivilian") isEqualType []} &&
+        {(_shim get "sideMilitary") isEqualType []} && {(_shim get "sideCivilian") isEqualType []} &&
+        {(_shim get "exclusions") isEqualType []}
+    );
+    private _shimHashTypesOk = (
+        (_shim get "functionalCategories") isEqualType createHashMap && {(_shim get "functionalLookup") isEqualType createHashMap} &&
+        {(_shim get "nonOccupiable") isEqualType createHashMap} && {(_shim get "nonOccupiableLookup") isEqualType createHashMap}
+    );
+    _results pushBack ["shim returns all 11 legacy keys with correct types", ((count _shimKeys) == 11 && {_missingShimKey == -1} && _shimArrayTypesOk && _shimHashTypesOk)];
+    _results pushBack ["shim main isEqualTo (mainMilitary + mainCivilian)", ((_shim get "main") isEqualTo ((_shim get "mainMilitary") + (_shim get "mainCivilian")))];
+    _results pushBack ["shim side isEqualTo (sideMilitary + sideCivilian)", ((_shim get "side") isEqualTo ((_shim get "sideMilitary") + (_shim get "sideCivilian")))];
+
+    // ================================================================
+    // Flag semantics
+    // ================================================================
+
+    // 13. Every hvt_suitable class is also occupiable.
+    private _hvtNotOccupiable = _classKeys findIf {
+        private _f = (_byClass get _x) get "flags";
+        ("hvt_suitable" in _f) && {!("occupiable" in _f)}
+    };
+    _results pushBack ["every hvt_suitable class is also occupiable", (_hvtNotOccupiable == -1)];
+
+    // 14. No class is both hvt_suitable and sentry_only.
+    private _hvtAndSentry = _classKeys findIf {
+        private _f = (_byClass get _x) get "flags";
+        ("hvt_suitable" in _f) && {"sentry_only" in _f}
+    };
+    _results pushBack ["no class is both hvt_suitable and sentry_only", (_hvtAndSentry == -1)];
+
+    // 15. hvt_suitable SUBSET hostage_suitable.
+    private _hvtNotHostage = _classKeys findIf {
+        private _f = (_byClass get _x) get "flags";
+        ("hvt_suitable" in _f) && {!("hostage_suitable" in _f)}
+    };
+    _results pushBack ["hvt_suitable is a subset of hostage_suitable", (_hvtNotHostage == -1)];
+
+    // 16. Every sabotage_target/hackable class is also infrastructure_node.
+    private _affordanceNotInfraNode = _classKeys findIf {
+        private _f = (_byClass get _x) get "flags";
+        (("sabotage_target" in _f) || {"hackable" in _f}) && {!("infrastructure_node" in _f)}
+    };
+    _results pushBack ["every sabotage_target/hackable class is also infrastructure_node", (_affordanceNotInfraNode == -1)];
+
+    // 17. Every class in category military carries flag military (B23 invariant).
+    private _militaryCategoryNotFlagged = _classKeys findIf {
+        private _rec = _byClass get _x;
+        ((_rec get "category") == "military") && {!("military" in (_rec get "flags"))}
+    };
+    _results pushBack ["every class in category military carries flag military (B23)", (_militaryCategoryNotFlagged == -1)];
+
+    // 18. >=1 class outside category military carries flag military (crossover proof).
+    private _crossoverCount = {
+        private _rec = _byClass get _x;
+        ((_rec get "category") != "military") && {"military" in (_rec get "flags")}
+    } count _classKeys;
+    _results pushBack [">=1 class outside category military carries flag military (crossover)", (_crossoverCount > 0)];
+
+    // 19. No affiliation flag exists in the vocabulary (B25).
+    _results pushBack ["no affiliation flag (law_enforcement/police/insurgent) exists in the vocabulary (B25)", (
+        !("law_enforcement" in _knownFlags) && {!("police" in _knownFlags)} && {!("insurgent" in _knownFlags)}
+    )];
+
+    // 25. Derived-flag sanity.
+    private _civilianHomeCount = count (_byFlag getOrDefault ["civilian_home", []]);
+    private _workplaceCount = count (_byFlag getOrDefault ["workplace", []]);
+    private _publicAccessCount = count (_byFlag getOrDefault ["public_access", []]);
+    private _ruinedWithCivilianHome = (_byFlag getOrDefault ["ruined", []]) findIf { _x in (_byFlag getOrDefault ["civilian_home", []]) };
+    _results pushBack ["derived-flag sanity: civilian_home/workplace/public_access each have >=1 class, no ruined class has civilian_home", (
+        _civilianHomeCount > 0 && {_workplaceCount > 0} && {_publicAccessCount > 0} && {_ruinedWithCivilianHome == -1}
+    )];
+
+    // ================================================================
+    // Behavior
+    // ================================================================
+
+    // 11. fnc_resolveStructureInfo on an unknown class returns a well-formed record and does not throw.
+    private _unknownInfo = ["Land_DSC_TestHarness_NotARealClassname_F"] call DSC_core_fnc_resolveStructureInfo;
+    _results pushBack ["resolveStructureInfo on an unknown class returns a well-formed record", (
+        ((_unknownInfo get "subtype") == "unknown") &&
+        {(_unknownInfo get "category") == "unknown"} &&
+        {(_unknownInfo get "displayName") != ""} &&
+        {(_unknownInfo get "flags") isEqualTo []}
+    )];
+
+    // 12. Catalog build is idempotent and cached - a second call returns the same reference.
+    private _handleA = [] call DSC_core_fnc_getStructureCatalog;
+    _handleA set ["__dscTestSentinel", "probe"];
+    private _handleB = [] call DSC_core_fnc_getStructureCatalog;
+    private _cacheIsSameRef = ((_handleB getOrDefault ["__dscTestSentinel", ""]) == "probe");
+    _handleA deleteAt "__dscTestSentinel";
+    _results pushBack ["catalog build is idempotent and cached (second call returns the same reference)", _cacheIsSameRef];
+
+    // 24. Canary set - fixed classes resolve exactly as stated.
+    private _canaries = [
+        ["Land_School_01_F", "school", "commercial", []],
+        ["Land_CoalPlant_01_MainBuilding_F", "power_station", "infrastructure", ["sabotage_target"]],
+        ["Land_FuelStation_Build_F", "fuel_station", "commercial", []],
+        ["Land_ReservoirTank_V1_F", "water_facility", "infrastructure", ["!occupiable"]],
+        ["Land_spp_Tower_F", "solar_array", "infrastructure", []],
+        ["Land_Hangar_F", "hangar", "airport", ["military"]],
+        ["Land_i_Barracks_V1_F", "barracks", "military", ["military", "hvt_suitable"]],
+        ["Land_dp_bigTank_old_F", "storage_tank", "industrial", ["sentry_only", "!hvt_suitable"]],
+        ["Land_PoliceStation_01_F", "police_station", "law_enforcement", []],
+        ["Land_MedicalTent_01_MTP_closed_F", "field_hospital", "medical", ["military"]],
+        ["Land_Communication_F", "comms_tower", "infrastructure", ["hackable", "!occupiable"]],
+        ["Land_Slum_House01_F", "slum", "residential", ["civilian_home"]]
+    ];
+    {
+        _x params ["_canaryClass", "_expSubtype", "_expCategory", "_expFlagChecks"];
+        private _rec = _byClass getOrDefault [_canaryClass, createHashMap];
+        private _recFlags = _rec getOrDefault ["flags", []];
+        private _flagChecksOk = (_expFlagChecks findIf {
+            if ((_x select [0, 1]) == "!") then {
+                (_x select [1, (count _x) - 1]) in _recFlags
+            } else {
+                !(_x in _recFlags)
+            }
+        }) == -1;
+        private _canaryOk = (
+            ((_rec getOrDefault ["subtype", ""]) == _expSubtype) &&
+            {(_rec getOrDefault ["category", ""]) == _expCategory} &&
+            _flagChecksOk
+        );
+        _results pushBack [format ["canary: %1 resolves to subtype=%2 category=%3 with expected flags", _canaryClass, _expSubtype, _expCategory], _canaryOk];
+    } forEach _canaries;
+
+    // ================================================================
+    // Coverage report (printed, not asserted)
+    // ================================================================
+    private _coverageLines = [];
+    {
+        private _cat = _x;
+        private _catClassCount = (count (_functionalCategories getOrDefault [_cat, []])) + (count (_nonOccupiable getOrDefault [_cat, []]));
+        private _catSubtypeCount = count (_byCategory getOrDefault [_cat, []]);
+        _coverageLines pushBack format ["%1: %2 classes / %3 subtypes", _cat, _catClassCount, _catSubtypeCount];
+    } forEach _knownCategories;
+    private _coverageMsg = format [
+        "structure_catalog coverage - total classes: %1, total subtypes: %2 (pre-session baseline: 565) | %3",
+        (count _byClass), (count _subtypes), (_coverageLines joinString " | ")
+    ];
+    INFO(_coverageMsg);
+
+    // NOTE: hand count of "// REVIEW" rows in fnc_getStructureCatalog.sqf's
+    // Table 2 at authoring time. Update if REVIEW rows are added/resolved by
+    // hand-editing — this is a reporting aid, not an assertion.
+    private _reviewRowCount = 41;
+    INFO_1("structure_catalog coverage - rows still carrying // REVIEW: %1",_reviewRowCount);
+
+    _results
+}];
+
+INFO("Registered test suite: structure_catalog (Ambient World Overhaul Session 01 - structure taxonomy)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 

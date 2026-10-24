@@ -261,7 +261,7 @@ deliverable.
 
 | Session | Status | Tier-1 | Playtest verdict | Notes |
 |---|---|---|---|---|
-| 01 — Structure taxonomy | 🟨 spec approved | — | — | **mini-spec signed off and written into the work order (§A0–§A10) — ready for a Sonnet build session** |
+| 01 — Structure taxonomy | ✅ built, hand-edit pending | `structure_catalog` suite registered (25 assertions, not yet run in-engine) | ⬜ pending (regression check — see work order's playtest checklist) | `fnc_getStructureCatalog`/`fnc_getStructureSubtypes`/`fnc_resolveStructureInfo` shipped, `fnc_getStructureTypes` reduced to a shim, `hemtt check`/`hemtt build` clean. 41 rows still carry `// REVIEW` — see `session_01_ambiguities.md`. Hand-editing Table 2 is the next step before Session 02. |
 | 02 — Location POI registry | ⬜ not started | — | — | |
 | 03 — Map profile | ⬜ not started | — | — | |
 | 04 — Civilian classification | ⬜ not started | — | — | |
