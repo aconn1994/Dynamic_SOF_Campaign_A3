@@ -95,7 +95,7 @@ out of the civilian work.
 | # | Session | Owner's item | Model | Ships | Gate to next |
 |---|---|---|---|---|---|
 | 01 | [Structure taxonomy](session_01_structure_taxonomy.md) | 1 | **Opus scaffold → human edit → Sonnet wire-up** | Category/subtype/flag table for ~565 classes | Tier-1 invariants pass; legacy return keys still satisfy every existing consumer |
-| 02 | [Location POI registry](session_02_location_poi_registry.md) | 1 | Sonnet | Per-structure POIs retained on every location + query API | Tier-1 query tests pass; scan time unchanged |
+| 02 | [Location POI registry](session_02_location_poi_registry.md) | 1 | Sonnet | ✅ Per-structure POIs retained on every location + query API | Tier-1 query tests pass; scan time unchanged |
 | 03 | [Map profile](session_03_map_profile.md) | 2 (prereq) | Sonnet | `fnc_getMapProfile` — per-world region, civilian/police factions, climate stub | Tier-1: every shipped map resolves; unknown world falls back |
 | 04 | [Civilian classification](session_04_civilian_classification.md) | 2 | **Opus spec → Sonnet build** | Civilian archetype registry, resolver v2, pool hygiene (VR purge) | Tier-1 resolver tests pass; no VR/hologram civilians in a scan |
 | 05 | [Ambient civilians](session_05_ambient_civilians.md) | 3 | **Opus spec → Sonnet build** | Tag-driven density, role-anchored behavior, night falloff, position validation, civilian-priority budget | Playtest: towns read urban, hamlets read rural, nobody in the woods |

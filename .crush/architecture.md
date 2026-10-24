@@ -115,7 +115,12 @@ fnc_scanLocations
     │        id, position, name, locType, isMilitary,
     │        militaryTier, structures, mainStructures,
     │        sideStructures, buildingCount, radius,
-    │        tags[], functionalProfile{}
+    │        tags[], functionalProfile{}, source
+    │        poiBySubtype{}, poiByCategory{}, poiByFlag{},
+    │        subtypeProfile{} (Session 02 — Ambient World
+    │        Overhaul; query via fnc_queryLocationPOIs. See
+    │        docs/overhauls/ambient_world/
+    │        session_02_location_poi_registry.md)
     │
     ▼
 fnc_initFactionData

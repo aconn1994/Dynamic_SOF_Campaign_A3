@@ -1036,5 +1036,167 @@ _testSuites set ["structure_catalog", {
 
 INFO("Registered test suite: structure_catalog (Ambient World Overhaul Session 01 - structure taxonomy)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Location POI Registry (Ambient World Overhaul, Session 02)
+// ----------------------------------------------------------------------------
+// docs/overhauls/ambient_world/session_02_location_poi_registry.md - pure
+// function tests only (fnc_queryLocationPOIs / fnc_describeStructure /
+// fnc_resolveStructureAffiliation). POIs are opaque test strings/positions,
+// same precedent as every other suite in this file (interaction_site, sweep,
+// intel_ledger). fnc_scanLocations' own Stage 4 changes (POI index building,
+// subtype-weighted urban/rural, has_<landmark> tags) require a real map scan
+// and are verified by the session's human playtest checklist instead.
+_testSuites set ["location_poi", {
+    private _results = [];
+
+    // ================================================================
+    // Mock location - hand-built poiBySubtype/poiByCategory/poiByFlag/
+    // subtypeProfile, same shape fnc_scanLocations Stage 4 builds.
+    // ================================================================
+    private _school = "poi_school";
+    private _houseA = "poi_house_a";
+    private _houseB = "poi_house_b";
+    private _houseC = "poi_house_c";
+    private _barracks = "poi_barracks";
+    private _fuelTank = "poi_fuel_tank";
+    private _commsTower = "poi_comms_tower";
+
+    private _mockLocation = createHashMapFromArray [
+        ["poiBySubtype", createHashMapFromArray [
+            ["school", [_school]],
+            ["house_small", [_houseA, _houseB, _houseC]],
+            ["barracks", [_barracks]],
+            ["storage_tank", [_fuelTank]],
+            ["comms_tower", [_commsTower]]
+        ]],
+        ["poiByCategory", createHashMapFromArray [
+            ["commercial", [_school]],
+            ["residential", [_houseA, _houseB, _houseC]],
+            ["military", [_barracks]],
+            ["industrial", [_fuelTank]],
+            ["infrastructure", [_commsTower]]
+        ]],
+        ["poiByFlag", createHashMapFromArray [
+            ["occupiable", [_school, _houseA, _houseB, _houseC, _barracks]],
+            ["anchor", [_school, _houseA, _barracks]],
+            ["hvt_suitable", [_school, _barracks]],
+            ["hostage_suitable", [_school, _houseA, _houseB, _houseC, _barracks]],
+            ["landmark", [_school]],
+            ["sentry_only", [_fuelTank]],
+            ["military", [_barracks]],
+            ["infrastructure_node", [_commsTower]],
+            ["hackable", [_commsTower]]
+        ]],
+        ["subtypeProfile", createHashMapFromArray [
+            ["school", 1], ["house_small", 3], ["barracks", 1],
+            ["storage_tank", 1], ["comms_tower", 1]
+        ]]
+    ];
+
+    // 1. Query by subtype returns only that subtype.
+    private _r1 = [_mockLocation, createHashMapFromArray [["subtype", "house_small"]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["query by subtype returns only that subtype", (_r1 isEqualTo [_houseA, _houseB, _houseC])];
+
+    // 2. Query by category returns the union of its subtypes.
+    private _r2 = [_mockLocation, createHashMapFromArray [["category", "residential"]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["query by category returns the union of its subtypes", ((count _r2) == 3 && {_houseA in _r2} && {_houseB in _r2} && {_houseC in _r2})];
+
+    // 3. flags is ALL-of; anyFlag is ANY-of.
+    private _r3all = [_mockLocation, createHashMapFromArray [["flags", ["hvt_suitable", "landmark"]]]] call DSC_core_fnc_queryLocationPOIs;
+    private _r3any = [_mockLocation, createHashMapFromArray [["anyFlag", ["hvt_suitable", "landmark"]]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["flags is all-of (hvt_suitable+landmark -> school only)", (_r3all isEqualTo [_school])];
+    _results pushBack ["anyFlag is any-of (hvt_suitable OR landmark -> school + barracks)", ((count _r3any) == 2 && {_school in _r3any} && {_barracks in _r3any})];
+
+    // 4. excludeFlags removes sentry_only from a hostage_suitable-style query.
+    private _r4 = [_mockLocation, createHashMapFromArray [["flags", ["hostage_suitable"]], ["excludeFlags", ["sentry_only"]]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["excludeFlags removes sentry_only from a hostage_suitable query", !(_fuelTank in _r4)];
+
+    // 5. Empty/missing index returns [], never nil, never throws.
+    private _r5 = [_mockLocation, createHashMapFromArray [["subtype", "chimney"]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["empty/missing index returns [] (never nil)", (!isNil "_r5" && {_r5 isEqualTo []})];
+
+    // 6. limit caps result count; random does not change the result SET.
+    private _r6limit = [_mockLocation, createHashMapFromArray [["subtype", "house_small"], ["limit", 2]]] call DSC_core_fnc_queryLocationPOIs;
+    private _r6rand = [_mockLocation, createHashMapFromArray [["subtype", "house_small"], ["random", true]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["limit caps result count", ((count _r6limit) == 2)];
+    _results pushBack ["random does not change the result set", ((count _r6rand) == 3 && {_houseA in _r6rand} && {_houseB in _r6rand} && {_houseC in _r6rand})];
+
+    // 7. Query on a location with no poiBySubtype key degrades to [] + WARN.
+    private _bareLocation = createHashMap;
+    private _r7 = [_bareLocation, createHashMapFromArray [["subtype", "school"]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["location with no poiBySubtype index degrades to [] (forward/backward compat)", (_r7 isEqualTo [])];
+
+    // 8. A non-occupiable POI (comms tower) is returned by a subtype query.
+    private _r8 = [_mockLocation, createHashMapFromArray [["subtype", "comms_tower"]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["a non-occupiable POI (comms tower) is returned by a subtype query", (_r8 isEqualTo [_commsTower])];
+
+    // 9. An occupiable flag filter excludes non-occupiable POIs.
+    private _r9 = [_mockLocation, createHashMapFromArray [["flags", ["occupiable"]]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["an occupiable flag filter excludes non-occupiable POIs (fuel tank, comms tower)", (!(_fuelTank in _r9) && {!(_commsTower in _r9)} && {_barracks in _r9})];
+
+    // 10. "near" filter works against plain position-array POIs.
+    private _nearLocation = createHashMapFromArray [
+        ["poiBySubtype", createHashMapFromArray [
+            ["house_small", [[0, 0, 0], [5000, 5000, 0]]]
+        ]]
+    ];
+    private _r10 = [_nearLocation, createHashMapFromArray [["subtype", "house_small"], ["near", [[10, 10, 0], 100]]]] call DSC_core_fnc_queryLocationPOIs;
+    _results pushBack ["near filter keeps only POIs within radius", (_r10 isEqualTo [[0, 0, 0]])];
+
+    // ================================================================
+    // fnc_resolveStructureAffiliation (Decision B25)
+    // ================================================================
+    private _barracksInfo = createHashMapFromArray [["subtype", "barracks"], ["category", "military"], ["displayName", "a barracks"], ["flags", ["occupiable", "anchor", "military", "hostage_suitable", "hvt_suitable", "landmark"]]];
+    private _ruinedBarracksInfo = createHashMapFromArray [["subtype", "barracks"], ["category", "military"], ["displayName", "a ruined barracks"], ["flags", ["occupiable", "military", "ruined"]]];
+
+    private _milLocation = createHashMapFromArray [["isMilitary", true], ["militaryTier", "base"]];
+    private _civLocation = createHashMapFromArray [["isMilitary", false], ["militaryTier", ""], ["functionalProfile", createHashMap], ["subtypeProfile", createHashMap]];
+    private _civLawLocation = createHashMapFromArray [["isMilitary", false], ["militaryTier", ""], ["functionalProfile", createHashMapFromArray [["law_enforcement", 1]]], ["subtypeProfile", createHashMapFromArray [["police_station", 1]]]];
+    private _noContextLocation = createHashMap;
+
+    private _affA = [_barracksInfo, _milLocation] call DSC_core_fnc_resolveStructureAffiliation;
+    _results pushBack ["a barracks in an isMilitary location resolves affiliation military (B25)", (_affA == "military")];
+
+    private _affB = [_barracksInfo, _civLocation] call DSC_core_fnc_resolveStructureAffiliation;
+    _results pushBack ["the same barracks in a civilian location resolves law_enforcement or civil, never military (B25 lone-city-compound case)", (_affB in ["law_enforcement", "civil"])];
+
+    private _affC = [_barracksInfo, _civLawLocation] call DSC_core_fnc_resolveStructureAffiliation;
+    _results pushBack ["a barracks beside a police station in a civilian location resolves law_enforcement", (_affC == "law_enforcement")];
+
+    private _affD = [_ruinedBarracksInfo, _civLocation] call DSC_core_fnc_resolveStructureAffiliation;
+    _results pushBack ["a ruined barracks in a civilian location resolves derelict", (_affD == "derelict")];
+
+    private _affE = [_barracksInfo, _noContextLocation] call DSC_core_fnc_resolveStructureAffiliation;
+    _results pushBack ["affiliation on a location with missing context fields returns unknown, never throws", (_affE == "unknown")];
+
+    // ================================================================
+    // fnc_describeStructure
+    // ================================================================
+    private _descPlain = ["Land_i_Barracks_V1_F"] call DSC_core_fnc_describeStructure;
+    _results pushBack ["describeStructure with no location returns the plain catalog displayName", (_descPlain == "a barracks")];
+
+    private _descPolice = ["Land_i_Barracks_V1_F", _civLawLocation] call DSC_core_fnc_describeStructure;
+    private _descCivil = ["Land_i_Barracks_V1_F", _civLocation] call DSC_core_fnc_describeStructure;
+    _results pushBack ["describeStructure reflects affiliation (the police barracks vs the barracks)", (_descPolice == "the police barracks" && {_descCivil == "the barracks"} && {_descPolice != _descCivil})];
+
+    private _descUnknown = ["Land_DSC_TestHarness_NotARealClassname_F"] call DSC_core_fnc_describeStructure;
+    _results pushBack ["describeStructure on an unknown class returns a generic non-empty string", (_descUnknown != "")];
+
+    // ================================================================
+    // has_<subtype> landmark-tag gating data check (fnc_scanLocations reads
+    // this same flag; a real scan is Tier-2/3, see the playtest checklist)
+    // ================================================================
+    private _catalogForTags = call DSC_core_fnc_getStructureCatalog;
+    private _subtypeInfoForTags = _catalogForTags get "subtypeInfo";
+    private _schoolFlags = (_subtypeInfoForTags get "school") get "flags";
+    private _annexFlags = (_subtypeInfoForTags get "house_annex") get "flags";
+    _results pushBack ["has_<subtype> tag gating: landmark subtype (school) carries the landmark flag", ("landmark" in _schoolFlags)];
+    _results pushBack ["has_<subtype> tag gating: non-landmark subtype (house_annex) does not carry the landmark flag", !("landmark" in _annexFlags)];
+
+    _results
+}];
+
+INFO("Registered test suite: location_poi (Ambient World Overhaul Session 02 - location POI registry)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 

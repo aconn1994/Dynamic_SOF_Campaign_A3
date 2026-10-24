@@ -29,6 +29,7 @@ PREP_SUB(classification,classifyGroup);
 PREP_SUB(classification,classifyGroups);
 
 // Data
+PREP_SUB(data,describeStructure);
 PREP_SUB(data,getBriefingBanks);
 PREP_SUB(data,getBriefingFragments);
 PREP_SUB(data,getC2Archetypes);
@@ -41,6 +42,8 @@ PREP_SUB(data,getStructureCatalog);
 PREP_SUB(data,getStructureSubtypes);
 PREP_SUB(data,getStructureTypes);
 PREP_SUB(data,getSweepArchetypes);
+PREP_SUB(data,queryLocationPOIs);
+PREP_SUB(data,resolveStructureAffiliation);
 PREP_SUB(data,resolveStructureInfo);
 
 // Debug

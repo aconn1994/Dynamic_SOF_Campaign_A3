@@ -5,6 +5,16 @@
 **Ships:** Every location retains per-structure identity, plus a query API, so
 the mission generator and briefing composer can name specific buildings.
 **Depends on:** Session 01.
+**Status:** ✅ **built** — `fnc_scanLocations` Stage 4 now retains per-structure
+POI indices (`poiBySubtype`/`poiByCategory`/`poiByFlag`/`subtypeProfile`),
+including non-occupiable structures as first-class POIs. New pure functions
+`fnc_queryLocationPOIs`, `fnc_describeStructure`, `fnc_resolveStructureAffiliation`
+(Decision B25) are registered and covered by the `location_poi` Tier-1 suite
+(22 assertions). Location tagging gained subtype-weighted `urban`/`rural` and
+`has_<landmark subtype>` tags. `hemtt check` and `hemtt build` are clean.
+**Not yet playtested in-engine** — the scan-duration/subtype-distribution log
+comparison and the in-game POI spot-checks in the human playtest checklist
+below are outstanding (the agent cannot launch Arma).
 
 ---
 

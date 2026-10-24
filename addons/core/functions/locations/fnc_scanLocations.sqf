@@ -19,7 +19,10 @@
  *        "id", "position", "name", "locType", "isMilitary", "militaryTier",
  *        "structures", "mainStructures", "sideStructures",
  *        "buildingCount", "mainCount", "sideCount", "militaryCount",
- *        "radius", "tags", "primaryFunction", "functionalProfile", "source"
+ *        "radius", "tags", "primaryFunction", "functionalProfile", "source",
+ *        "poiBySubtype", "poiByCategory", "poiByFlag", "subtypeProfile"
+ *        (Session 02 - see docs/overhauls/ambient_world/
+ *        session_02_location_poi_registry.md; query via fnc_queryLocationPOIs)
  *
  * Example:
  *     private _locations = [createHashMapFromArray [["debug", true]]] call DSC_core_fnc_scanLocations;
@@ -38,6 +41,7 @@ _debug = true;
 // STAGE 1: Raw World Sampling
 // ============================================================================
 INFO("========== Anchor-Based Location Scan ==========");
+private _scanStartTime = diag_tickTime;
 
 private _structureTypes = call DSC_core_fnc_getStructureTypes;
 private _mainTypes = _structureTypes get "main";
@@ -56,6 +60,7 @@ private _enterableStructures = [];
 private _structureClasses = [];
 private _structureMilitary = [];
 private _structureFunctional = [];
+private _structureInfoArr = [];
 
 {
     private _struct = _x;
@@ -81,11 +86,13 @@ private _structureFunctional = [];
 
     private _class = if (_isMain) then { "main" } else { ["unclassified", "side"] select _isSide };
     private _funcCategory = _functionalLookup getOrDefault [typeOf _struct, ""];
+    private _structInfo = [_struct] call DSC_core_fnc_resolveStructureInfo;
 
     _enterableStructures pushBack _struct;
     _structureClasses pushBack _class;
     _structureMilitary pushBack _isMilitary;
     _structureFunctional pushBack _funcCategory;
+    _structureInfoArr pushBack _structInfo;
 
 } forEach _allStructures;
 
@@ -106,6 +113,7 @@ private _playerBaseMarkers = allMapMarkers select { _x find "player_base" == 0 }
     _structureClasses = _keepIndices apply { _structureClasses select _x };
     _structureMilitary = _keepIndices apply { _structureMilitary select _x };
     _structureFunctional = _keepIndices apply { _structureFunctional select _x };
+    _structureInfoArr = _keepIndices apply { _structureInfoArr select _x };
     private _excluded = _countBefore - (count _enterableStructures);
     if (_excluded > 0) then {
        TRACE_2("Excluded structures inside: ",_excluded,_marker);
@@ -310,6 +318,27 @@ TRACE_2("Stage 3.5 - Created orphan anchors from structures: ",_orphanAnchorsCre
 // ============================================================================
 // STAGE 4: Military tier + build location hashmaps with tags
 // ============================================================================
+private _structureCatalog = call DSC_core_fnc_getStructureCatalog;
+private _subtypeInfoAll = _structureCatalog get "subtypeInfo";
+
+// Session 02 tagging heuristic: subtype-weighted urban/rural read (owner's
+// "12 barns is rural, 12 apartment blocks is urban" example). Not derived
+// from the catalog's category vocabulary alone because category can't tell
+// a small house from an apartment block (both "residential").
+private _urbanSubtypes = [
+    "apartment_block", "estate", "office", "hotel", "school", "supermarket",
+    "garage_complex", "stadium", "factory", "warehouse_big", "processing_plant",
+    "hospital", "clinic", "terminal", "hangar", "control_tower", "police_station",
+    "rail_station", "container_terminal", "shipyard", "power_station", "church"
+];
+private _ruralSubtypes = [
+    "house_small", "house_small_damaged", "shed_domestic", "house_annex",
+    "barn_large", "barn_small", "livestock_shed", "sawmill", "windmill",
+    "greenhouse", "grain_silo", "hunting_stand", "mine_site", "pier",
+    "navigation_aid", "lighthouse", "chapel", "mausoleum", "ruin_residential",
+    "ruin_church"
+];
+
 private _nonOccLookup = _structureTypes get "nonOccupiableLookup";
 private _locations = [];
 private _locationIndex = 0;
@@ -332,12 +361,43 @@ private _locationIndex = 0;
     private _milCount = 0;
     private _funcCounts = createHashMap;
 
+    // Session 02 - per-structure POI indices (location_poi_registry). See
+    // docs/overhauls/ambient_world/session_02_location_poi_registry.md.
+    private _poiBySubtype = createHashMap;
+    private _poiByCategory = createHashMap;
+    private _poiByFlag = createHashMap;
+    private _subtypeProfile = createHashMap;
+
+    private _registerPoi = {
+        params ["_poiObj", "_poiInfo"];
+        private _poiSubtype = _poiInfo getOrDefault ["subtype", "unknown"];
+        private _poiCategory = _poiInfo getOrDefault ["category", "unknown"];
+        private _poiFlags = _poiInfo getOrDefault ["flags", []];
+
+        private _subArr = _poiBySubtype getOrDefault [_poiSubtype, []];
+        _subArr pushBack _poiObj;
+        _poiBySubtype set [_poiSubtype, _subArr];
+
+        private _catArr = _poiByCategory getOrDefault [_poiCategory, []];
+        _catArr pushBack _poiObj;
+        _poiByCategory set [_poiCategory, _catArr];
+
+        {
+            private _flagArr = _poiByFlag getOrDefault [_x, []];
+            _flagArr pushBack _poiObj;
+            _poiByFlag set [_x, _flagArr];
+        } forEach _poiFlags;
+
+        _subtypeProfile set [_poiSubtype, (_subtypeProfile getOrDefault [_poiSubtype, 0]) + 1];
+    };
+
     {
         private _idx = _structIndexMap getOrDefault [str _x, -1];
         if (_idx >= 0) then {
             private _class = _structureClasses select _idx;
             private _isMil = _structureMilitary select _idx;
             private _func = _structureFunctional select _idx;
+            private _info = _structureInfoArr select _idx;
 
             if (_class == "main") then { _mainStructures pushBack _x };
             if (_class == "side") then { _sideStructures pushBack _x };
@@ -345,6 +405,7 @@ private _locationIndex = 0;
             if (_func != "") then {
                 _funcCounts set [_func, (_funcCounts getOrDefault [_func, 0]) + 1];
             };
+            [_x, _info] call _registerPoi;
         };
     } forEach _anchorStructs;
 
@@ -358,7 +419,9 @@ private _locationIndex = 0;
         };
     };
 
-    // Non-occupiable scan for functional tagging
+    // Non-occupiable scan for functional tagging + POI retention (Session 02
+    // scope change - non-occupiable structures are first-class POIs, not
+    // just counts; see the README's "Non-occupiable structures" section).
     private _scanRadius = (_maxDist max 50) + 50;
     private _nearbyObjects = nearestObjects [_anchorPos, ["House", "Building", "Strategic", "Thing"], _scanRadius];
     {
@@ -367,6 +430,8 @@ private _locationIndex = 0;
             private _nonOccFunc = _nonOccLookup getOrDefault [typeOf _x, ""];
             if (_nonOccFunc != "") then {
                 _funcCounts set [_nonOccFunc, (_funcCounts getOrDefault [_nonOccFunc, 0]) + 1];
+                private _nonOccInfo = [_x] call DSC_core_fnc_resolveStructureInfo;
+                [_x, _nonOccInfo] call _registerPoi;
             };
         };
     } forEach _nearbyObjects;
@@ -402,9 +467,24 @@ private _locationIndex = 0;
     if (_milCount == 0) then { _tags pushBack "civilian" };
     if (_milCount > 0 && { _buildingCount > _milCount * 2 }) then { _tags pushBack "mixed" };
 
-    // Context from named location type
-    if (_anchorType in ["NameCityCapital", "NameCity"]) then { _tags pushBackUnique "urban" };
-    if (_anchorType == "NameVillage") then { _tags pushBackUnique "rural" };
+    // Context from named location type, sharpened by subtype mix (Session
+    // 02 - "12 barns is rural, 12 apartment blocks is urban", not just
+    // building count or the named-location engine type).
+    private _urbanWeight = 0;
+    private _ruralWeight = 0;
+    {
+        private _subtype = _x;
+        private _cnt = _y;
+        if (_subtype in _urbanSubtypes) then { _urbanWeight = _urbanWeight + _cnt };
+        if (_subtype in _ruralSubtypes) then { _ruralWeight = _ruralWeight + _cnt };
+    } forEach _subtypeProfile;
+
+    private _urbanRuralTag = "";
+    if (_anchorType in ["NameCityCapital", "NameCity"]) then { _urbanRuralTag = "urban" };
+    if (_anchorType == "NameVillage") then { _urbanRuralTag = "rural" };
+    if (_urbanWeight > _ruralWeight) then { _urbanRuralTag = "urban" };
+    if (_ruralWeight > _urbanWeight) then { _urbanRuralTag = "rural" };
+    if (_urbanRuralTag != "") then { _tags pushBackUnique _urbanRuralTag };
 
     // Functional tags — add "has_<category>" for each category present
     {
@@ -412,6 +492,21 @@ private _locationIndex = 0;
             _tags pushBack format ["has_%1", _x];
         };
     } forEach _funcCounts;
+
+    // Landmark subtype tags - "has_<subtype>" for nameable POIs (Session
+    // 02). Gated to landmark-flagged subtypes so the tag list doesn't
+    // explode to the full ~83-subtype vocabulary on every location.
+    {
+        private _subtype = _x;
+        private _cnt = _y;
+        if (_cnt > 0) then {
+            private _subInfo = _subtypeInfoAll getOrDefault [_subtype, createHashMap];
+            private _subFlags = _subInfo getOrDefault ["flags", []];
+            if ("landmark" in _subFlags) then {
+                _tags pushBackUnique format ["has_%1", _subtype];
+            };
+        };
+    } forEach _subtypeProfile;
 
     // --- Functional character (Sprint D) ---
     // Derive a primary functional category + character tags from the mix.
@@ -467,6 +562,12 @@ private _locationIndex = 0;
     if (_cResidential >= 8 && { _primaryFunction == "residential" }) then { _tags pushBackUnique "residential_zone" };
 
     // Build location hashmap
+    private _sourceTag = switch (_anchorType) do {
+        case "Orphan": { "orphan" };
+        case "Military": { "military" };
+        default { "anchor" };
+    };
+
     private _location = createHashMapFromArray [
         ["id", format ["loc_%1", _locationIndex]],
         ["position", _anchorPos],
@@ -485,7 +586,11 @@ private _locationIndex = 0;
         ["tags", _tags],
         ["primaryFunction", _primaryFunction],
         ["functionalProfile", _funcCounts],
-        ["source", "anchor"]
+        ["poiBySubtype", _poiBySubtype],
+        ["poiByCategory", _poiByCategory],
+        ["poiByFlag", _poiByFlag],
+        ["subtypeProfile", _subtypeProfile],
+        ["source", _sourceTag]
     ];
 
     _locations pushBack _location;
@@ -517,8 +622,18 @@ private _tagCounts = createHashMap;
     { _tagCounts set [_x, (_tagCounts getOrDefault [_x, 0]) + 1] } forEach (_x get "tags");
 } forEach _locations;
 
+private _subtypeCounts = createHashMap;
+{
+    private _locSubtypeProfile = _x get "subtypeProfile";
+    { _subtypeCounts set [_x, (_subtypeCounts getOrDefault [_x, 0]) + _y] } forEach _locSubtypeProfile;
+} forEach _locations;
+
+private _scanDuration = diag_tickTime - _scanStartTime;
+
 TRACE_1("Location Scan Complete - locations: ",count _locations);
 TRACE_1("Tag distribution: ",_tagCounts);
+TRACE_1("Subtype distribution: ",_subtypeCounts);
+INFO_1("Location scan duration: %1s",_scanDuration);
 
 // ============================================================================
 // DEBUG: Marker Visualization
