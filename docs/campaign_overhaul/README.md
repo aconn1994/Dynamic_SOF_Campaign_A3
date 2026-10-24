@@ -1,5 +1,24 @@
 # Campaign Overhaul — Increment 1 Entry Point
 
+> ## ⚠ SUPERSEDED — October 2026
+>
+> **The active program is `docs/overhauls/ambient_world/`.** Start there.
+>
+> This increment was deferred after Session 6. The exit criterion was right; the
+> route was wrong — SWEEP/OBSERVE put mission-critical progression on Arma's AI
+> detection model, which is not reliable enough to carry it. The replacement
+> program pursues the same end goal by building world variety instead of AI
+> choreography.
+>
+> **Everything shipped here is kept and reused**: the test harness (S1), the
+> Intel Ledger (S2), the series arbiter (S3), the briefing composer (S4), and
+> the interaction-site primitive (S5). SWEEP (S6) stays deferred and commented
+> out at the generator. DISMANTLE_CELL (S7) is re-scoped as the new program's
+> end state.
+>
+> `WORKFLOW_RULES.md` in this folder is **still law** for every session in the
+> new program.
+
 *Authored by the planning session (Opus), August 2026. This folder is the
 **execution plan** for the first increment of the campaign overhaul. It exists
 so that each subsequent build is a short, cheap, fresh session (Sonnet) with no

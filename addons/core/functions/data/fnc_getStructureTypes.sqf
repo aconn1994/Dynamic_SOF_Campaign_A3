@@ -783,7 +783,6 @@ private _func_commercial = [
     "Land_FuelStation_01_shop_F", "Land_FuelStation_03_shop_F",
     "Land_FuelStation_01_workshop_F", "Land_FuelStation_02_workshop_F",
     "Land_GarageRow_01_small_F",
-    "Land_Shop_Town_02_F",
     // Side — Damaged Small Shops
     "Land_d_Shop_02_V1_F", "Land_Shop_01_V1_ruins_F", "Land_Shop_02_V1_ruins_F"
 ];
@@ -964,6 +963,9 @@ private _nonOccupiable = createHashMapFromArray [
         "Land_Tank_rust_F",
         "Land_Ind_TankSmall_F",
         "Land_Ind_TankSmall2_EP1_F"
+    ]],
+    ["commercial", [
+        "Land_Shop_Town_02_F"
     ]],
     ["agricultural", [
         "Land_Greenhouse_01_F",
