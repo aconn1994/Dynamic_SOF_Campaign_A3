@@ -36,6 +36,7 @@ PREP_SUB(data,getC2Archetypes);
 PREP_SUB(data,getCompletionTypes);
 PREP_SUB(data,getEntityArchetypes);
 PREP_SUB(data,getInteractionSiteArchetypes);
+PREP_SUB(data,getMapProfile);
 PREP_SUB(data,getMissionProfiles);
 PREP_SUB(data,getObjectArchetypes);
 PREP_SUB(data,getStructureCatalog);

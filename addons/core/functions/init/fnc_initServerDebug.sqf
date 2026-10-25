@@ -1198,5 +1198,163 @@ _testSuites set ["location_poi", {
 
 INFO("Registered test suite: location_poi (Ambient World Overhaul Session 02 - location POI registry)");
 
+// ----------------------------------------------------------------------------
+// Tier-1 test suite: Map Profile (Ambient World Overhaul, Session 03)
+// ----------------------------------------------------------------------------
+// docs/overhauls/ambient_world/session_03_map_profile.md "Approved Mini-Spec"
+// §A6 - 19 assertions. The profile cache is forcibly rebuilt once at the top
+// (deterministic baseline for this run), exactly as structure_catalog does.
+_testSuites set ["map_profile", {
+    private _results = [];
+
+    [worldName, true] call DSC_core_fnc_getMapProfile;
+
+    private _knownRegions = ["mediterranean", "tropical", "temperate_continental", "temperate", "arid", "synthetic"];
+    private _knownArchitectures = ["mediterranean", "tropical_colonial", "eastern_european", "generic", "none"];
+    private _requiredKeys = [
+        ["world", ""], ["displayName", ""], ["realWorldAnalogue", ""],
+        ["region", ""], ["hemisphere", ""], ["latitude", 0],
+        ["civilianFactions", []], ["policeFaction", ""], ["hostNationFaction", ""],
+        ["architecture", ""], ["languageHint", ""], ["isFallback", false],
+        ["isSynthetic", false], ["climate", createHashMap]
+    ];
+
+    private _shippedWorldNames = ["Altis", "Stratis", "Malden", "Tanoa", "Enoch"];
+    private _shippedProfiles = _shippedWorldNames apply { [_x] call DSC_core_fnc_getMapProfile };
+    private _vrProfile = ["VR"] call DSC_core_fnc_getMapProfile;
+    private _fallbackProfile = ["NotAWorld_DSC"] call DSC_core_fnc_getMapProfile;
+    private _allProfiles = _shippedProfiles + [_vrProfile, _fallbackProfile];
+
+    // 1. Each shipped map resolves with isFallback == false.
+    private _badShipped = _shippedProfiles findIf { _x get "isFallback" };
+    _results pushBack ["each shipped map (Altis/Stratis/Malden/Tanoa/Enoch) resolves with isFallback == false", (_badShipped == -1)];
+
+    // 2. VR resolves with isFallback == false and isSynthetic == true.
+    _results pushBack ["VR resolves with isFallback == false and isSynthetic == true", (
+        !(_vrProfile get "isFallback") && {_vrProfile get "isSynthetic"}
+    )];
+
+    // 3. An unknown world returns isFallback == true and does not throw.
+    _results pushBack ["an unknown world (NotAWorld_DSC) returns isFallback == true and does not throw", (_fallbackProfile get "isFallback")];
+
+    // 4. The fallback profile's world and displayName are the requested name, not "__GENERIC__".
+    _results pushBack ["fallback profile's world and displayName are the requested name, not __GENERIC__", (
+        ((_fallbackProfile get "world") == "NotAWorld_DSC") && {(_fallbackProfile get "displayName") == "NotAWorld_DSC"}
+    )];
+
+    // 5. Every profile (6 known + fallback) carries every required key from §A3, with the right type.
+    private _schemaBad = _allProfiles findIf {
+        private _profile = _x;
+        (_requiredKeys findIf { !((_profile get (_x select 0)) isEqualType (_x select 1)) }) != -1
+    };
+    _results pushBack ["every profile (6 known + fallback) carries every required key from §A3 with the right type", (_schemaBad == -1)];
+
+    // 6. A profile with an extra key still passes the schema check (subset semantics).
+    private _extraKeyProfile = +(_shippedProfiles select 0);
+    _extraKeyProfile set ["civilianVehicles", []];
+    private _extraKeySchemaOk = (_requiredKeys findIf { !((_extraKeyProfile get (_x select 0)) isEqualType (_x select 1)) }) == -1;
+    _results pushBack ["a profile with an extra key still passes the schema check (subset semantics)", _extraKeySchemaOk];
+
+    // 7. civilianFactions is a non-empty ARRAY of non-empty STRINGs on every profile.
+    private _badCivFactions = -1;
+    {
+        private _profile = _x;
+        private _cf = _profile get "civilianFactions";
+        private _badEntry = _cf findIf { !(_x isEqualType "") || {_x == ""} };
+        if ((count _cf) == 0 || {_badEntry != -1}) exitWith { _badCivFactions = _forEachIndex };
+    } forEach _allProfiles;
+    _results pushBack ["civilianFactions is a non-empty ARRAY of non-empty STRINGs on every profile", (_badCivFactions == -1)];
+
+    // 8. policeFaction and hostNationFaction are STRING and "" on every profile.
+    private _badFactionFields = _allProfiles findIf {
+        private _police = _x get "policeFaction";
+        private _hostNation = _x get "hostNationFaction";
+        !(_police isEqualType "") || {_police != ""} || {!(_hostNation isEqualType "")} || {_hostNation != ""}
+    };
+    _results pushBack ["policeFaction and hostNationFaction are STRING and empty on every profile", (_badFactionFields == -1)];
+
+    // 9. climate is a HASHMAP with stub == true and a non-empty band on every profile.
+    private _badClimate = _allProfiles findIf {
+        private _climate = _x get "climate";
+        !(_climate isEqualType createHashMap) || {!(_climate getOrDefault ["stub", false])} || {(_climate getOrDefault ["band", ""]) == ""}
+    };
+    _results pushBack ["climate is a HASHMAP with stub == true and a non-empty band on every profile", (_badClimate == -1)];
+
+    // 10. region is in the fixed region vocabulary on every profile.
+    private _badRegion = _allProfiles findIf { !((_x get "region") in _knownRegions) };
+    _results pushBack ["region is in the fixed region vocabulary on every profile", (_badRegion == -1)];
+
+    // 11. architecture is in the fixed architecture vocabulary on every profile.
+    private _badArchitecture = _allProfiles findIf { !((_x get "architecture") in _knownArchitectures) };
+    _results pushBack ["architecture is in the fixed architecture vocabulary on every profile", (_badArchitecture == -1)];
+
+    // 12. latitude is a NUMBER in [-90, 90] on every profile.
+    private _badLatitude = _allProfiles findIf {
+        private _lat = _x get "latitude";
+        !(_lat isEqualType 0) || {_lat < -90} || {_lat > 90}
+    };
+    _results pushBack ["latitude is a NUMBER in [-90, 90] on every profile", (_badLatitude == -1)];
+
+    // 13. hemisphere agrees with latitude's sign on every profile (lat >= 0 => north).
+    private _badHemisphere = _allProfiles findIf {
+        private _lat = _x get "latitude";
+        private _hemi = _x get "hemisphere";
+        (_lat >= 0 && {_hemi != "north"}) || (_lat < 0 && {_hemi != "south"})
+    };
+    _results pushBack ["hemisphere agrees with latitude's sign on every profile (lat >= 0 => north)", (_badHemisphere == -1)];
+
+    // 14. Tanoa specifically is south with a negative latitude.
+    private _tanoaProfile = ["Tanoa"] call DSC_core_fnc_getMapProfile;
+    _results pushBack ["Tanoa specifically is south with a negative latitude", (
+        ((_tanoaProfile get "hemisphere") == "south") && {(_tanoaProfile get "latitude") < 0}
+    )];
+
+    // 15. Lookup is case-insensitive: altis/ALTIS/Altis all resolve non-fallback, world reads "Altis".
+    private _altisLower = ["altis"] call DSC_core_fnc_getMapProfile;
+    private _altisUpper = ["ALTIS"] call DSC_core_fnc_getMapProfile;
+    private _altisMixed = ["Altis"] call DSC_core_fnc_getMapProfile;
+    _results pushBack ["lookup is case-insensitive (altis/ALTIS/Altis all resolve non-fallback with world == Altis)", (
+        !(_altisLower get "isFallback") && {!(_altisUpper get "isFallback")} && {!(_altisMixed get "isFallback")} &&
+        {(_altisLower get "world") == "Altis"} && {(_altisUpper get "world") == "Altis"} && {(_altisMixed get "world") == "Altis"}
+    )];
+
+    // 16. Calling with no argument returns the profile for worldName.
+    private _noArgProfile = [] call DSC_core_fnc_getMapProfile;
+    _noArgProfile set ["__dscTestSentinel16", "probe"];
+    private _explicitProfile = [worldName] call DSC_core_fnc_getMapProfile;
+    private _noArgMatchesExplicit = ((_explicitProfile getOrDefault ["__dscTestSentinel16", ""]) == "probe");
+    _noArgProfile deleteAt "__dscTestSentinel16";
+    _results pushBack ["calling with no argument returns the profile for worldName", _noArgMatchesExplicit];
+
+    // 17. Cached - a sentinel key set on the first returned handle is visible on a second call; [_w, true] rebuild clears it.
+    private _handleA = [worldName] call DSC_core_fnc_getMapProfile;
+    _handleA set ["__dscTestSentinel17", "probe"];
+    private _handleB = [worldName] call DSC_core_fnc_getMapProfile;
+    private _cacheIsSameRef = ((_handleB getOrDefault ["__dscTestSentinel17", ""]) == "probe");
+    _handleA deleteAt "__dscTestSentinel17";
+    private _handleC = [worldName, true] call DSC_core_fnc_getMapProfile;
+    private _rebuildCleared = !("__dscTestSentinel17" in _handleC);
+    _results pushBack ["profile is cached (second call returns the same reference); [_w, true] rebuild clears it", (_cacheIsSameRef && _rebuildCleared)];
+
+    // 18. Enoch's displayName is "Livonia", and ["Livonia"] resolves as a fallback (no alias table).
+    private _enochProfile = ["Enoch"] call DSC_core_fnc_getMapProfile;
+    private _livoniaProfile = ["Livonia"] call DSC_core_fnc_getMapProfile;
+    _results pushBack ["Enoch's displayName is Livonia, and [""Livonia""] resolves as a fallback (no alias table)", (
+        ((_enochProfile get "displayName") == "Livonia") && {_livoniaProfile get "isFallback"}
+    )];
+
+    // 19. Three calls for the same unknown world leave exactly one entry in DSC_mapProfileUnknownWarned.
+    [worldName, true] call DSC_core_fnc_getMapProfile;
+    ["UnknownWorldForWarnTest_DSC"] call DSC_core_fnc_getMapProfile;
+    ["UnknownWorldForWarnTest_DSC"] call DSC_core_fnc_getMapProfile;
+    ["UnknownWorldForWarnTest_DSC"] call DSC_core_fnc_getMapProfile;
+    private _warnedMap = missionNamespace getVariable ["DSC_mapProfileUnknownWarned", createHashMap];
+    _results pushBack ["three calls for the same unknown world leave exactly one entry in DSC_mapProfileUnknownWarned", ((count _warnedMap) == 1)];
+
+    _results
+}];
+
+INFO("Registered test suite: map_profile (Ambient World Overhaul Session 03 - map profile)");
+
 INFO("Server debug layer initialized (tablet events registered)");
 

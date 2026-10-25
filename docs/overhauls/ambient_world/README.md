@@ -96,7 +96,7 @@ out of the civilian work.
 |---|---|---|---|---|---|
 | 01 | [Structure taxonomy](session_01_structure_taxonomy.md) | 1 | **Opus scaffold → human edit → Sonnet wire-up** | Category/subtype/flag table for ~565 classes | Tier-1 invariants pass; legacy return keys still satisfy every existing consumer |
 | 02 | [Location POI registry](session_02_location_poi_registry.md) | 1 | Sonnet | ✅ Per-structure POIs retained on every location + query API | Tier-1 query tests pass; scan time unchanged |
-| 03 | [Map profile](session_03_map_profile.md) | 2 (prereq) | Sonnet | `fnc_getMapProfile` — per-world region, civilian/police factions, climate stub | Tier-1: every shipped map resolves; unknown world falls back |
+| 03 | [Map profile](session_03_map_profile.md) | 2 (prereq) | Sonnet | ✅ `fnc_getMapProfile` — per-world region, civilian/police factions, climate stub | Tier-1: every shipped map resolves; unknown world falls back |
 | 04 | [Civilian classification](session_04_civilian_classification.md) | 2 | **Opus spec → Sonnet build** | Civilian archetype registry, resolver v2, pool hygiene (VR purge) | Tier-1 resolver tests pass; no VR/hologram civilians in a scan |
 | 05 | [Ambient civilians](session_05_ambient_civilians.md) | 3 | **Opus spec → Sonnet build** | Tag-driven density, role-anchored behavior, night falloff, position validation, civilian-priority budget | Playtest: towns read urban, hamlets read rural, nobody in the woods |
 | 06 | [Ambient dressing](session_06_ambient_dressing.md) | 3 | Sonnet | Animals (farms + isolated residential), civilian//work vehicles | Playtest: farms have livestock and a tractor |
@@ -232,6 +232,7 @@ deliverable.
 | B28 (S01 spec) | Where Table 2 lives | **Inlined in `fnc_getStructureCatalog`**, not a separate function. | Owner's call; keeps the authored data and its derivation in one file. |
 | B29 (S01 spec) | Is a shed a dwelling? | **No — `civilian_home` excludes `shed_domestic`, `garage_private`, `house_annex`, `castle`.** The *contextual* fallback ("a shed is a home if the hamlet has nothing better") is a **Session 05 consumer cascade**, not a catalog flag: prefer `civilian_home` → else `occupiable ∧ residential` → else any `occupiable`. | Mirrors B25 (context resolved at runtime) and the existing `fnc_setupGarrison` side-promotion fallback (lines 244–264). `fnc_setupCivilians` has **no** hierarchy today — it flattens every `buildingPos` into one bag — so the fallback has to be built, not preserved. |
 | B30 (S01 spec) | Session 01 is not fully behaviorally invisible | **Accepted.** The legacy garrison keys (`main`/`side`/`main*`/`side*`) stay byte-identical, but `functionalLookup` **will** shift — most notably a `military` functional category appearing for the first time with ~90 classes. The exact expected delta list is §A9 of the work order. | The mandated fixes (119 orphaned military classes, fuel stations, power/water miscategorisations) cannot be made without moving categories. Pretending otherwise would make the regression playtest unreadable. |
+| C31 (Q6, S03 spec) | How much flavor in the map profile now? | **Minimum schema plus the two already-cheap flavor fields the work order's target block named** (`architecture`, `languageHint`). `climate` stubbed, `policeFaction`/`hostNationFaction` left explicit `""`. Growth made safe, not pre-empted: the Tier-1 schema check is a **required-keys subset check**, so later sessions can add fields (`civilianVehicles` in S06, the faction fields in S09, a real `climate` in S11) without touching this session's tests. | Took the recommendation — unused fields rot. Pinned by Tier-1 assertion #6 (an extra key must still pass the schema check). |
 
 ### Deferred by owner (questions parked, not answered)
 
@@ -263,7 +264,7 @@ deliverable.
 |---|---|---|---|---|
 | 01 — Structure taxonomy | ✅ built, hand-edit pending | `structure_catalog` suite registered (25 assertions, not yet run in-engine) | ⬜ pending (regression check — see work order's playtest checklist) | `fnc_getStructureCatalog`/`fnc_getStructureSubtypes`/`fnc_resolveStructureInfo` shipped, `fnc_getStructureTypes` reduced to a shim, `hemtt check`/`hemtt build` clean. 41 rows still carry `// REVIEW` — see `session_01_ambiguities.md`. Hand-editing Table 2 is the next step before Session 02. |
 | 02 — Location POI registry | ⬜ not started | — | — | |
-| 03 — Map profile | ⬜ not started | — | — | |
+| 03 — Map profile | ✅ shipped | `map_profile` suite registered (19 assertions, not yet run in-engine) | ⬜ pending (behaviorally invisible — regression check only, see work order's playtest checklist) | `fnc_getMapProfile` shipped: 5 shipped maps + `VR` + generic fallback, `hemtt check`/`hemtt build` clean. `policeFaction`/`hostNationFaction` stubbed `""` for Session 09; `climate` stubbed for Session 11. **No consumers wired** — Session 04 is the first reader. |
 | 04 — Civilian classification | ⬜ not started | — | — | |
 | 05 — Ambient civilians | ⬜ not started | — | — | exit criterion set here |
 | 06 — Ambient dressing | ⬜ not started | — | — | |
@@ -281,14 +282,11 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 ## Open questions
 
 **Q1–Q5 and Q7 are answered** — see Decision Log rows B15–B19, C20, C21.
+**Q6 is answered** — see Decision Log row C31.
 **Session 01 is unblocked and ready to run.**
 
 Remaining, in session order:
 
-- **Q6 (Session 03)** — How much flavor in the map profile now? Minimum is
-  region + civilian factions + climate stub, but it is cheap to carry vehicle
-  classes, name lists, and architecture hints while the table is being authored.
-  *Recommendation: add per-session as each consumer appears — unused fields rot.*
 - **Q8 (Session 04)** — Should `environmentalActors` (IDAP, UN, contractors)
   route through the same civilian archetype system (`AID_WORKER`, `JOURNALIST`,
   `CONTRACTOR`)? *Recommendation: yes, same system, different registry entries.*

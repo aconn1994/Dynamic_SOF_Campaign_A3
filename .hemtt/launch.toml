@@ -44,9 +44,9 @@ workshop = [
 
 [developer_factions]
 extends = "developer_ace"
-dlc = [
-    "Western Sahara"
-]
+# dlc = [
+#     "Western Sahara"
+# ]
 workshop = [
     "843577117", # RHSUSAF
     "843425103", # RHSAFRF
