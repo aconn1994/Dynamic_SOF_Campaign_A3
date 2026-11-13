@@ -97,7 +97,7 @@ out of the civilian work.
 | 01 | [Structure taxonomy](session_01_structure_taxonomy.md) | 1 | **Opus scaffold → human edit → Sonnet wire-up** | Category/subtype/flag table for ~565 classes | Tier-1 invariants pass; legacy return keys still satisfy every existing consumer |
 | 02 | [Location POI registry](session_02_location_poi_registry.md) | 1 | Sonnet | ✅ Per-structure POIs retained on every location + query API | Tier-1 query tests pass; scan time unchanged |
 | 03 | [Map profile](session_03_map_profile.md) | 2 (prereq) | Sonnet | ✅ `fnc_getMapProfile` — per-world region, civilian/police factions, climate stub | Tier-1: every shipped map resolves; unknown world falls back |
-| 04 | [Civilian classification](session_04_civilian_classification.md) | 2 | **Opus spec → Sonnet build** | Civilian archetype registry, resolver v2, pool hygiene (VR purge) | Tier-1 resolver tests pass; no VR/hologram civilians in a scan |
+| 04 | [Civilian classification](session_04_civilian_classification.md) | 2 | **Opus spec → Sonnet build** | Civilian archetype registry, **hardcoded class→archetype table** (vanilla + mod seam), regional/ethnic casting, resolver v2, strict-allowlist pool | Tier-1 resolver + table-integrity tests pass; `unmapped` empty for `CIV_F`; no VR/hologram civilians in a scan |
 | 05 | [Ambient civilians](session_05_ambient_civilians.md) | 3 | **Opus spec → Sonnet build** | Tag-driven density, role-anchored behavior, night falloff, position validation, civilian-priority budget | Playtest: towns read urban, hamlets read rural, nobody in the woods |
 | 06 | [Ambient dressing](session_06_ambient_dressing.md) | 3 | Sonnet | Animals (farms + isolated residential), civilian//work vehicles | Playtest: farms have livestock and a tractor |
 | 07 | [POI-driven mission area](session_07_poi_mission_area.md) | 4 | **Opus spec → Sonnet build** | One-off mission built deliberately from POIs, feeding the Intel Ledger | Mission names real buildings in its briefing; token lands in ledger |
@@ -190,11 +190,18 @@ not discovered again.
 ### VR/hologram civilians are a faction-extraction hole, not a structure problem
 
 `fnc_initFactionData`'s `_extractManPool` filters on
-`scope >= 2 && faction == '<X>' && isMan == 1` and nothing else. **There is no
-classname denylist anywhere in the repo.** Any `scope=2` man class assigned to a
-configured civilian faction enters the pool verbatim. Session 04 adds pool
-hygiene (denylist + a positive `scope == 2` public-release check) as a named
-deliverable.
+`scope >= 2 && faction == '<X>' && isMan == 1` and nothing else. Any `scope=2`
+man class assigned to a configured civilian faction enters the pool verbatim.
+
+> **Revised by Decision C33/C37 (Session 04 spec v2).** The first draft fixed
+> this with a *denylist* — an open scan plus a list of banned substrings. The
+> owner rejected the wider keyword-heuristic approach it belonged to, and the
+> denylist went with it: a denylist is only ever as complete as the last bug
+> report. Session 04 instead inverts the filter into a **strict allowlist** —
+> a hardcoded class→archetype table *is* the pool. A hologram cannot be
+> selected because nobody mapped it, and no denylist ships at all. The config
+> scan survives only as evidence, producing an enumerable list of unmapped
+> classes (the mapping worklist) rather than a guess about what to exclude.
 
 ---
 
@@ -232,6 +239,13 @@ deliverable.
 | B28 (S01 spec) | Where Table 2 lives | **Inlined in `fnc_getStructureCatalog`**, not a separate function. | Owner's call; keeps the authored data and its derivation in one file. |
 | B29 (S01 spec) | Is a shed a dwelling? | **No — `civilian_home` excludes `shed_domestic`, `garage_private`, `house_annex`, `castle`.** The *contextual* fallback ("a shed is a home if the hamlet has nothing better") is a **Session 05 consumer cascade**, not a catalog flag: prefer `civilian_home` → else `occupiable ∧ residential` → else any `occupiable`. | Mirrors B25 (context resolved at runtime) and the existing `fnc_setupGarrison` side-promotion fallback (lines 244–264). `fnc_setupCivilians` has **no** hierarchy today — it flattens every `buildingPos` into one bag — so the fallback has to be built, not preserved. |
 | B30 (S01 spec) | Session 01 is not fully behaviorally invisible | **Accepted.** The legacy garrison keys (`main`/`side`/`main*`/`side*`) stay byte-identical, but `functionalLookup` **will** shift — most notably a `military` functional category appearing for the first time with ~90 classes. The exact expected delta list is §A9 of the work order. | The mandated fixes (119 orphaned military classes, fuel stations, power/water miscategorisations) cannot be made without moving categories. Pretending otherwise would make the regression playtest unreadable. |
+| C32 (Q8, S04 spec) | Separate registry for `environmentalActors`? | **One registry, one resolver, one table.** Separation is a `roles` key on each archetype (`["civilians"]` vs `["environmentalActors"]`), not a second system. | `fnc_initFactionData` already treats both as the same kind of thing (`_noncombatRoles`, both get a flat `manPool`), and the classification problem is identical for both. A second registry would need its own resolver, fallback chain and cross-table assertions for zero behavioral gain. |
+| **C33 (S04 spec v2)** | **How are classes mapped to archetypes?** | **🔴 Hardcoded tables. No keyword/substring heuristics on the civilian path, in any form, including "as a last resort".** | Owner's call, and the reason the v1 spec was rejected: *Arma 3 does a poor job with classnames when it comes to civilians*. `C_man_1`, `C_Nikos`, `C_man_polo_1_F` carry no role information, so a heuristic is a permanent source of **silent** gaps — a keyword that matches nothing looks exactly like a keyword that works. **Note the asymmetry:** `fnc_resolveEntityClass`'s `officer` branch KEEPS its heuristics, because combat-faction classnames *are* reliably descriptive. Pinned by Tier-1 assertion #10 (no `keywords` key may exist). |
+| C34 (S04 spec v2) | Class table shape | **`faction -> archetype -> [[class, weight, ethnicity], ...]`.** A class may appear under several archetypes; it may not appear twice under the same one. | 1:1 class→archetype would starve most roles — vanilla `CIV_F` is ~40 men against 17 archetypes. `C_man_polo_1_F` is a plausible `RESIDENT`, `LOITERER` *and* `TRAVELLER`. |
+| C35 (S04 spec v2) | Per-class frequency | **Yes — a weight column.** Convention: generics 10, flavourful 5, named story characters (`C_Nikos`, `C_Orestes`) 1. | Cheap to author now, awful to retrofit once mod tables exist. |
+| C36 (S04 spec v2) | Regional / ethnic casting | **Now, not Session 09.** Every row carries an ethnicity (`european`/`african`/`asian`/`tanoan`/`middle_eastern`/`any`); every map-profile `region` carries a weighted mix; the dominant entry is 1.00 and minorities are a small tail. | The data is free at authoring time (BI's own `genericNames` tags it), and it is also an **intel surface** — owner: *"on Altis an African or Asian HVT would be good information for operators"*. A minority sighting is only meaningful if minorities are genuinely rare. |
+| C37 (S04 spec v2) | Unmapped classes | **Strict — an unmapped class never spawns.** The table is the pool; the config scan is evidence only, producing an `unmapped` worklist and a `phantom` (table names a class this preset lacks) list. | Supersedes the v1 denylist entirely. This is what structurally kills the VR/hologram bug, and it converts "what did we miss?" from a guess into an enumerable log line. Costs a one-time mapping pass per mod preset, which the owner accepted. |
+| C38 (S04 spec v2) | Mod tables | **Separate file** (`fnc_getCivilianClassTableMods`), merged on top of vanilla; a faction-key collision is an ERROR and vanilla wins. Ships empty with commented faction stubs for RHS / 3CB / CUP / Aegis (Western Sahara contractors). | Keeps the vanilla table readable, and mods can never silently redefine `CIV_F`. **Zero mod classnames are authored by the agent** — they are unverifiable on an arbitrary preset (same rule that produced the Session 01 phantom-classname backlog). |
 | C31 (Q6, S03 spec) | How much flavor in the map profile now? | **Minimum schema plus the two already-cheap flavor fields the work order's target block named** (`architecture`, `languageHint`). `climate` stubbed, `policeFaction`/`hostNationFaction` left explicit `""`. Growth made safe, not pre-empted: the Tier-1 schema check is a **required-keys subset check**, so later sessions can add fields (`civilianVehicles` in S06, the faction fields in S09, a real `climate` in S11) without touching this session's tests. | Took the recommendation — unused fields rot. Pinned by Tier-1 assertion #6 (an extra key must still pass the schema check). |
 
 ### Deferred by owner (questions parked, not answered)
@@ -265,7 +279,7 @@ deliverable.
 | 01 — Structure taxonomy | ✅ built, hand-edit pending | `structure_catalog` suite registered (25 assertions, not yet run in-engine) | ⬜ pending (regression check — see work order's playtest checklist) | `fnc_getStructureCatalog`/`fnc_getStructureSubtypes`/`fnc_resolveStructureInfo` shipped, `fnc_getStructureTypes` reduced to a shim, `hemtt check`/`hemtt build` clean. 41 rows still carry `// REVIEW` — see `session_01_ambiguities.md`. Hand-editing Table 2 is the next step before Session 02. |
 | 02 — Location POI registry | ⬜ not started | — | — | |
 | 03 — Map profile | ✅ shipped | `map_profile` suite registered (19 assertions, not yet run in-engine) | ⬜ pending (behaviorally invisible — regression check only, see work order's playtest checklist) | `fnc_getMapProfile` shipped: 5 shipped maps + `VR` + generic fallback, `hemtt check`/`hemtt build` clean. `policeFaction`/`hostNationFaction` stubbed `""` for Session 09; `climate` stubbed for Session 11. **No consumers wired** — Session 04 is the first reader. |
-| 04 — Civilian classification | ⬜ not started | — | — | |
+| 04 — Civilian classification | ⬜ not started — **spec v2 awaiting approval**; ⛔ blocked on the one-time class dump | — | — | Spec rewritten after the owner rejected keyword heuristics (C33). Authoring tool `fnc_dumpCivilianClasses` **shipped early** and PREP'd — run `[] call DSC_core_fnc_dumpCivilianClasses;` in the debug console and paste the clipboard into §A4.4 of the work order. Correctness of the table is covered by Tier-1 (#14/#15 fail on a bad classname); **completeness needs the dump**. |
 | 05 — Ambient civilians | ⬜ not started | — | — | exit criterion set here |
 | 06 — Ambient dressing | ⬜ not started | — | — | |
 | 07 — POI mission area | ⬜ not started | — | — | |
@@ -283,13 +297,14 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · ⛔ blocked
 
 **Q1–Q5 and Q7 are answered** — see Decision Log rows B15–B19, C20, C21.
 **Q6 is answered** — see Decision Log row C31.
+**Q8 is answered** — see Decision Log row C32.
+**Session 04's design questions (Q9a–Q15a) are answered** — see rows C33–C38.
 **Session 01 is unblocked and ready to run.**
 
 Remaining, in session order:
 
-- **Q8 (Session 04)** — Should `environmentalActors` (IDAP, UN, contractors)
-  route through the same civilian archetype system (`AID_WORKER`, `JOURNALIST`,
-  `CONTRACTOR`)? *Recommendation: yes, same system, different registry entries.*
+- ~~**Q8 (Session 04)** — Should `environmentalActors` route through the same
+  civilian archetype system?~~ **Answered: yes (C32).**
 - **Q9 (Session 06)** — Do animals *matter*? A barking dog raising local
   alertness rides C2's existing noise grading cleanly. *Recommendation: dressing
   only in S06; evaluate the alert mechanic in S08 where it belongs.*

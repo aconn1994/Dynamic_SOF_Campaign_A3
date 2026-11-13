@@ -52,6 +52,10 @@ PREP_SUB(data,resolveStructureInfo);
 // faction overhaul (Plan A). See .crush/faction-sides.md.
 PREP_SUB(debug,diagSideDump);
 PREP_SUB(debug,diagSideSample);
+// Authoring tool (Ambient World Session 04) — dumps the person classes the
+// current mod load actually provides, so the civilian class tables are
+// authored from ground truth. Not on any runtime path.
+PREP_SUB(debug,dumpCivilianClasses);
 PREP_SUB(debug,runTests);
 
 // Faction
